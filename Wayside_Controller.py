@@ -2,15 +2,38 @@ import tkinter as tk
 import subprocess
 from Wayside_Testbench import Input
 
+def get_plc_out():
+    from PLC_Program import PLC_Out  # Delayed import to avoid circular dependency
+    return PLC_Out()
+
 class PLC_IN:
-    def Switch_Position(Default_Switch_Position):
-        Default_Switch_Position
-    def Speed(Binary_Suggested_Speed,Suggested_Speed):
-        Binary_Suggested_Speed = [format(num, 'b') for num in Suggested_Speed]
-    def Authority(Binary_Suggested_Authority,Suggested_Authority):
-        Binary_Suggested_Authority = [format(num, 'b') for num in Suggested_Authority]
-    def Occupancy(Block_Occupancy):
-        Block_Occupancy
+    def __init__(self, Suggested_Speed=None, Suggested_Authority=None, Block_Occupancy=None):
+        # Default values if none are provided
+        self.Default_Switch_Position = False  
+        
+        # Store speed and convert to binary
+        self.Suggested_Speed = Suggested_Speed
+        self.Binary_Suggested_Speed = [format(num, 'b') for num in self.Suggested_Speed]
+
+        # Store authority and convert to binary
+        self.Suggested_Authority = Suggested_Authority
+        self.Binary_Suggested_Authority = [format(num, 'b') for num in self.Suggested_Authority]
+
+        # Store occupancy
+        self.Block_Occupancy = Block_Occupancy
+
+    def Switch_Position(self):
+        return self.Default_Switch_Position
+
+    def Speed(self):
+        return self.Binary_Suggested_Speed  # Returns binary speed list
+
+    def Authority(self):
+        return self.Binary_Suggested_Authority  # Returns binary authority list
+
+    def Occupancy(self):
+        return self.Block_Occupancy
+
 
 def create_ui():
     root = tk.Tk()
@@ -24,26 +47,14 @@ def create_ui():
     
     root.mainloop()
 
-class Output:
-    def Lights(Light_Control):
-        Light_Control
-    def Switches(Actual_Switch_Position):
-        Actual_Switch_Position
-    def Speed(Suggested_Speed):
-        Suggested_Speed
-    def Authority(Suggested_Authority):
-        Suggested_Authority
-    def Failure(Track_Failure):
-        Track_Failure
-    def Crossbar(Cross_Bar_Control):
-        Cross_Bar_Control
-    def Occupancy(Block_Occupancy):
-        Block_Occupancy
-
-
-
 while True:
-    process = subprocess.run(["python", "PLC_Program.py"])
+    PLC_RUN = subprocess.run(["python", "PLC_Program.py"])
+
+    plc_out = get_plc_out()
+    Actual_Speed = [int(b, 2) for b in plc_out.Speed()]
+    Actual_Authority = [int(b, 2) for b in plc_out.Authority()]
+    
+    
     if __name__ == "__main__":
         create_ui()
 
