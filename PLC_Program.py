@@ -1,7 +1,8 @@
 class PLC_Out:
     def __init__(self, plc_in):
-        self.plc_in = plc_in  # ✅ Store plc_in as an instance variable
+        self.plc_in = plc_in  #Store plc_in as an instance variable
 
+        #Initialize variables
         self.Light_Control = [0, 0]
         self.Actual_Switch_Position = plc_in.Switch_Position()
         self.Suggested_Speed =plc_in.Speed()[:]
@@ -9,6 +10,7 @@ class PLC_Out:
         self.Track_Failure = [False] * 15
         self.Cross_Bar_Control = 0
 
+    #Return each variable
     def Lights(self):
         return self.Light_Control
 
@@ -39,7 +41,7 @@ class PLC_Out:
         self.Cross_Bar_Control = 1 if any(self.plc_in.Occupancy()[i] for i in [1, 2, 3]) else 0
 
     def Update_Speed_Authority(self):
-    # Step 1: Create new temporary lists (to avoid overwriting while iterating)
+    #Create new temporary lists to avoid overwriting while iterating
         Temp_suggested_speed = self.Suggested_Speed[:]  
         Temp_suggested_authority = self.Suggested_Authority[:]
         for x in range(2, 15):
@@ -54,6 +56,8 @@ class PLC_Out:
         if self.plc_in.Occupancy()[1]:
             Temp_suggested_speed[0] = "0"
             Temp_suggested_authority[0] = "0"
+            Temp_suggested_speed[1] = "110010"
+            Temp_suggested_authority[1] = "110010"
         elif self.plc_in.Occupancy()[2]:
             Temp_suggested_speed[0] = "1010"
             Temp_suggested_authority[0] = "11001"
@@ -73,11 +77,11 @@ class PLC_Out:
         self.Suggested_Authority = Temp_suggested_authority
 
 def Get_PLC_In():
-    from Wayside_Controller import PLC_IN  # Delayed import to avoid circular dependency
+    from Wayside_Controller import PLC_IN  #Delayed import to avoid circular dependency
     return PLC_IN()
 
-# ✅ Get input values from PLC_IN
+#Get input values from PLC_IN
 plc_in = Get_PLC_In()
 
-# ✅ Create an instance of PLC_Out
+#Create an instance of PLC_Out
 plc_out = PLC_Out(plc_in)
