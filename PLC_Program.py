@@ -44,19 +44,33 @@ class PLC_Out:
         Temp_suggested_authority = self.Suggested_Authority[:]
         for x in range(2, 15):
             if self.plc_in.Occupancy()[x]:
-                Temp_suggested_speed[x-2] = format(10, 'b')
-                Temp_suggested_authority[x-2] = format(25, 'b')
-                Temp_suggested_speed[x-1] = format(0, 'b')
-                Temp_suggested_authority[x-1] = format(0, 'b')
+                Temp_suggested_speed[x-2] = "1010"
+                Temp_suggested_authority[x-2] = "11001"
+                Temp_suggested_speed[x-1] = "0"
+                Temp_suggested_authority[x-1] = "0"
             else:
-                Temp_suggested_speed[x-2] = format(50, 'b')
-                Temp_suggested_authority[x-2] = format(50, 'b')
-                Temp_suggested_speed[x-1] = format(50, 'b')
-                Temp_suggested_authority[x-1] = format(50, 'b')
+                Temp_suggested_speed[x] = "110010"
+                Temp_suggested_authority[x] = "110010"
+        if self.plc_in.Occupancy()[1]:
+            Temp_suggested_speed[0] = "0"
+            Temp_suggested_authority[0] = "0"
+        elif self.plc_in.Occupancy()[2]:
+            Temp_suggested_speed[0] = "1010"
+            Temp_suggested_authority[0] = "11001"
+            Temp_suggested_speed[1] = "0"
+            Temp_suggested_authority[1] = "0"
+        elif self.plc_in.Occupancy()[3]:
+            Temp_suggested_speed[0] = "110010"
+            Temp_suggested_authority[0] = "110010"
+            Temp_suggested_speed[1] = "1010"
+            Temp_suggested_authority[1] = "11001"
+        elif self.plc_in.Occupancy()[4]:
+            Temp_suggested_speed[1] = "110010"
+            Temp_suggested_authority[1] = "110010"
+        elif self.plc_in.Occupancy()[9]:
+            Temp_suggested_speed[9] = "1010"
         self.Suggested_Speed = Temp_suggested_speed
         self.Suggested_Authority = Temp_suggested_authority
-        #print("SPEED---------",(self.Suggested_Speed))
-        #print("Authority---------",(self.Suggested_Authority))
 
 def Get_PLC_In():
     from Wayside_Controller import PLC_IN  # Delayed import to avoid circular dependency

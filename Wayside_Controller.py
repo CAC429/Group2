@@ -19,8 +19,6 @@ class PLC_IN:
         self.Default_Switch_Position=Testbench_In.Switch_Position()
         self.Suggested_Speed = [format(num, 'b') for num in Testbench_In.Speed()]
         self.Suggested_Authority = [format(num, 'b') for num in Testbench_In.Authority()]
-        print("SPEED---------",(self.Suggested_Speed))
-        print("Authority---------",(self.Suggested_Authority))
         self.Block_Occupancy = Testbench_In.Occupancy()
 
     def Switch_Position(self):
