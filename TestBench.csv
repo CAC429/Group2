@@ -8,5 +8,5 @@ Cabin_lights,off
 Air_conditioning,off
 Problem,off
 Kp,5
-Ki,7
-Speed,100
+Ki,70
+Speed,10
