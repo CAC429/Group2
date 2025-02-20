@@ -51,11 +51,12 @@ class DataGridUI:
         self.Toggle_Failure_Switch = 0
 
         #Create Treeview (Table)
-        self.tree = ttk.Treeview(root, columns=("Block", "Cross Bars", "Switch Position", "Suggested Speed", "Suggested Authority", "Track Failure", "Occupancy"), show="headings")
+        self.tree = ttk.Treeview(root, columns=("Block", "Lights", "Cross Bars", "Switch Position", "Suggested Speed", "Suggested Authority", "Track Failure", "Occupancy"), show="headings")
         self.tree.pack(fill="both", expand=True)
 
         #Define Column Headings
         self.tree.heading("Block", text="Block")
+        self.tree.heading("Lights", text="Lights")
         self.tree.heading("Cross Bars", text="Cross Bars")
         self.tree.heading("Switch Position", text="Switch Position")
         self.tree.heading("Suggested Speed", text="Suggested Speed")
@@ -65,6 +66,7 @@ class DataGridUI:
 
         #Define Column Widths
         self.tree.column("Block", width=100, anchor="center")
+        self.tree.column("Lights", width=100, anchor="center")
         self.tree.column("Cross Bars", width=100, anchor="center")
         self.tree.column("Switch Position", width=100, anchor="center")
         self.tree.column("Suggested Speed", width=100, anchor="center")
@@ -120,6 +122,7 @@ class DataGridUI:
             self.switch_data = [""] * 15
             self.switch_data[4] = Testbench_In.Switch_Position()
             self.Failure = [""] * 15
+            self.Lights = [""] * 15
             self.initialized = True  #Mark initialization done
         else:
             #Use plc_out for updates, ensures plc_out is valid
@@ -154,6 +157,8 @@ class DataGridUI:
             self.authority_data = Temp_Authority if plc_out and plc_out.Authority() else [0] * 15
             self.switch_data[4] = self.Toggle_Track_Switch
             self.Cross_Bar[2] = plc_out.Crossbar() if plc_out and plc_out.Crossbar() else 0
+            self.Lights[5] = plc_out.Lights()[0] if plc_out and plc_out.Lights() else 0
+            self.Lights[10] = plc_out.Lights()[1] if plc_out and plc_out.Lights() else 0
             if Testbench_In.Failure_Block() == 100:    
                 self.Failure = [""] * 15
             else:
@@ -173,6 +178,7 @@ class DataGridUI:
 
             self.tree.insert("", "end", values=(
                 f"Block {block_id}",  #Block ID
+                self.Lights[i],       #Lights
                 self.Cross_Bar[i],    #Cross Bar
                 self.switch_data[i],  #Switch Position
                 self.speed_data[i],   #Speed in binary

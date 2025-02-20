@@ -44,6 +44,9 @@ class Input:
                 current_button = self.Track_Button  #Fetch Button dynamically
                 if self.Count < 4:
                     for i in range(5):  #Block 0-4
+                        if i == self.Failure_Block()-1:
+                            while self.Failure():
+                                time.wait(1)
                         self.Block_Occupancy[i] = 1  # Set the current block to True
                         if i > 0:
                             self.Block_Occupancy[i-1] = 0  # Reset previous block
@@ -53,6 +56,9 @@ class Input:
                 else:
                     if current_button == 0 and self.Block_Occupancy[9] != 1:
                         for i in range(5, 10):  # Block 5-9
+                            if i == self.Failure_Block()-1:
+                                while self.Failure():
+                                    time.wait(1)
                             self.Block_Occupancy[i] = 1
                             if i > 4:
                                 self.Block_Occupancy[i-1] = 0
@@ -60,6 +66,9 @@ class Input:
                             self.Count += 1
                     elif current_button == 1 and self.Block_Occupancy[14] != 1:
                         for i in range(10, 15):  # Block 10-14
+                            if i == self.Failure_Block()-1:
+                                while self.Failure():
+                                    time.wait(1)
                             self.Block_Occupancy[i] = 1
                             if i > 10:
                                 self.Block_Occupancy[i-1] = 0
@@ -72,11 +81,12 @@ class Input:
         while True:
             time.sleep(5)
             if self.Random_Tracker == 0:
-                self.Random_Occupancy_Number = random.randint(0,14)
+                self.Random_Occupancy_Number = 7 #random.randint(0,14)
                 self.Failure_Block_Number = self.Random_Occupancy_Number
                 self.Block_Occupancy[self.Random_Occupancy_Number] = 1
                 self.Random_Tracker = 1
             elif self.Random_Tracker == 1:
+                time.sleep(10)
                 self.Failure_Block_Number = 100
                 self.Block_Occupancy[self.Random_Occupancy_Number] = 0
                 self.Random_Tracker = 0
