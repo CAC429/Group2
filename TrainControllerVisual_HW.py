@@ -102,10 +102,16 @@ def process_data(data, led1, led2, led3, led4, led5, led6, led7, led8, oled, ima
                     led8.off()
 
             case "Kp":
-                kp = float(state)
+                try:
+                    kp = float(state)
+                except ValueError:
+                    print(f"Invalid value for Kp: {state}")
 
             case "Ki":
-                ki = float(state)
+                try:
+                    ki = float(state)
+                except ValueError:
+                    print(f"Invalid value for Ki: {state}")
 
             case "Speed":
                 speed = float(state)
