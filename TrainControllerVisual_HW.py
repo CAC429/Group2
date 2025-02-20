@@ -132,8 +132,9 @@ def process_data(data, led1, led2, led3, led4, led5, led6, led7, led8, oled, ima
                 # Clear the display after 5 seconds
                 oled.fill(0)
                 oled.show()
-
-
+                
+                
+    
 def main():
     led1 = LED(26)  # Service brakes
     led2 = LED(23)  # Emergency brakes
