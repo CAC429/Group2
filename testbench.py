@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QInputDialog
+from PyQt5.QtWidgets import QApplication
 from main import TrackModelUI
 
 def main():
@@ -9,17 +9,14 @@ def main():
     window = TrackModelUI()
     window.show()
 
-    # Ask for the CSV file name using a dialog
-    csv_file, ok = QInputDialog.getText(window, 'CSV File', 'Enter the name of the CSV file to load (e.g., data.csv):')
-    if ok and csv_file:
-        window.Load_Display_CSV(csv_file)
-        window.table.setVisible(True)
+    # Trigger image and CSV loading through buttons
+    window.upload_button.clicked.connect(window.Load_Display_CSV)
 
-    # Ask for the boolean input for the switch function using a dialog
-    switch_input, ok = QInputDialog.getText(window, 'Rail position', 'Enter 0 for station B or 1 for station C')
-    if ok:
-        switch_state = True if switch_input.strip().lower() == 'true' else False
-        window.Switch_Function(switch_state)
+    position1 = 300
+    position2 = 50
+    status = 1
+    window.Set_Fail_status(status)
+    window.Set_Train_Position(position1, position2)
 
     sys.exit(app.exec_())
 
