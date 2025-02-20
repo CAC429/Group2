@@ -12,7 +12,7 @@ class TrackModelUI(QWidget):
         super().__init__()
 
         self.setWindowTitle('Track Model UI')
-        self.setGeometry(300, 20, 1600, 1000)
+        self.setGeometry(300, 20, 1600, 1300)
 
         # Image display
         self.image_label = QLabel(self)
@@ -156,21 +156,23 @@ class TrackModelUI(QWidget):
         return self.Block_No1, self.Block_No2
 
     def Update_Active_Column(self):
-        # Continuously check if Block_No1 or Block_No2 equals any Block Number in column 3
         for row in range(self.table.rowCount()):
             block_number_item = self.table.item(row, 2)  # Assuming Block Number is in column 3 (index 2)
-            if block_number_item:
+            active_item = self.table.item(row, self.table.columnCount() - 1)  # Active column (last column)
+            
+            if block_number_item and active_item:
                 try:
                     block_number = int(block_number_item.text())
-                    # Check if either Block_No1 or Block_No2 matches the Block Number
+                    # Check if the current block matches the train position
                     if block_number == self.Block_No1 or block_number == self.Block_No2:
-                        self.table.setItem(row, self.table.columnCount()-1, QTableWidgetItem("True"))
-                    else:
-                        self.table.setItem(row, self.table.columnCount()-1, QTableWidgetItem("False"))
+                        active_item.setText("True")
+                    elif active_item.text() != "True" or self.Get_Fail_Status() == 0:
+                        # Reset to False only if it was not a failure-induced True
+                        active_item.setText("False")
                 except ValueError:
                     print(f"Warning: Non-integer value '{block_number_item.text()}' in Block Number column.")
-                    self.table.setItem(row, self.table.columnCount()-1, QTableWidgetItem("Error"))
-
+                    active_item.setText("Error")
+                    
     def Check_Crossbar(self, position1, position2):
         # If position1 or position2 is 100 or 200, update the crossbars text box
         if position1 == 100 or position2 == 100:
@@ -217,20 +219,24 @@ class TrackModelUI(QWidget):
         return self.current_passenger_count
     
     def Failure(self):
-        # Select a random block
-        self.Fail_Block = random.randint(1, self.table.rowCount())  # Random block index
+        if self.table.rowCount() == 0:
+            return  # No blocks available
 
-        # Check if the Fail status is 1
-        if self.Get_Fail_Status() == 1:
-            # If status is 1, set the random block's "Active" column to True
-            block_item = self.table.item(self.Fail_Block - 1, self.table.columnCount() - 1)  # Active column is the last one
-            if block_item and block_item.text() != "True":
-                # Set "Active" to "True" for this block
-                self.table.setItem(self.Fail_Block - 1, self.table.columnCount() - 1, QTableWidgetItem("True"))
+        self.Fail_Block = random.randint(0, self.table.rowCount() - 1)  # Select a random row index
+
+        block_item = self.table.item(self.Fail_Block, self.table.columnCount() - 1)  # Get Active column item
+        if block_item:
+            block_item.setText("True")  # Set failure-induced True
+            self.Set_Fail_status(1)  # Set failure status
 
     def Set_Fail_status(self, status):
-        # Set the failure status (1 for True, 0 for False)
         self.f_status = status
+        if status == 0:
+            # Reset failure-induced True values in Active column
+            for row in range(self.table.rowCount()):
+                active_item = self.table.item(row, self.table.columnCount() - 1)
+                if active_item and active_item.text() == "True":
+                    active_item.setText("False")
 
     def Get_Fail_Status(self):
         # Get the current failure status
