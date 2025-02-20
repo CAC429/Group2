@@ -29,6 +29,7 @@ class PLC_Out:
     def Crossbar(self):
         return self.Cross_Bar_Control
     
+    #Determines the lights
     def Update_Light_Control(self):
         if (self.plc_in.Occupancy()[4] or self.plc_in.Occupancy()[5] or self.plc_in.Occupancy()[6]) and self.Actual_Switch_Position == 0:
             self.Light_Control = [1, 0]
@@ -37,13 +38,20 @@ class PLC_Out:
         else:
             self.Light_Control = [0, 0]
 
+    def Update_Actual_Switch_Position(self):
+        self.Actual_Switch_Position = self.plc_in.Switch_Position()
+
+    #Determines the cross bar
     def Update_Cross_Bar(self):
         self.Cross_Bar_Control = 1 if any(self.plc_in.Occupancy()[i] for i in [1, 2, 3]) else 0
 
+    #Determines the speed and authority
     def Update_Speed_Authority(self):
     #Create new temporary lists to avoid overwriting while iterating
         Temp_suggested_speed = self.Suggested_Speed[:]  
         Temp_suggested_authority = self.Suggested_Authority[:]
+        
+        #New suggetsed speed and authority calculations
         for x in range(2, 15):
             if self.plc_in.Occupancy()[x]:
                 Temp_suggested_speed[x-2] = "1010"
@@ -73,6 +81,13 @@ class PLC_Out:
             Temp_suggested_authority[1] = "110010"
         elif self.plc_in.Occupancy()[9]:
             Temp_suggested_speed[9] = "1010"
+        elif self.plc_in.Occupancy()[0] != 1 or self.plc_in.Occupancy()[1] != 1 or self.plc_in.Occupancy()[2] != 1 or self.plc_in.Occupancy()[3] != 1:
+            Temp_suggested_speed[0] = "110010"
+            Temp_suggested_speed[1] = "110010"
+            Temp_suggested_authority[0] = "110010"
+            Temp_suggested_authority[1] = "110010"
+
+        #Temp list to actual list
         self.Suggested_Speed = Temp_suggested_speed
         self.Suggested_Authority = Temp_suggested_authority
 
