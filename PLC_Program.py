@@ -1,14 +1,16 @@
+import random
 class PLC_Out:
     def __init__(self, plc_in):
         self.plc_in = plc_in  #Store plc_in as an instance variable
 
         #Initialize variables
         self.Light_Control = [0, 0]
-        self.Actual_Switch_Position = plc_in.Switch_Position()
+        self.Actual_Switch_Position = [self.plc_in.Switch_Position()] * 6
         self.Suggested_Speed =plc_in.Speed()[:]
         self.Suggested_Authority = plc_in.Authority()[:]
-        self.Track_Failure = [False] * 15
+        self.Track_Failure = [False] * 26
         self.Cross_Bar_Control = 0
+        self.Temp_Occupancy = [0] * 26
 
     #Return each variable
     def Lights(self):
@@ -39,7 +41,32 @@ class PLC_Out:
             self.Light_Control = [0, 0]
 
     def Update_Actual_Switch_Position(self):
-        self.Actual_Switch_Position = self.plc_in.Switch_Position()
+        if self.Temp_Occupancy[4] and self.plc_in.Occupancy()[3]:
+            self.Actual_Switch_Position[0] = 1
+        else:
+            self.Actual_Switch_Position[0] = 0
+        if self.Temp_Occupancy[24] and self.plc_in.Occupancy()[25]:
+            self.Actual_Switch_Position[1] = 1
+        else:
+            self.Actual_Switch_Position[1] = 0
+        if self.Temp_Occupancy[7] and self.plc_in.Occupancy()[8]:
+            self.Actual_Switch_Position[1] = 0
+        else:
+            self.Actual_Switch_Position[1] = 1
+        if self.Temp_Occupancy[8] and self.plc_in.Occupancy()[9]:
+            self.Actual_Switch_Position[1] = 0
+        else:
+            self.Actual_Switch_Position[1] = 1
+        if self.Temp_Occupancy[11] and self.plc_in.Occupancy()[12]:
+            self.Actual_Switch_Position[1] = 0
+        else:
+            self.Actual_Switch_Position[1] = 1
+        if self.Temp_Occupancy[15] and self.plc_in.Occupancy()[16]:
+            self.Actual_Switch_Position[1] = 1
+        else:
+            self.Actual_Switch_Position[1] = 0
+        for Block_Number in range (26):
+            self.Temp_Occupancy[Block_Number] = self.plc_in.Occupancy()[Block_Number]
 
     #Determines the cross bar
     def Update_Cross_Bar(self):
@@ -52,40 +79,37 @@ class PLC_Out:
         Temp_suggested_authority = self.Suggested_Authority[:]
         
         #New suggetsed speed and authority calculations
-        for x in range(2, 15):
+        if self.plc_in.Occupancy()[1] == 1:
+            Temp_suggested_speed[0] = "0"
+            Temp_suggested_authority[0] = "0"
+        else:
+            Temp_suggested_speed[0] = "110010"
+            Temp_suggested_authority[0] = "110010"
+            Temp_suggested_speed[1] = "110010"
+            Temp_suggested_authority[1] = "110010"
+
+        if self.plc_in.Occupancy()[25] == 1:
+            Temp_suggested_speed[24] = "0"
+            Temp_suggested_authority[24] = "0"
+            Temp_suggested_speed[23] = "1010"
+            Temp_suggested_authority[23] = "11001"
+        else:
+            Temp_suggested_speed[24] = "110010"
+            Temp_suggested_authority[24] = "110010"
+
+        for x in range(2, 24):
             if self.plc_in.Occupancy()[x]:
                 Temp_suggested_speed[x-2] = "1010"
                 Temp_suggested_authority[x-2] = "11001"
                 Temp_suggested_speed[x-1] = "0"
                 Temp_suggested_authority[x-1] = "0"
+                Temp_suggested_speed[x+2] = "1010"
+                Temp_suggested_authority[x+2] = "11001"
+                Temp_suggested_speed[x+1] = "0"
+                Temp_suggested_authority[x+1] = "0"
             else:
                 Temp_suggested_speed[x] = "110010"
                 Temp_suggested_authority[x] = "110010"
-        if self.plc_in.Occupancy()[1]:
-            Temp_suggested_speed[0] = "0"
-            Temp_suggested_authority[0] = "0"
-            Temp_suggested_speed[1] = "110010"
-            Temp_suggested_authority[1] = "110010"
-        elif self.plc_in.Occupancy()[2]:
-            Temp_suggested_speed[0] = "1010"
-            Temp_suggested_authority[0] = "11001"
-            Temp_suggested_speed[1] = "0"
-            Temp_suggested_authority[1] = "0"
-        elif self.plc_in.Occupancy()[3]:
-            Temp_suggested_speed[0] = "110010"
-            Temp_suggested_authority[0] = "110010"
-            Temp_suggested_speed[1] = "1010"
-            Temp_suggested_authority[1] = "11001"
-        elif self.plc_in.Occupancy()[4]:
-            Temp_suggested_speed[1] = "110010"
-            Temp_suggested_authority[1] = "110010"
-        elif self.plc_in.Occupancy()[9]:
-            Temp_suggested_speed[9] = "1010"
-        elif self.plc_in.Occupancy()[0] != 1 or self.plc_in.Occupancy()[1] != 1 or self.plc_in.Occupancy()[2] != 1 or self.plc_in.Occupancy()[3] != 1:
-            Temp_suggested_speed[0] = "110010"
-            Temp_suggested_speed[1] = "110010"
-            Temp_suggested_authority[0] = "110010"
-            Temp_suggested_authority[1] = "110010"
 
         #Temp list to actual list
         self.Suggested_Speed = Temp_suggested_speed
