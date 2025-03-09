@@ -72,7 +72,7 @@ def process_data(data, controller, sbrake_led, ebrake_led, left_door_led, right_
     for utility, state in data.items():
         match utility:
             case "Authority":
-                print(f"Authority: {state} units")
+                print(f"Authority: {state} miles")
 
             case "Current_speed":
                 print(f"Current speed: {state} mph")
