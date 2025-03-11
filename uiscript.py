@@ -121,39 +121,55 @@ class PeripheralControlsPage(QWidget):
 
         print(f"Train changed to: {train}")
 
-    def int_light_off_clicked(self, checked=False):
+    def int_light_off_clicked(self):
         train = self.get_selected_train()
         self.train_states[train]["int_lights"] = 0
         print(f"Interior Lights Off for {train}")
 
-    def int_light_on_clicked(self, checked=False):
-        print("Interior Lights On")
+    def int_light_on_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["int_lights"] = 1
+        print(f"Interior Lights On for {train}")
 
-    def cab_light_off_clicked(self, checked=False):
-        print("Cabin Lights Off")
+    def cab_light_off_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["cab_lights"] = 0
+        print(f"Cabin Lights Off for {train}")
 
-    def cab_light_on_clicked(self, checked=False):
-        print("Cabin Lights On")
+    def cab_light_on_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["cab_lights"] = 1
+        print(f"Cabin Lights On for {train}")
 
-    def open_left_clicked(self, checked=False):
-        print("Opening Left Doors")
+    def open_left_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["left_door"] = True
+        print(f"Opening Left Doors for {train}")
 
-    def close_left_clicked(self, checked=False):
-        print("Closing Left Doors")
+    def close_left_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["left_door"] = False
+        print(f"Closing Left Doors for {train}")
 
-    def open_right_clicked(self, checked=False):
-        print("Opening Right Doors")
+    def open_right_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["right_door"] = True
+        print(f"Opening Right Doors for {train}")
 
-    def close_right_clicked(self, checked=False):
-        print("Closing Right Doors")
+    def close_right_clicked(self):
+        train = self.get_selected_train()
+        self.train_states[train]["right_door"] = False
+        print(f"Closing Right Doors for {train}")
 
     def update_temp_label(self):
+        """Update temperature label dynamically as slider moves."""
         current_temp = self.temp_slider.value()
         self.temp_label.setText(f"Temperature: {current_temp} *C")
     
     def set_temp_clicked(self):
-        current_temp = self.temp_slider.value()
-        print(f"Setting Cabin Temp to {current_temp} *C")
+        train = self.get_selected_train()
+        self.train_states[train]["cabin_temp"] = self.temp_slider.value()
+        print(f"Setting Cabin Temp for {train} to {self.train_states[train]['cabin_temp']} *C")
 
     def return_home(self):
         self.close()
