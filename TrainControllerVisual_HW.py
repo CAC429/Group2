@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 import csv
 
 
-class PowerController:
+class power_controller:
     def __init__(self, P_max):
         self.Kp = 0.0       # Proportional gain (default)
         self.Ki = 0.0       # Integral gain (default)
@@ -252,7 +252,7 @@ def main():
         font = ImageFont.load_default()
 
     # Create the power controller with max power limit
-    controller = PowerController(P_max=100)
+    controller = power_controller(P_max=100)
 
     while True:
         csv_data = read_test_bench()
