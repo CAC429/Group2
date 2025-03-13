@@ -4,38 +4,38 @@
 #2/19/2025
 
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import QFont
-from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QTimer
+import csv
 
 #################################################################################################################################################
 
 class PeripheralControlsPage(QWidget):
-    def __init__(self, main_window):
+    def __init__(self, main_window, train_states2):
         super().__init__()
         self.setWindowTitle("Peripheral Controls")
         self.setGeometry(100, 100, 600, 400)
 
         self.main_window = main_window
-
-        #Train states
-        self.train_states = {
-            "Train 1": {"int_lights": 0, "cab_lights": 0, "left_door": 0, "right_door": 0, "cabin_temp": 22},
-            "Train 2": {"int_lights": 0, "cab_lights": 0, "left_door": 0, "right_door": 0, "cabin_temp": 22},
-            "Train 3": {"int_lights": 0, "cab_lights": 0, "left_door": 0, "right_door": 0, "cabin_temp": 22},
-        }
+        self.train_states = train_states2
         
+        self.temp_timer = QTimer()
+        self.temp_timer.timeout.connect(self.update_temp)
+
+        self.target_temp = None
+
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
 
         #Train Select
         self.train_select = QComboBox()
-        self.train_select.addItems(["Train 1", "Train 2", "Train 3"])
+        self.train_select.addItems(self.train_states.keys())
         self.train_select.currentIndexChanged.connect(self.train_changed)
+        layout.addWidget(QLabel("Select Train:"))
         layout.addWidget(self.train_select, alignment=Qt.AlignRight)
 
         #Light Toggle
-        layout.addWidget(QLabel("Set Interior Lights"))
+        layout.addWidget(QLabel("Set Exterior Lights"))
         interior_light_layout = QHBoxLayout()
         self.int_light_off = QPushButton("Off")
         self.int_light_on = QPushButton("On")
@@ -80,33 +80,35 @@ class PeripheralControlsPage(QWidget):
         layout.addLayout(door_layout)
         
         #Set Cabin Temp
-        layout.addWidget(QLabel("Set Cabin Temperature"))
+        temp_layout = QVBoxLayout()
+        temp_layout.addWidget(QLabel("Set Cabin Temperature"))
 
         self.temp_slider = QSlider(Qt.Horizontal)
-        self.temp_slider.setMinimum(10)
-        self.temp_slider.setMaximum(30)
-        #self.temp_slider.setValue(22)
+        self.temp_slider.setMinimum(40)
+        self.temp_slider.setMaximum(80)
         self.temp_slider.setTickPosition(QSlider.TicksBelow)
         self.temp_slider.setTickInterval(1)
-        layout.addWidget(self.temp_slider)
+        temp_layout.addWidget(self.temp_slider)
 
-        self.temp_label = QLabel(f"Temperature: {self.temp_slider.value()} *C")
-        layout.addWidget(self.temp_label)
+        self.current_temp_label = QLabel("Current Temp: -- *F")
+        self.target_temp_label = QLabel(f"Temperature: {self.temp_slider.value()} *F")
+        temp_layout.addWidget(self.current_temp_label, alignment=Qt.AlignCenter)
+        temp_layout.addWidget(self.target_temp_label, alignment=Qt.AlignCenter)
 
         self.temp_slider.valueChanged.connect(self.update_temp_label)
 
         self.set_temp_btn = QPushButton("Set Cabin Temp")
         self.set_temp_btn.clicked.connect(self.set_temp_clicked)
-        layout.addWidget(self.set_temp_btn, alignment=Qt.AlignCenter)
-        
+        temp_layout.addWidget(self.set_temp_btn, alignment=Qt.AlignCenter)
 
+        layout.addLayout(temp_layout)
+        
         #Home Button
         self.home_btn = QPushButton("Home")
         self.home_btn.clicked.connect(self.return_home)
         layout.addWidget(self.home_btn, alignment=Qt.AlignRight)
 
         self.setLayout(layout)
-
         self.train_changed()
 
     def get_selected_train(self):
@@ -117,210 +119,168 @@ class PeripheralControlsPage(QWidget):
         state = self.train_states[train]
 
         self.temp_slider.setValue(state["cabin_temp"])
-        self.temp_label.setText(f"Temperature: {state['cabin_temp']} *C")
+        self.target_temp_label.setText(f"Target Temp: {self.temp_slider.value()} *F")
+        self.current_temp_label.setText(f"Current Temp: {state['cabin_temp']} *F")
+
+        self.int_light_on.setEnabled(state["int_lights"] == False)
+        self.int_light_off.setEnabled(state["int_lights"] == True)
+    
+        self.cab_light_on.setEnabled(state["cab_lights"] == False)
+        self.cab_light_off.setEnabled(state["cab_lights"] == True)
+
+        self.open_left.setEnabled(state["left_door"] == False)
+        self.close_left.setEnabled(state["left_door"] == True)
+
+        self.open_right.setEnabled(state["right_door"] == False)
+        self.close_right.setEnabled(state["right_door"] == True)
 
         print(f"Train changed to: {train}")
 
     def int_light_off_clicked(self):
         train = self.get_selected_train()
-        self.train_states[train]["int_lights"] = 0
+        self.train_states[train]["int_lights"] = False
         print(f"Interior Lights Off for {train}")
+        self.train_changed()
 
     def int_light_on_clicked(self):
         train = self.get_selected_train()
-        self.train_states[train]["int_lights"] = 1
+        self.train_states[train]["int_lights"] = True
         print(f"Interior Lights On for {train}")
+        self.train_changed()
 
     def cab_light_off_clicked(self):
         train = self.get_selected_train()
-        self.train_states[train]["cab_lights"] = 0
+        self.train_states[train]["cab_lights"] = False
         print(f"Cabin Lights Off for {train}")
+        self.train_changed()
 
     def cab_light_on_clicked(self):
         train = self.get_selected_train()
-        self.train_states[train]["cab_lights"] = 1
+        self.train_states[train]["cab_lights"] = True
         print(f"Cabin Lights On for {train}")
+        self.train_changed()
 
     def open_left_clicked(self):
         train = self.get_selected_train()
         self.train_states[train]["left_door"] = True
         print(f"Opening Left Doors for {train}")
+        self.train_changed()
 
     def close_left_clicked(self):
         train = self.get_selected_train()
         self.train_states[train]["left_door"] = False
         print(f"Closing Left Doors for {train}")
+        self.train_changed()
 
     def open_right_clicked(self):
         train = self.get_selected_train()
         self.train_states[train]["right_door"] = True
         print(f"Opening Right Doors for {train}")
+        self.train_changed()
 
     def close_right_clicked(self):
         train = self.get_selected_train()
         self.train_states[train]["right_door"] = False
         print(f"Closing Right Doors for {train}")
+        self.train_changed()
 
     def update_temp_label(self):
-        """Update temperature label dynamically as slider moves."""
-        current_temp = self.temp_slider.value()
-        self.temp_label.setText(f"Temperature: {current_temp} *C")
+        #current_temp = self.temp_slider.value()
+        self.target_temp_label.setText(f"Target Temp: {self.temp_slider.value()} *F")
     
     def set_temp_clicked(self):
         train = self.get_selected_train()
-        self.train_states[train]["cabin_temp"] = self.temp_slider.value()
-        print(f"Setting Cabin Temp for {train} to {self.train_states[train]['cabin_temp']} *C")
+        self.target_temp = self.temp_slider.value()
+        print(f"Target temp set to {self.target_temp} *F")
+
+        if self.train_states[train]["cabin_temp"] == self.target_temp:
+            print("Temperature already at target")
+        else:
+            if not self.temp_timer.isActive():
+                self.temp_timer.start(2000)
+
+    def update_temp(self):
+        train = self.get_selected_train()
+        current_temp = self.train_states[train]["cabin_temp"]
+
+        if current_temp < self.target_temp:
+            self.train_states[train]["cabin_temp"] += 1
+        elif current_temp > self.target_temp:
+            self.train_states[train]["cabin_temp"] -= 1
+
+        self.current_temp_label.setText(f"Current Temp: {self.train_states[train]['cabin_temp']} *F")
+
+        if self.train_states[train]["cabin_temp"] == self.target_temp:
+            self.temp_timer.stop()
 
     def return_home(self):
         self.close()
         self.main_window.show()
 
-#################################################################################################################################################
+#################################################################################################
 
-class StatsPage(QWidget):
-    def __init__(self, main_window):
-        super().__init__()
-        self.setWindowTitle("Stats Page")
-        self.setGeometry(100, 100, 600, 400)
+class PowerControl:
+    def __init__(self, P_max = 100):
+        self.Kp = 0.0
+        self.Ki = 0.0
+        self.P_max = P_max
+        self.integral = 0
+        self.P_k_1 = 0
 
-        self.main_window = main_window
+    def update_gains(self, Kp, Ki):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.integral = 0
+        self.P_k_1 = 0
 
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignTop)
-
-        #Home Button
-        self.home_btn = QPushButton("Home")
-        self.home_btn.clicked.connect(self.return_home)
-        layout.addWidget(self.home_btn, alignment=Qt.AlignRight)
-
-        self.train_select = QComboBox()
-        self.train_select.addItems(["Train 1", "Train 2", "Train 3"])
-        self.train_select.currentIndexChanged.connect(self.update_stats)
-        layout.addWidget(QLabel("Select Train:"))
-        layout.addWidget(self.train_select)
-
-        self.dim_label = QLabel()
-        self.mass_label = QLabel()
-        self.power_label = QLabel()
-        self.passenger_label = QLabel()
-        self.crew_label = QLabel()
-        self.weight_label = QLabel()
-
-        layout.addWidget(self.dim_label)
-        layout.addWidget(self.mass_label)
-        layout.addWidget(self.power_label)
-        layout.addWidget(self.passenger_label)
-        layout.addWidget(self.crew_label)
-        layout.addWidget(self.weight_label)
-
-        self.setLayout(layout)
-
-        self.train_data = {
-            "Train 1": {"dimensions": "20m x 3m x 4m", "mass": "5000 kg", "power": "1500 kW", "passengers": 100, "crew": 5},
-            "Train 2": {"dimensions": "25m x 3.5m x 4.2m", "mass": "6000 kg", "power": "1800 kW", "passengers": 120, "crew": 6},
-            "Train 3": {"dimensions": "30m x 3.8m x 4.5m", "mass": "7500 kg", "power": "2000 kW", "passengers": 150, "crew": 8},
-        }
-
-        self.update_stats()
-
-    def update_stats(self):
-        select_train = self.train_select.currentText()
-        train_info = self.train_data[select_train]
-
-        total_weight = self.calc_tot_weight(train_info["passengers"], train_info["crew"])
-
-        self.dim_label.setText(f"Total Dimensions: {train_info['dimensions']}")
-        self.mass_label.setText(f"Total Mass: {train_info['mass']}")
-        self.power_label.setText(f"Power: {train_info['power']}")
-        self.passenger_label.setText(f"Passenger Count: {train_info['passengers']}")
-        self.crew_label.setText(f"Crew Count: {train_info['crew']}")
-        self.weight_label.setText(f"Total Weight of Train: {total_weight} kg")
-
-    def calc_tot_weight(self, passengers, crew):
-        avg_weight = 75 #75kg per person
-        return (passengers + crew) * avg_weight
-
-    def return_home(self):
-        self.close()
-        self.main_window.show()
-
-##################################################################################################################################################
-
-class SetConstantsPage(QWidget):
-    def __init__(self, main_window):
-        super().__init__()
-        self.setWindowTitle("Set Constants Page")
-        self.setGeometry(100, 100, 600, 400)
-
-        self.main_window = main_window
-
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignTop)
-
-        #Home Button
-        self.home_btn = QPushButton("Home")
-        self.home_btn.clicked.connect(self.return_home)
-        layout.addWidget(self.home_btn, alignment=Qt.AlignRight)
-
-        self.ki_label = QLabel("Enter Ki:")
-        self.ki_input = QLineEdit()
-        layout.addWidget(self.ki_label)
-        layout.addWidget(self.ki_input)
-
-        self.kp_label = QLabel("Enter Kp:")
-        self.kp_input = QLineEdit()
-        layout.addWidget(self.kp_label)
-        layout.addWidget(self.kp_input)
-
-        self.speed_label = QLabel("Enter Current Speed:")
-        self.speed_input = QLineEdit()
-        layout.addWidget(self.speed_label)
-        layout.addWidget(self.speed_input)
-
-        #Submit
-        self.submit_btn = QPushButton("Submit")
-        self.submit_btn.clicked.connect(self.calculate_and_send)
-        layout.addWidget(self.submit_btn)
-
-        self.setLayout(layout)
-
-    def calculate_and_send(self):
-        try:
-            ki = float(self.ki_input.text())
-            kp = float(self.kp_input.text())
-            s = float(self.speed_input.text())
-            power = self.calculate_power(ki, kp, s)
-            self.send_power(power)
-        except ValueError:
-            print("Please enter valid numerical values for Ki and Kp")
-
-    def calculate_power(self, ki, kp, s):
-        power = (ki/s) + kp
-        return power
-
-    def send_power(self, power):
-        print(f"Power value {power} sent to the Train Model")
-
+    def compute_Pcmd(self, P_target, P_actual):
+        error = P_target - P_actual
+        #self.integral += error
+        self.integral = max(min(self.integral + error, self.P_max), -self.P_max)#remove this line if issues with power
+        P_cmd = self.P_k_1 + (self.Kp*error) + (self.Ki*self.integral)
+        P_cmd = min(P_cmd, self.P_max)
+        self.P_k_1 = P_cmd
+        return P_cmd
     
-    def return_home(self):
-        self.close()
-        self.main_window.show()
-
-##################################################################################################################################################
+##########################################################################################3
 
 class MainWindow(QWidget):
     def __init__(self):
-
-        eb_status = 0
-        sb_status = 0
-
         super().__init__()
+        self.eb_status = 0
+        self.sb_status = 0
+        self.power_control = PowerControl()
+        self.current_authority = 0
+        self.current_speed = 0
         self.setGeometry(100, 100, 580, 450)
-        self.setWindowTitle("B Team Train Control")
 
+        self.train_states2 = {
+            "Train 1": {"int_lights": False, "cab_lights": False, "left_door": False, "right_door": False, "cabin_temp": 70},
+            "Train 2": {"int_lights": False, "cab_lights": False, "left_door": False, "right_door": False, "cabin_temp": 70},
+            "Train 3": {"int_lights": False, "cab_lights": False, "left_door": False, "right_door": False, "cabin_temp": 70},
+        }
+
+        self.train_states = {
+            "Train 1": {
+                "left_door": False,
+                "right_door": False,
+                "outside_lights": False,
+                "cabin_lights": False,
+                "cabin_temp": 22,
+                "service_brakes": False,
+                "emergency_brakes": False,
+                "problem": False,
+                "Kp": 0.5,
+                "Ki": 0.1,
+                "P_target": 80,
+                "P_actual": 50
+            }
+        }
+
+        self.setWindowTitle("B Team Train Control")
         self.peripheral_window = None
-        self.stats_window = None
-        self.constants_window = None
+
+        self.read_tb()
 
         layout = QVBoxLayout()
 
@@ -332,97 +292,240 @@ class MainWindow(QWidget):
         content_layout = QHBoxLayout()
         button_layout = QVBoxLayout()
         button_layout.setAlignment(Qt.AlignTop)
-        button_style = "font-size: 14px; padding: 10px; min-width: 150px; min-height: 40px;"
 
         self.peripheral_btn = QPushButton("Peripheral Controls")
-        self.peripheral_btn.setStyleSheet(button_style)
         self.peripheral_btn.clicked.connect(self.open_peripheral_controls)
-
-        self.stats_btn = QPushButton("Stats")
-        self.stats_btn.setStyleSheet(button_style)
-        self.stats_btn.clicked.connect(self.open_stats_page)
-
-        self.constants_btn = QPushButton("Set Constants")
-        self.constants_btn.setStyleSheet(button_style)
-        self.constants_btn.clicked.connect(self.open_set_constants_page)
-
         self.auto_checkbox = QCheckBox("Automatic Mode")
-        self.auto_checkbox.setFont(QFont("Arial", 12))
-
-        def auto_clicked():
-            if self.auto_checkbox.isChecked():
-                print("Automatic Mode Enabled!")
-            else:
-                print("Automatic Mode Disabled")
-
-        self.auto_checkbox.clicked.connect(auto_clicked)
+        self.auto_checkbox.stateChanged.connect(self.auto_clicked)
 
         button_layout.addWidget(self.peripheral_btn)
-        button_layout.addWidget(self.stats_btn)
-        button_layout.addWidget(self.constants_btn)
         button_layout.addWidget(self.auto_checkbox)
+        self.authority_label = QLabel(f"Authority: {self.current_authority} m")
+        self.speed_label = QLabel(f"Current Speed: {self.current_speed} mph")
+
+        button_layout.addWidget(self.authority_label)
+        button_layout.addWidget(self.speed_label)
+
+        self.service_brake_label = QLabel(f"Service Brake: {'On' if self.sb_status == 1 else 'Off'}")
+        self.emergency_brake_label = QLabel(f"Emergency Brake: {'On' if self.eb_status == 1 else 'Off'}")
+        self.left_door_label = QLabel(f"Left Door: {'On' if self.train_states['Train 1']['left_door'] else 'Off'}")
+        self.right_door_label = QLabel(f"Right Door: {'On' if self.train_states['Train 1']['right_door'] else 'Off'}")
+        self.cabin_lights_label = QLabel(f"Cabin Lights: {'On' if self.train_states['Train 1']['cabin_lights'] else 'Off'}")
+        self.outside_lights_label = QLabel(f"Outside Lights: {'On' if self.train_states['Train 1']['outside_lights'] else 'Off'}")
+        self.kp_label = QLabel(f"Kp: {self.train_states['Train 1']['Kp']}")
+        self.ki_label = QLabel(f"Ki: {self.train_states['Train 1']['Ki']}")
+        self.p_target_label = QLabel(f"P_target: {self.train_states['Train 1']['P_target']}")
+        self.p_actual_label = QLabel(f"P_actual: {self.train_states['Train 1']['P_actual']}")
+
+        button_layout.addWidget(self.service_brake_label)
+        button_layout.addWidget(self.emergency_brake_label)
+        button_layout.addWidget(self.left_door_label)
+        button_layout.addWidget(self.right_door_label)
+        button_layout.addWidget(self.cabin_lights_label)
+        button_layout.addWidget(self.outside_lights_label)
+        button_layout.addWidget(self.kp_label)
+        button_layout.addWidget(self.ki_label)
+        button_layout.addWidget(self.p_target_label)
+        button_layout.addWidget(self.p_actual_label)
 
         button_container = QWidget()
         button_container.setLayout(button_layout)
-        button_container.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         button_container.setMaximumWidth(200)
-
         content_layout.addWidget(button_container)
 
-        #train picture layout
-        train_image = QLabel()
-        pixmap = QPixmap("PGHtrainpic.jpg")
-        pixmap = pixmap.scaled(420, 380, Qt.KeepAspectRatio)
-        train_image.setPixmap(pixmap)
-        train_image.setAlignment(Qt.AlignRight)
-        content_layout.addWidget(train_image)
+        #Constants Section
 
+        constants_layout = QVBoxLayout()
+        constants_title = QLabel("Set Constants")
+        constants_title.setStyleSheet("font-size: 16px; font-weight: bold; text-decoration: underline")
+        constants_title.setAlignment(Qt.AlignCenter)
+        constants_layout.addWidget(constants_title)
+
+        self.kp_label = QLabel("Kp Value:")
+        self.kp_input = QLineEdit()
+        self.ki_label = QLabel("Ki Value:")
+        self.ki_input = QLineEdit()
+        self.p_target_label = QLabel("Target Power:")
+        self.p_target_input = QLineEdit()
+        self.p_actual_label = QLabel("Actual Power:")
+        self.p_actual_input = QLineEdit()
+        self.P_cmd_label = QLabel("Commanded Power:")
+        self.p_cmd_display = QLabel("0")
+
+        self.set_constants_button = QPushButton("Apply Constants")
+        self.set_constants_button.setStyleSheet("background-color: blue; color; white; font-size: 14px; font-weight: bold; padding: 10px;")
+        self.set_constants_button.clicked.connect(self.calculate_power)
+
+        constants_layout.addWidget(self.kp_label)
+        constants_layout.addWidget(self.kp_input)
+        constants_layout.addWidget(self.ki_label)
+        constants_layout.addWidget(self.ki_input)
+        constants_layout.addWidget(self.p_target_label)
+        constants_layout.addWidget(self.p_target_input)
+        constants_layout.addWidget(self.p_actual_label)
+        constants_layout.addWidget(self.p_actual_input)
+        constants_layout.addWidget(self.P_cmd_label)
+        constants_layout.addWidget(self.p_cmd_display)
+        constants_layout.addWidget(self.set_constants_button)
+
+        constants_container = QWidget()
+        constants_container.setLayout(constants_layout)
+        constants_container.setMaximumWidth(300)
+        content_layout.addWidget(constants_container)
         layout.addLayout(content_layout)
 
         #brake buttons
         brake_layout = QHBoxLayout()
         brake_layout.setAlignment(Qt.AlignLeft)
-        sb_button = QPushButton("Service Brake")
-        sb_button.setStyleSheet("background-color: orange; font-size: 14px; font-weight: bold; padding: 10px;")
-        sb_button.setFixedWidth(220)
-        eb_button = QPushButton("Emergency Brake")
-        eb_button.setStyleSheet("background-color: red; color: white; font-size: 14px; font-weight: bold; padding: 10px;")
-        eb_button.setFixedWidth(220)
-        sb_button.clicked.connect(self.sb_clicked)
-        eb_button.clicked.connect(self.eb_clicked)
 
-        brake_layout.addWidget(sb_button)
+        self.sb_button = QPushButton("Service Brake")
+        self.sb_button.setStyleSheet("background-color: orange; font-size: 14px; font-weight: bold; padding: 10px;")
+        self.sb_button.setFixedWidth(220)
+        self.sb_button.clicked.connect(self.sb_clicked)
+
+        self.eb_button = QPushButton("Emergency Brake")
+        self.eb_button.setStyleSheet("background-color: red; color: white; font-size: 14px; font-weight: bold; padding: 10px;")
+        self.eb_button.setFixedWidth(220)
+        self.eb_button.clicked.connect(self.eb_clicked)
+
+        self.clear_brakes_button = QPushButton("Release Brakes")
+        self.clear_brakes_button.setStyleSheet("background-color: green; color: white; font-size: 14px; font-weight: bold; padding: 10px;")
+        self.clear_brakes_button.setFixedWidth(220)
+        self.clear_brakes_button.clicked.connect(self.clear_brakes)
+
+
+        brake_layout.addWidget(self.sb_button)
         brake_layout.addSpacing(10)
-        brake_layout.addWidget(eb_button)
+        brake_layout.addWidget(self.eb_button)
+        brake_layout.addSpacing(10)
+        brake_layout.addWidget(self.clear_brakes_button)
         layout.addLayout(brake_layout)
 
         self.setLayout(layout)
 
+    def read_tb(self, file_path='TestBench_SW.csv'):
+        data = {}
+        try:
+            with open(file_path, mode='r', newline='',encoding='utf-8') as file:
+                csv_reader = csv.reader(file)
+                headers = next(csv_reader)
+                for row in csv_reader:
+                    utility, state = row
+                    data[utility] = state
+
+            self.train_states["Train 1"]["left_door"] = data.get('Left_door', 'off') == 'on'
+            self.train_states["Train 1"]["right_door"] = data.get('Right_door', 'off') == 'on'
+            self.train_states["Train 1"]["outside_lights"] = data.get('Outside_lights', 'off') == 'on'
+            self.train_states["Train 1"]["cabin_lights"] = data.get('Cabin_lights', 'off') == 'on'
+            self.train_states["Train 1"]["cabin_temp"] = int(data.get('Cabin_temp', 22))
+            self.train_states["Train 1"]["service_brakes"] = data.get('Service_brakes', 'off') == 'on'
+            self.train_states["Train 1"]["emergency_brakes"] = data.get('Emergency_brakes', 'off') == 'on'
+            self.train_states["Train 1"]["problem"] = data.get('Problem', 'off') == 'on'
+            self.train_states["Train 1"]["Kp"] = float(data.get('Kp', 0.5))
+            self.train_states["Train 1"]["Ki"] = float(data.get('Ki', 0.1))
+            self.train_states["Train 1"]["P_target"] = int(data.get('P_target', 80))
+            self.train_states["Train 1"]["P_actual"] = int(data.get('P_actual', 50))
+            
+            self.current_authority = int(data.get('Authority', 0))
+            self.current_speed = int(data.get('Current_speed', 0))
+
+            self.authority_label.setText(f"Authority: {self.current_authority} kW")
+            self.speed_label.setText(f"Current Speed: {self.current_speed} km/h")
+
+            self.update_train_states(data)
+
+            print(f"Data read from test bench: {data}")
+            return data
+        except FileNotFoundError:
+            print(f"Error: The file {file_path} was not found.")
+            return None
+        except Exception as e:
+            print(f"An error occured: {e}")
+            return None
+        
+    def update_train_states(self, data):
+        train = "Train 1"
+        self.power_control.update_gains(float(data.get('Kp', 0)), float(data.get('Ki', 0)))
+
+        self.train_states[train]["left_door"] = data.get('Left_door', 'off') == 'on'
+        self.train_states[train]["right_door"] = data.get('Right_door', 'off') == 'on'
+        self.train_states[train]["int_lights"] = data.get('Outside_lights', 'off') == 'on'
+        self.train_states[train]["cab_lights"] = data.get('Cabin_lights', 'off') == 'on'
+        self.train_states[train]["cabin_temp"] = int(data.get('Cabin_temp', 70))
+                
+        self.train_changed()
+
+    def auto_clicked(self):
+            if self.auto_checkbox.isChecked():
+                print("Automatic Mode Enabled!")
+            else:
+                print("Automatic Mode Disabled")
+
     def open_peripheral_controls(self):
         if self.peripheral_window is None or not self.peripheral_window.isVisible():
-            self.peripheral_window = PeripheralControlsPage(self)
+            self.peripheral_window = PeripheralControlsPage(self, self.train_states2)
             self.peripheral_window.show()
             self.hide()
 
-    def open_stats_page(self):
-        if self.stats_window is None or not self.stats_window.isVisible():
-            self.stats_window = StatsPage(self)
-            self.stats_window.show()
-            self.hide()
-
-    def open_set_constants_page(self):
-        if self.constants_window is None or not self.constants_window.isVisible():
-            self.constants_window = SetConstantsPage(self)
-            self.constants_window.show()
-            self.hide()
-
     def sb_clicked(self, checked=False):
-        sb_status = 1
-        print("Service Brake Activated")
+        if self.eb_status == 1:
+            print("Error: Emergency Brake is already active. Cannot activate service brake")
+            self.train_states["service_brakes"] = False
+        elif self.sb_status == 1:
+            print("Error: Service Brake is already activated")
+        else:
+            self.sb_status = 1
+            print("Service Brake Activated")
+            self.train_states["service_brakes"] = True
+            self.update_tb()
 
     def eb_clicked(self, checked=False):
-        eb_status = 1
-        print("Emergency Brake Activated!")
+        if self.sb_status == 1:
+            print("Error: Service Brake is already active. Cannot activate emergency brake")
+            self.train_states["emergency_brakes"] = False
+        elif self.eb_status == 1:
+            print("Error: Emergency Brake is already activated")
+        else:
+            self.eb_status = 1
+            print("Emergency Brake Activated!")
+            self.train_states["emergency_brakes"] = True
+            self.update_tb()
+
+    def update_tb(self):
+        if self.train_states.get("service_brakes", False):
+            self.service_brake_label.setText("Service Brake: On")
+        else:
+            self.service_brake_label.setText("Service Brake: Off")
+
+        if self.train_states.get("emergency_brakes", False):
+            self.emergency_brake_label.setText("Emergency Brake: On")
+        else:
+            self.emergency_brake_label.setText("Emergency Brake: Off")
+
+    def clear_brakes(self):
+        self.eb_status = 0
+        self.sb_status = 0
+        self.train_states["service_brakes"] = False
+        self.train_states["emergency_brakes"] = False
+        self.update_tb()
+        print("Service and Emergency Brakes have been released")
+
+    def calculate_power(self):
+        try:
+            kp = float(self.kp_input.text())
+            ki = float(self.ki_input.text())
+            P_target = float(self.p_target_input.text())
+            P_actual = float(self.p_actual_input.text())
+
+            self.power_control.update_gains(kp, ki)
+            P_cmd = self.power_control.compute_Pcmd(P_target, P_actual)
+            self.p_cmd_display.setText(str(P_cmd))
+            print(f"Applied Constants: Kp={kp}, Ki={ki}, Computed Commanded Power={P_cmd} kW")
+            #send to train model here
+        except ValueError:
+            print("Please enter valid numerical values for Kp, Ki, and Target Power")
+
+#######################################################################
 
 def main():
     app = QApplication([])

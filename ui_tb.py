@@ -18,6 +18,7 @@ class TestUI(unittest.TestCase):
     def setUp(self):
         self.window = MainWindow()
         self.window.show()
+        QTest.qWaitForWindowExposed(self.window)
     
     def tearDown(self):
         self.window.close()
@@ -27,11 +28,14 @@ class TestUI(unittest.TestCase):
         kp_input = self.window.findChild(QLineEdit, "kp_input")
         submit_button = self.window.findChild(QPushButton, "submit_constants")
 
-        self.assertIsNotNone(ki_input)
-        self.assertIsNotNone(kp_input)
-        self.assertIsNotNone(submit_button)
+        self.assertIsNotNone(ki_input, "ki_input not found")
+        self.assertIsNotNone(kp_input, "kp_input not found")
+        self.assertIsNotNone(submit_button, "submit_constants not found")
 
+        ki_input.setFocus()
         QTest.keyClicks(ki_input, "1.5")
+
+        kp_input.setFocus()
         QTest.keyClicks(kp_input, "2.0")
         QTest.mouseClick(submit_button, Qt.LeftButton)
 
@@ -42,10 +46,9 @@ class TestUI(unittest.TestCase):
         dropdown = self.window.findChild(QComboBox, "train_selector")
         label = self.window.findChild(QLabel, "stats_display")
 
-        self.assertIsNotNone(dropdown)
-        self.assertIsNotNone(label)
+        self.assertIsNotNone(dropdown, "train_selector not found")
+        self.assertIsNotNone(label, "stats_display not found")
 
-        QTest.mouseClick(dropdown, Qt.LeftButtton)
         dropdown.setCurrentIndex(1)
         self.assertIn("Train 2", label.text())
 
@@ -55,11 +58,20 @@ class TestUI(unittest.TestCase):
         calculate_button = self.window.findChild(QPushButton, "calculate_power")
         output_label = self.window.findChild(QLabel, "power_output")
 
+        self.assertIsNotNone(ki_input, "ki_input not found")
+        self.assertIsNotNone(kp_input, "kp_input not found")
+        self.assertIsNotNone(calculate_button, "calculate_power not found")
+        self.assertIsNotNone(output_label, "power_output not found")
+
+        ki_input.setFocus()
         QTest.keyClicks(ki_input, "1.0")
+
+        kp_input.setFocus()
         QTest.keyClicks(kp_input, "2.0")
+
         QTest.mouseClick(calculate_button, Qt.LeftButton)
 
-        self.assertTrue(float(output_label.text()) > 0)
+        self.assertTrue(float(output_label.text()) > 0, "Power output not updated")
 
     @classmethod
     def tearDownClass(cls):
