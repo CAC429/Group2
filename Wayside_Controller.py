@@ -1,50 +1,50 @@
+import importlib
+import PLC_Program_A_F  # Import the script
 import tkinter as tk
 from tkinter import ttk
 
-#Gets the output from PLC
-def Get_PLC_Out():
-    from PLC_Program import PLC_Out  #Import PLC_Out
-    from Wayside_Testbench import Input  #Import Testbench input
-    Plc_Out_Input = Input()  #Create an instance of Testbench Input
-    return PLC_Out(Plc_Out_Input)  #Pass PLC_IN to PLC_Out
+exec(open("PLC_Program.py").read())  #Executes PLC
 
-#Imports from the Testbench, will import from other members file
-def Get_Testbench_In():
-    from Wayside_Testbench import Input #Import Testbench
-    return Input()  #Return TestBench
+# Open and read the Input file
+with open("PLC_INPUTS.txt", "r") as file:
+    for line in file:
+        if line.startswith("Suggested_Speed="):
+            Suggested_Speed_In = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Suggested_Authority="):
+            Suggested_Authority_In = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Occupancy="):
+            Occupancy_In = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Default_Switch_Position="):
+            Default_Switch_In = list(map(int, line.strip().split("=")[1].split(",")))
 
-#Input to the PLC file
-class PLC_IN:
-    def __init__(Self):
-        #Store variables properly
-        Self.Default_Switch_Position = Testbench_In.Switch_Position()
-        Self.Suggested_Speed = [format(Number, 'b') for Number in Testbench_In.Speed()] #Speed integer to binary
-        Self.Suggested_Authority = [format(Number, 'b') for Number in Testbench_In.Authority()] #Authority integer to binary
-        Self.Block_Occupancy = Testbench_In.Occupancy()
-
-    #Return each variable
-    def Switch_Position(Self):
-        return Self.Default_Switch_Position  #Returns default switch position
-
-    def Speed(Self):
-        return list(Self.Suggested_Speed)  #Returns binary speed list
-
-    def Authority(Self):
-        return list(Self.Suggested_Authority)  #Returns binary authority list
-
-    def Occupancy(Self):
-        return list(Self.Block_Occupancy)   #Returns block occupancy list
+# Open and read the Output file
+with open("PLC_OUTPUTS.txt", "r") as file:
+    for line in file:
+        if line.startswith("Suggested_Speed="):
+            Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Suggested_Authority="):
+            Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Occupancy="):
+            Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Track_Failure="):
+            Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Light_Control="):
+            Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Actual_Switch_Position="):
+            Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Cross_Bar_Control="):
+            Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 #This is the UI setup, has data driven arguments as well
 class DataGridUI:
-    def __init__(Self, Root, Testbench_In):
+    def __init__(Self, Root):
         #Needed initializations
         Self.Root = Root
         Self.Root.title("Wayside Controller")
-        Self.Testbench_In = Testbench_In
         Self.Test_Occupancy = [0] * 150
 
         #Initialize toggle variables
+        Self.Toggled = False
 
         #Create Treeview (Table)
         Self.Tree = ttk.Treeview(Root, columns=("Block", "Lights", "Cross Bars", "Switch Position", "Suggested Speed", "Suggested Authority", "Track Failure", "Occupancy"), show="headings")
@@ -78,7 +78,7 @@ class DataGridUI:
 
         #Create a StringVar for the default switch position
         Self.Default_Switch_Position = tk.StringVar()
-        Self.Default_Switch_Position.set(f"Default Switch Position: {Testbench_In.Switch_Position()}")
+        Self.Default_Switch_Position.set(f"Default Switch Position: {Default_Switch_In}")
         Self.Button_Label = tk.Label(Root, textvariable=Self.Default_Switch_Position)
         Self.Button_Label.pack(padx=10)
 
@@ -101,30 +101,85 @@ class DataGridUI:
 
     #Toggles block to on or off if the user presses the turn on block button
     def Toggle_block(Self):
-        Test_Block = Self.Block_Selector.get()-1  #Get the selected block number
-        if Self.Test_Occupancy[Test_Block] == 0:
-            Self.Test_Occupancy[Test_Block] = 1
-        elif Self.Test_Occupancy[Test_Block] == 1:
-            Self.Test_Occupancy[Test_Block] = 0
+        Self.Toggled = True
+        Self.Test_Block = Self.Block_Selector.get()-1  #Get the selected block number
+        if Self.Test_Occupancy[Self.Test_Block] == 0:
+            Self.Test_Occupancy[Self.Test_Block] = 1
+        elif Self.Test_Occupancy[Self.Test_Block] == 1:
+            Self.Test_Occupancy[Self.Test_Block] = 0
         Self.Update_UI()
 
     #Gets the speed the user inputs at the block they choose
     def Get_Speed_Input(Self):
-        Test_Block = Self.Block_Selector.get()-1
-        Self.User_Speed[Test_Block] = Self.Speed_User_Input.get()
+        Self.Test_Block = Self.Block_Selector.get()-1
+        Self.User_Speed[Self.Test_Block] = Self.Speed_User_Input.get()
         Self.Update_UI()
 
     #Gets the authority the user inputs at the block they choose
     def Get_Authority_Input(Self):
-        Test_Block = Self.Block_Selector.get()-1
-        Self.User_Authority[Test_Block] = Self.Authority_User_Input.get()
+        Self.Test_Block = Self.Block_Selector.get()-1
+        Self.User_Authority[Self.Test_Block] = Self.Authority_User_Input.get()
         Self.Update_UI()
 
     #Update the UI
     def Update_UI(Self):
+        with open("PLC_OUTPUTS.txt", "r") as file:
+            for lines in file:
+                if lines.startswith("Suggested_Speed="):
+                    Suggested_Speed_Out = list(map(int, lines.strip().split("=")[1].split(",")))
+                elif lines.startswith("Suggested_Authority="):
+                    Suggested_Authority_Out = list(map(int, lines.strip().split("=")[1].split(",")))
+
+            # Modify the lines
+            for i, line in enumerate(lines):
+                if line.startswith("Suggested_Speed="):
+                    lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_In))}\n"
+                elif line.startswith("Suggested_Authority="):
+                    lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_In))}\n"
+
+            # Write the modified lines back to the file
+            with open("PLC_OUTPUTS.txt", "w") as file:
+                file.writelines(lines)  # Writes the updated content back to the file
+
+        if Self.Toggled == True:
+            # Read the file
+            with open("PLC_INPUTS.txt", "r") as file:
+                lines = file.readlines()
+
+            Occupancy_In[Self.Test_Block] = Self.Test_Occupancy[Self.Test_Block]
+
+            # Modify the lines
+            for i, line in enumerate(lines):
+                if line.startswith("Occupancy="):
+                    lines[i] = f"Occupancy={','.join(map(str, Occupancy_In))}\n"
+
+            # Write the modified lines back to the file
+            with open("PLC_INPUTS.txt", "w") as file:
+                file.writelines(lines)  # Writes the updated content back to the file
+            
+            Self.Toggled = False
+
+        importlib.reload(PLC_Program_A_F)  # Reloads the module to apply updates
+        # Open and read the Output file
+        with open("PLC_OUTPUTS.txt", "r") as file:
+            for lines in file:
+                if lines.startswith("Suggested_Speed="):
+                    Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
+                elif lines.startswith("Suggested_Authority="):
+                    Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
+                elif lines.startswith("Occupancy="):
+                    Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
+                elif lines.startswith("Track_Failure="):
+                    Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+                elif lines.startswith("Light_Control="):
+                    Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+                elif lines.startswith("Actual_Switch_Position="):
+                    Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
+                elif lines.startswith("Cross_Bar_Control="):
+                    Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+
         #Check if occupancy or user entered data has changed for user inputs or testbench(team combined code)
-        New_Occupancy = [a | b for a, b in zip(Testbench_In.Occupancy(), Self.Test_Occupancy)] # Get updated occupancy
-        Testbench_In.UpdateOccupancy()
+        New_Occupancy = [a | b for a, b in zip(Occupancy_In, Self.Test_Occupancy)] # Get updated occupancy
         if hasattr(Self, "Prev_Occupancy") and New_Occupancy == Self.Prev_Occupancy and Self.User_Speed == Self.Prev_User_Speed and Self.User_Authority == Self.Prev_User_Authority:
             # No change in occupancy, so don't update the UI
             Self.Root.after(500, Self.Update_UI)  # Re-check after 500ms
@@ -142,82 +197,58 @@ class DataGridUI:
         Self.Tree.tag_configure("Orange", foreground="orange")  # Default orange text
         Self.Tree.tag_configure("Red", foreground="red")  # Default red text
 
-        # Initialize values if not already done
-        if not hasattr(Self, 'initialized'):
-            Self.Cross_Bar = [""] * 150
-            Self.occupancy_data = New_Occupancy
-            Self.Speed_Data = Testbench_In.Speed()
-            Self.Authority_Data = Testbench_In.Authority()
-            Self.Switch_Data = [""] * 150
-            Self.Switch_Data[11] = Testbench_In.Default_Switch_Position
-            Self.Switch_Data[27] = Testbench_In.Default_Switch_Position
-            Self.Switch_Data[57] = 1
-            Self.Switch_Data[61] = 1
-            Self.Switch_Data[75] = Testbench_In.Default_Switch_Position
-            Self.Switch_Data[84] = Testbench_In.Default_Switch_Position
-            Self.Cross_Bar[18] = 0
-            Self.Cross_Bar[107] = PLC_Out.Crossbar()[1]
-            Self.Failure = [""] * 150
-            Self.Lights = [1] * 150
-            Self.initialized = True  # Mark initialization done
-        else:
-            # Update using PLC_Out values
-            PLC_Out.Update_Actual_Switch_Position(New_Occupancy)
-            PLC_Out.Update_Failure(New_Occupancy)
-            PLC_Out.Update_Cross_Bar(New_Occupancy)
-            PLC_Out.Update_Light_Control(New_Occupancy)
-            PLC_Out.Update_Speed_Authority()
-            PLC_Out.Update_Previous_Occupancy(New_Occupancy)
-            Binary_Temp_Speed = PLC_Out.Speed()[:]
-            Binary_Temp_Authority = PLC_Out.Authority()[:]
+        # Update UI values
+        Self.occupancy_data = New_Occupancy
+        Binary_Temp_Speed = Suggested_Speed_Out
+        Binary_Temp_Authority = Suggested_Authority_Out
+        Self.Cross_Bar = [""] * 150
+        Self.Switch_Data = [""] * 150
+        Self.Switch_Data[11] = Actual_Switch_Position_Out[0]
+        Self.Switch_Data[27] = Actual_Switch_Position_Out[1]
+        Self.Switch_Data[57] = Actual_Switch_Position_Out[2]
+        Self.Switch_Data[61] = Actual_Switch_Position_Out[3]
+        Self.Switch_Data[75] = Actual_Switch_Position_Out[4]
+        Self.Switch_Data[84] = Actual_Switch_Position_Out[5]
+        Self.Cross_Bar[18] = Cross_Bar_Control_Out[0]
+        Self.Cross_Bar[107] = Cross_Bar_Control_Out[1]
+        Self.Lights = Light_Control_Out
+        Self.Failure = Track_Failure_Out  # Reset failures (Adjust logic if needed)
 
-            # Update UI values
-            Self.Switch_Data[11] = PLC_Out.Switches()[0]
-            Self.Switch_Data[27] = PLC_Out.Switches()[1]
-            Self.Switch_Data[57] = PLC_Out.Switches()[2]
-            Self.Switch_Data[61] = PLC_Out.Switches()[3]
-            Self.Switch_Data[75] = PLC_Out.Switches()[4]
-            Self.Switch_Data[84] = PLC_Out.Switches()[5]
-            Self.Cross_Bar[18] = PLC_Out.Crossbar()[0]
-            Self.Cross_Bar[107] = PLC_Out.Crossbar()[1]
-            Self.Lights = PLC_Out.Lights()
-            Self.Failure = PLC_Out.Failure()  # Reset failures (Adjust logic if needed)
+        # Convert binary speed to integer
+        Temp_Speed = [1] * 150
+        Temp_Authority = [1] * 150
+        for Find_Failure in range(len(Track_Failure_Out)):
+            if Binary_Temp_Speed[Find_Failure] == 1111:
+                Temp_Speed[Find_Failure] = 15
+            elif Binary_Temp_Speed[Find_Failure] == 1010:
+                Temp_Speed[Find_Failure] = 10
+            elif Binary_Temp_Speed[Find_Failure] == 0:
+                Temp_Speed[Find_Failure] = 0
+            if Binary_Temp_Authority[Find_Failure] == 1111:
+                Temp_Authority[Find_Failure] = 15
+            elif Binary_Temp_Authority[Find_Failure] == 1010:
+                Temp_Authority[Find_Failure] = 10
+            elif Binary_Temp_Authority[Find_Failure] == 0:
+                Temp_Authority[Find_Failure] = 0
 
-            # Convert binary speed to integer
-            Temp_Speed = [1] * 150
-            Temp_Authority = [1] * 150
-            for Find_Failure in range(len(PLC_Out.Failure())):
-                if Binary_Temp_Speed[Find_Failure] == "1111":
-                    Temp_Speed[Find_Failure] = 15
-                elif Binary_Temp_Speed[Find_Failure] == "1010":
-                    Temp_Speed[Find_Failure] = 10
-                elif Binary_Temp_Speed[Find_Failure] == "0":
-                    Temp_Speed[Find_Failure] = 0
-                if Binary_Temp_Authority[Find_Failure] == "1111":
-                    Temp_Authority[Find_Failure] = 15
-                elif Binary_Temp_Authority[Find_Failure] == "1010":
-                    Temp_Authority[Find_Failure] = 10
-                elif Binary_Temp_Authority[Find_Failure] == "0":
-                    Temp_Authority[Find_Failure] = 0
+        for Combine in range(len(Occupancy_In)):
+            if Temp_Speed[Combine] == 1:
+                Temp_Speed[Combine] = Suggested_Speed_In[Combine]
+            if Temp_Authority[Combine] == 1:
+                Temp_Authority[Combine] = Suggested_Authority_In[Combine]
 
-            for Combine in range(len(New_Occupancy)):
-                if Temp_Speed[Combine] == 1:
-                    Temp_Speed[Combine] = Testbench_In.Speed()[Combine]
-                if Temp_Authority[Combine] == 1:
-                    Temp_Authority[Combine] = Testbench_In.Authority()[Combine]
+        #Integrate user inputed speed into the main speed
+        for Find_Speed in range(len(Self.User_Speed)):
+            if Self.User_Speed[Find_Speed] != "":
+                Temp_Speed[Find_Speed] = Self.User_Speed[Find_Speed]
 
-            #Integrate user inputed speed into the main speed
-            for Find_Speed in range(len(Self.User_Speed)):
-                if Self.User_Speed[Find_Speed] != "":
-                    Temp_Speed[Find_Speed] = Self.User_Speed[Find_Speed]
+        #Integrate user inputed authority into the main authority
+        for Find_Authority in range(len(Self.User_Authority)):
+            if Self.User_Authority[Find_Authority] != "":
+                Temp_Authority[Find_Authority] = Self.User_Authority[Find_Authority]
 
-            #Integrate user inputed authority into the main authority
-            for Find_Authority in range(len(Self.User_Authority)):
-                if Self.User_Authority[Find_Authority] != "":
-                    Temp_Authority[Find_Authority] = Self.User_Authority[Find_Authority]
-
-            Self.Speed_Data = Temp_Speed
-            Self.Authority_Data = Temp_Authority
+        Self.Speed_Data = Temp_Speed
+        Self.Authority_Data = Temp_Authority
 
         # Insert rows with color tags
         for i in range(len(New_Occupancy)):
@@ -242,23 +273,10 @@ class DataGridUI:
         #Re-run the function to check for updates periodically
         Self.Root.after(500, Self.Update_UI)  #Check for updates every 500ms
 
-#Get testbench input properly
-Testbench_In = Get_Testbench_In()
-
 #Start UI
 if __name__ == "__main__":
-#Create an instance of the Get_PLC_Out
-    PLC_Out = Get_PLC_Out()
-
-    #Use PLC_Out for updates
-    PLC_Out.Update_Actual_Switch_Position(Testbench_In.Occupancy())
-    PLC_Out.Update_Failure(Testbench_In.Occupancy())
-    PLC_Out.Update_Cross_Bar(Testbench_In.Occupancy())
-    PLC_Out.Update_Light_Control(Testbench_In.Occupancy())
-    PLC_Out.Update_Speed_Authority()
-    PLC_Out.Update_Previous_Occupancy(Testbench_In.Occupancy())
     Root = tk.Tk()
-    App = DataGridUI(Root,Testbench_In)
+    App = DataGridUI(Root)
     #Ensure PLC process stops when UI closes
     def on_closing():
         Root.destroy()  #Destroy the UI
