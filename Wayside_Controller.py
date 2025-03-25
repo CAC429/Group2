@@ -45,6 +45,8 @@ class DataGridUI:
 
         #Initialize toggle variables
         Self.Toggled = False
+        Self.Speed_Change = False
+        Self.Authority_Change = False
 
         #Create Treeview (Table)
         Self.Tree = ttk.Treeview(Root, columns=("Block", "Lights", "Cross Bars", "Switch Position", "Suggested Speed", "Suggested Authority", "Track Failure", "Occupancy"), show="headings")
@@ -111,35 +113,20 @@ class DataGridUI:
 
     #Gets the speed the user inputs at the block they choose
     def Get_Speed_Input(Self):
+        Self.Speed_Change = True
         Self.Test_Block = Self.Block_Selector.get()-1
         Self.User_Speed[Self.Test_Block] = Self.Speed_User_Input.get()
         Self.Update_UI()
 
     #Gets the authority the user inputs at the block they choose
     def Get_Authority_Input(Self):
+        Self.Authority_Change = True
         Self.Test_Block = Self.Block_Selector.get()-1
         Self.User_Authority[Self.Test_Block] = Self.Authority_User_Input.get()
         Self.Update_UI()
 
     #Update the UI
     def Update_UI(Self):
-        with open("PLC_OUTPUTS.txt", "r") as file:
-            for lines in file:
-                if lines.startswith("Suggested_Speed="):
-                    Suggested_Speed_Out = list(map(int, lines.strip().split("=")[1].split(",")))
-                elif lines.startswith("Suggested_Authority="):
-                    Suggested_Authority_Out = list(map(int, lines.strip().split("=")[1].split(",")))
-
-            # Modify the lines
-            for i, line in enumerate(lines):
-                if line.startswith("Suggested_Speed="):
-                    lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_In))}\n"
-                elif line.startswith("Suggested_Authority="):
-                    lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_In))}\n"
-
-            # Write the modified lines back to the file
-            with open("PLC_OUTPUTS.txt", "w") as file:
-                file.writelines(lines)  # Writes the updated content back to the file
 
         if Self.Toggled == True:
             # Read the file
@@ -161,22 +148,45 @@ class DataGridUI:
 
         importlib.reload(PLC_Program_A_F)  # Reloads the module to apply updates
         # Open and read the Output file
+        # Read the file and store its content
         with open("PLC_OUTPUTS.txt", "r") as file:
-            for lines in file:
-                if lines.startswith("Suggested_Speed="):
-                    Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
-                elif lines.startswith("Suggested_Authority="):
-                    Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
-                elif lines.startswith("Occupancy="):
-                    Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
-                elif lines.startswith("Track_Failure="):
-                    Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
-                elif lines.startswith("Light_Control="):
-                    Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
-                elif lines.startswith("Actual_Switch_Position="):
-                    Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
-                elif lines.startswith("Cross_Bar_Control="):
-                    Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            lines = file.readlines()  # Read all lines into a list
+
+        # Parse the data
+        for line in lines:
+            if line.startswith("Suggested_Speed="):
+                Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Suggested_Authority="):
+                Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Occupancy="):
+                Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Track_Failure="):
+                Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Light_Control="):
+                Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Actual_Switch_Position="):
+                Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Cross_Bar_Control="):
+                Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+
+        if Self.Speed_Change == True:
+            Suggested_Speed_Out[Self.Test_Block] = Self.User_Speed[Self.Test_Block]
+            Self.Speed_Change == False
+        if Self.Authority_Change == True:
+            Suggested_Authority_Out[Self.Test_Block] = Self.User_Authority[Self.Test_Block]
+            Self.Speed_Change == False
+
+        # Modify the lines
+        for i, line in enumerate(lines):
+            if line.startswith("Suggested_Speed="):
+                lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_Out))}\n"
+            elif line.startswith("Suggested_Authority="):
+                lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_Out))}\n"
+
+        # Write the modified lines back to the file
+        with open("PLC_OUTPUTS.txt", "w") as file:
+            file.writelines(lines)  # Writes the updated content back to the file
+
 
         #Check if occupancy or user entered data has changed for user inputs or testbench(team combined code)
         New_Occupancy = [a | b for a, b in zip(Occupancy_In, Self.Test_Occupancy)] # Get updated occupancy
