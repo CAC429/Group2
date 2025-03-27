@@ -127,6 +127,35 @@ class DataGridUI:
 
     #Update the UI
     def Update_UI(Self):
+        # Initialize lists correctly
+        Suggested_Speed_In = [0] * 150
+        Suggested_Authority_In = [0] * 150
+        Occupancy_In = [0] * 150
+
+        # Open and read the Input file
+        with open("PLC_INPUTS.txt", "r") as file:
+            for line in file:
+                if line.startswith("Suggested_Speed="):
+                    Suggested_Speed_In = list(map(int, line.strip().split("=")[1].split(",")))
+                elif line.startswith("Suggested_Authority="):
+                    Suggested_Authority_In = list(map(int, line.strip().split("=")[1].split(",")))
+                elif line.startswith("Occupancy="):
+                    Occupancy_In = list(map(int, line.strip().split("=")[1].split(",")))
+
+        # Open and read the Output file
+        with open("PLC_OUTPUTS.txt", "r") as file:
+            lines = file.readlines()  # Read all lines into a list
+
+        # Modify the lines
+        for i, line in enumerate(lines):
+            if line.startswith("Suggested_Speed="):
+                lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_In))}\n"
+            elif line.startswith("Suggested_Authority="):
+                lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_In))}\n"
+
+        # **Write the modified lines back to the file**
+        with open("PLC_OUTPUTS.txt", "w") as file:
+            file.writelines(lines)  # Ensure the updated content is written
 
         if Self.Toggled == True:
             # Read the file
@@ -174,7 +203,7 @@ class DataGridUI:
             Self.Speed_Change == False
         if Self.Authority_Change == True:
             Suggested_Authority_Out[Self.Test_Block] = Self.User_Authority[Self.Test_Block]
-            Self.Speed_Change == False
+            Self.Speed_Change == False                
 
         # Modify the lines
         for i, line in enumerate(lines):
@@ -186,7 +215,6 @@ class DataGridUI:
         # Write the modified lines back to the file
         with open("PLC_OUTPUTS.txt", "w") as file:
             file.writelines(lines)  # Writes the updated content back to the file
-
 
         #Check if occupancy or user entered data has changed for user inputs or testbench(team combined code)
         New_Occupancy = [a | b for a, b in zip(Occupancy_In, Self.Test_Occupancy)] # Get updated occupancy
