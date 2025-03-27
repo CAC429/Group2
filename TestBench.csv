@@ -1,14 +1,14 @@
 Utility, on/off
 Authority,30
 Current_speed,70
-Service_brakes,off
-Emergency_brakes,off
-Left_door,off
+Service_brakes,on
+Emergency_brakes,on
+Left_door,on
 Right_door,off
-Outside_lights,off
-Cabin_lights,off
-Air_conditioning,off
-Cabin_temp,60
+Outside_lights,on
+Cabin_lights,on
+Air_conditioning,on
+Cabin_temp,50
 Problem,off
 Kp,0.5
 Ki,0.1
