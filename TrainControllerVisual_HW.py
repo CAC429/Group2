@@ -61,7 +61,7 @@ class DataProcessor:
         for utility, state in data.items():
             match utility:
                 case "Authority":
-                    print(f"Authority: {state} miles")
+                    print(f"Authority: {state} km")
                 case "Current_speed":
                     print(f"Current speed: {state} mph")
                 case "Service_brakes":
