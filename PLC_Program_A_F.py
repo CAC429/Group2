@@ -1,4 +1,6 @@
 # Open and read the Input file
+Occupancy_In = [0] * 150
+Default_Switch_In = [0] * 6
 with open("PLC_INPUTS.txt", "r") as file:
     for line in file:
         if line.startswith("Occupancy="):
@@ -8,6 +10,9 @@ with open("PLC_INPUTS.txt", "r") as file:
             # Extract values, split, and convert to integers
             Default_Switch_In = list(map(int, line.strip().split("=")[1].split(",")))
 
+Occupancy_Out = [0] * 150
+Track_Failure_Out = [0] * 150
+Actual_Switch_Position_Out = [0] * 6
 # Open and read the Output file
 with open("PLC_OUTPUTS.txt", "r") as file:
     for line in file:
@@ -17,10 +22,13 @@ with open("PLC_OUTPUTS.txt", "r") as file:
         if line.startswith("Track_Failure="):
             # Extract values, split, and convert to integers
             Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Actual_Switch_Position="):
+            # Extract values, split, and convert to integers
+            Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 #Initialize variables
 Light_Control = [1] * 150
-Actual_Switch_Position = [0] * 150
+Actual_Switch_Position = Actual_Switch_Position_Out
 Suggested_Speed = [100] * 150
 Suggested_Authority = [100] * 150
 Track_Failure = Track_Failure_Out
@@ -28,23 +36,29 @@ Cross_Bar_Control = [0] * 2
 Temp_Occupancy = Occupancy_Out
 
 #Switch Control
-if Temp_Occupancy[1] and Occupancy_In[0]:
+if Occupancy_In[1] == 1 and Occupancy_In[2] == 1:
     Actual_Switch_Position[0] = 1
-elif Actual_Switch_Position[0] == 1:
-    if Temp_Occupancy[0] != 1 and Occupancy_In[12] != 1:
-        Actual_Switch_Position[0] = 0
+elif Actual_Switch_Position[0] == 1 and (Occupancy_In[1] == 1 or Occupancy_In[0] == 1):
+    Actual_Switch_Position[0] = 1
 else:
-    Actual_Switch_Position[0] = Default_Switch_In
+    Actual_Switch_Position[0] = 0
+
+if Occupancy_In[25] == 1 and Occupancy_In[26] == 1:
+    Actual_Switch_Position[1] = 0
+elif Actual_Switch_Position[1] == 0 and (Occupancy_In[26] == 1 or Occupancy_In[27] == 1):
+    Actual_Switch_Position[1] = 0
+else:
+    Actual_Switch_Position[1] = 1
 
 #Cross Bar Control
 Cross_Bar_Control[0] = 1 if any(Occupancy_In[i] for i in [17, 18, 19]) else 0
 
 #Detects the failures that occur
 #General failure check for most cases
-for i in range(27):
+for i in range(28):
     if Track_Failure[i] != 1 and Occupancy_In[i] != 1:
 
-        for Occupancy_Check in range(0,27):
+        for Occupancy_Check in range(0,28):
             if Occupancy_Check != {12,27}:
                 if Occupancy_In[Occupancy_Check] == 1 and Temp_Occupancy[Occupancy_Check] == 1 and Track_Failure[Occupancy_Check] == 0:
                     Track_Failure[Occupancy_Check] = 0
@@ -174,7 +188,7 @@ for line in lines:
         Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 for i in range(150):
-    if i > 0 and i < 6:
+    if i > 1 and i < 6:
         Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
     if i == 1:
         Cross_Bar_Control[i] = Cross_Bar_Control_Out[i]
@@ -195,15 +209,13 @@ for i, line in enumerate(lines):
         lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_Out))}\n"
     elif line.startswith("Suggested_Authority="):
         lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_Out))}\n"
-    elif line.startswith("Occupancy="):
-        lines[i] = f"Occupancy={','.join(map(str, Occupancy_In))}\n"
     elif line.startswith("Track_Failure="):
         lines[i] = f"Track_Failure={','.join(map(str, Track_Failure))}\n"
     elif line.startswith("Light_Control="):
         lines[i] = f"Light_Control={','.join(map(str, Light_Control))}\n"
-    elif line.startswith("Actual_Switch_Position=") and i < 5:
+    elif line.startswith("Actual_Switch_Position="):
         lines[i] = f"Actual_Switch_Position={','.join(map(str, Actual_Switch_Position))}\n"
-    elif line.startswith("Cross_Bar_Control=") and i < 5:
+    elif line.startswith("Cross_Bar_Control="):
         lines[i] = f"Cross_Bar_Control={','.join(map(str, Cross_Bar_Control))}\n"
 
 # Write the modified lines back to the file

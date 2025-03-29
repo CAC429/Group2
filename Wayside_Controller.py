@@ -1,9 +1,9 @@
 import importlib
 import PLC_Program_A_F  # Import the script
+import PLC_Program_G_M  # Import the script
 import tkinter as tk
+import fileinput
 from tkinter import ttk
-
-exec(open("PLC_Program.py").read())  #Executes PLC
 
 # Open and read the Input file
 with open("PLC_INPUTS.txt", "r") as file:
@@ -176,6 +176,7 @@ class DataGridUI:
             Self.Toggled = False
 
         importlib.reload(PLC_Program_A_F)  # Reloads the module to apply updates
+        importlib.reload(PLC_Program_G_M)  # Reloads the module to apply updates
         # Open and read the Output file
         # Read the file and store its content
         with open("PLC_OUTPUTS.txt", "r") as file:

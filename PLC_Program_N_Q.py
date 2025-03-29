@@ -345,9 +345,9 @@ for i, line in enumerate(lines):
         lines[i] = f"Track_Failure={','.join(map(str, Track_Failure))}\n"
     elif line.startswith("Light_Control="):
         lines[i] = f"Light_Control={','.join(map(str, Light_Control))}\n"
-    elif line.startswith("Actual_Switch_Position=") and i < 5:
+    elif line.startswith("Actual_Switch_Position="):
         lines[i] = f"Actual_Switch_Position={','.join(map(str, Actual_Switch_Position))}\n"
-    elif line.startswith("Cross_Bar_Control=") and i < 5:
+    elif line.startswith("Cross_Bar_Control="):
         lines[i] = f"Cross_Bar_Control={','.join(map(str, Cross_Bar_Control))}\n"
 
 # Write the modified lines back to the file
