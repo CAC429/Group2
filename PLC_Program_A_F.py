@@ -173,6 +173,16 @@ if Track_Failure[26] == 1:
 if Track_Failure[25] == 1:
     Suggested_Speed[149] = "1111"
 
+Find_Occupancy = 0
+for i in range(28):
+    if Occupancy_In[i] == 1:
+        Find_Occupancy = 1
+if Find_Occupancy > 0:
+    Suggested_Speed[149] = "0"
+    Suggested_Speed[148] = "1010"
+    Suggested_Speed[147] = "1111"
+    Suggested_Authority[149] = "0"
+
 # Read the file
 with open("PLC_OUTPUTS.txt", "r") as file:
     lines = file.readlines()  # Read all lines into a list
@@ -199,11 +209,11 @@ for i in range(150):
         Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
     if i == 1:
         Cross_Bar_Control[i] = Cross_Bar_Control_Out[i]
-    if i > 27:
+    if i > 27 and i != 149 and i != 148 and i != 147:
         Suggested_Speed[i] = Suggested_Speed_Out[i]
         Suggested_Authority[i] = Suggested_Authority_Out[i]
         Track_Failure[i] = Track_Failure_Out[i]
-    if i <= 27:
+    if i <= 27 or i == 149 or i == 148 or i == 147:
         if Suggested_Speed[i] != 100:
             Suggested_Speed_Out[i] = Suggested_Speed[i]
         if Suggested_Authority[i] != 100:

@@ -43,6 +43,15 @@ def update_in_background():
                 if Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0 and Train_Count <= 3:
                     Train_Bauds[Train_Baud_Select] = "1"+str(Suggested_Authority_Out[i])
                     Train_Baud_Select = Train_Baud_Select+1
+        if Train_Count == 2:
+            Train_Bauds[2] = "0000000000"
+        elif Train_Count == 1:
+            Train_Bauds[1] = "0000000000"
+            Train_Bauds[2] = "0000000000"
+        elif Train_Count == 0:
+            Train_Bauds[0] = "0000000000"
+            Train_Bauds[1] = "0000000000"
+            Train_Bauds[2] = "0000000000"
         print(Train_Bauds)
         time.sleep(1)  # Wait for 1 second before updating again
 
@@ -150,25 +159,21 @@ class DataGridUI:
             Self.Test_Occupancy[Self.Test_Block] = 1
         elif Self.Test_Occupancy[Self.Test_Block] == 1:
             Self.Test_Occupancy[Self.Test_Block] = 0
-        Self.Update_UI()
 
     #Gets the speed the user inputs at the block they choose
     def Get_Speed_Input(Self):
         Self.Speed_Change = True
         Self.Test_Block = Self.Block_Selector.get()-1
         Self.User_Speed[Self.Test_Block] = Self.Speed_User_Input.get()
-        Self.Update_UI()
 
     #Gets the authority the user inputs at the block they choose
     def Get_Authority_Input(Self):
         Self.Authority_Change = True
         Self.Test_Block = Self.Block_Selector.get()-1
         Self.User_Authority[Self.Test_Block] = Self.Authority_User_Input.get()
-        Self.Update_UI()
 
     #Update the UI
     def Update_UI(Self):
-
         # Initialize lists correctly
         Suggested_Speed_In = [0] * 150
         Suggested_Authority_In = [0] * 150
