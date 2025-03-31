@@ -252,7 +252,15 @@ class MainWindow(QWidget):
         self.power_control = PowerControl()
         self.current_authority = 0
         self.current_speed = 0
+        self.acceleration_rate = 0.5
+        self.max_speed = 70
+        self.acceleration_timer = QTimer(self)
+        self.acceleration_timer.timeout.connect(self.accelerate_train)
+        self.acceleration_timer.start(100)
+
         self.setGeometry(100, 100, 580, 450)
+
+
 
         self.train_states2 = {
             "Train 1": {"int_lights": False, "cab_lights": False, "left_door": False, "right_door": False, "cabin_temp": 70},
@@ -476,8 +484,29 @@ class MainWindow(QWidget):
         else:
             self.sb_status = 1
             print("Service Brake Activated")
-            self.train_states["service_brakes"] = True
+            self.train_states["Train 1"]["service_brakes"] = True
             self.update_tb()
+
+            self.acceleration_timer.stop()
+            self.start_service_brake()
+    
+    def start_service_brake(self):
+        self.deceleration_rate = 1.2
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.apply_service_brake)
+        self.timer.start(100)
+
+    def apply_service_brake(self):
+        if self.current_speed > 0:
+            self.current_speed -= self.deceleration_rate * 0.1
+            if self.current_speed < 0:
+                self.current_speed = 0
+
+            self.speed_label.setText(f"Current Speed: {self.current_speed:.2f} m/s")
+            print(f"Current Speed: {self.current_speed:.2f} m/s")
+        else:
+            print("Train has Stopped")
+            self.timer.stop()
 
     def eb_clicked(self, checked=False):
         if self.sb_status == 1:
@@ -488,8 +517,31 @@ class MainWindow(QWidget):
         else:
             self.eb_status = 1
             print("Emergency Brake Activated!")
-            self.train_states["emergency_brakes"] = True
+            self.train_states["Train 1"]["emergency_brakes"] = True
             self.update_tb()
+
+            self.acceleration_timer.stop()
+            self.start_emergency_braking()
+    
+    def start_emergency_braking(self):
+        self.deceleration_rate = 2.73
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.apply_emergency_brake)
+        self.timer.start(100)
+
+    def apply_emergency_brake(self):
+        if self.current_speed > 0:
+            self.current_speed -= self.deceleration_rate * 0.1
+            if self.current_speed < 0:
+                self.current_speed = 0
+            
+            self.speed_label.setText(f"Current Speed: {self.current_speed:.2f} m/s")
+            print(f"Current Speed: {self.current_speed:.2f} m/s")
+        
+        else:
+            print("Train has stopped.")
+            self.timer.stop()
+                
 
     def update_tb(self):
         if self.train_states.get("service_brakes", False):
@@ -505,10 +557,14 @@ class MainWindow(QWidget):
     def clear_brakes(self):
         self.eb_status = 0
         self.sb_status = 0
-        self.train_states["service_brakes"] = False
-        self.train_states["emergency_brakes"] = False
+        self.train_states["Train 1"]["service_brakes"] = False
+        self.train_states["Train 1"]["emergency_brakes"] = False
         self.update_tb()
+
         print("Service and Emergency Brakes have been released")
+
+        self.acceleration_timer.stop()
+        self.acceleration_timer.start(100)
 
     def calculate_power(self):
         try:
@@ -525,6 +581,18 @@ class MainWindow(QWidget):
         except ValueError:
             print("Please enter valid numerical values for Kp, Ki, and Target Power")
 
+    def accelerate_train(self):
+        if self.current_speed < self.max_speed:
+            self.current_speed += self.acceleration_rate * 0.1
+            if self.current_speed > self.max_speed:
+                self.current_speed = self.max_speed
+
+            self.speed_label.setText(f"Current Speed: {self.current_speed:.2f} m/s")
+            print(f"Accelerating... Current Speed: {self.current_speed:.2f} m/s")
+        else:
+            self.acceleration_timer.stop()
+
+    
 #######################################################################
 
 def main():
