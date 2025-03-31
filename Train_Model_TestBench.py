@@ -1,3 +1,5 @@
+
+
 class Input:
     def __init__(self, Power, Passenger_Number, Cabin_Temp, Exterior_Lights, Interior_lights, Right_Door, Left_Door, Beacon, Suggested_Speed, Suggested_Authority):
         self.Power = 75000 #in Watts
