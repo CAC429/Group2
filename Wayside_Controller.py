@@ -1,9 +1,50 @@
 import importlib
 import PLC_Program_A_F  # Import the script
 import PLC_Program_G_M  # Import the script
+import PLC_Program_N_Q  # Import the script
+import PLC_Program_R_Z  # Import the script
 import tkinter as tk
-import fileinput
 from tkinter import ttk
+import threading
+import time
+
+Train_Bauds = ["0000000000"]*3
+def update_in_background():
+    while True:
+        Suggested_Speed_Out = [0] * 150
+        Suggested_Authority_Out = [0] * 150
+        Occupancy_Out = [0] * 150
+        Track_Failure_Out = [0] * 150
+        with open("PLC_OUTPUTS.txt", "r") as file:
+            lines = file.readlines()  # Read all lines into a list
+
+        # Parse the data
+        for line in lines:
+            if line.startswith("Suggested_Speed="):
+                Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Suggested_Authority="):
+                Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Occupancy="):
+                Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Track_Failure="):
+                Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        Train_Baud_Select = 0
+        Train_Count = 0
+        for i in range(150):
+            if Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0:
+                Train_Count = Train_Count + 1
+        if Train_Bauds[0][0] == "1":
+            for i in range(150):
+                if Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0 and Train_Count <= 3:
+                    Train_Bauds[Train_Baud_Select] = "0"+str(Suggested_Speed_Out[i])
+                    Train_Baud_Select = Train_Baud_Select+1
+        elif Train_Bauds[0][0] == "0":
+            for i in range(150):
+                if Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0 and Train_Count <= 3:
+                    Train_Bauds[Train_Baud_Select] = "1"+str(Suggested_Authority_Out[i])
+                    Train_Baud_Select = Train_Baud_Select+1
+        print(Train_Bauds)
+        time.sleep(1)  # Wait for 1 second before updating again
 
 # Open and read the Input file
 with open("PLC_INPUTS.txt", "r") as file:
@@ -97,7 +138,7 @@ class DataGridUI:
         Self.Authority_Submit_Button = tk.Button(Root, text="Enter Block Authority:", command=Self.Get_Authority_Input)
         Self.Authority_Submit_Button.pack(side="right", pady=10)
         Self.User_Authority = [""] * 150
-        
+
         #Get Initial Data
         Self.Update_UI()
 
@@ -127,6 +168,7 @@ class DataGridUI:
 
     #Update the UI
     def Update_UI(Self):
+
         # Initialize lists correctly
         Suggested_Speed_In = [0] * 150
         Suggested_Authority_In = [0] * 150
@@ -145,7 +187,6 @@ class DataGridUI:
         # Open and read the Output file
         with open("PLC_OUTPUTS.txt", "r") as file:
             lines = file.readlines()  # Read all lines into a list
-
         # Modify the lines
         for i, line in enumerate(lines):
             if line.startswith("Suggested_Speed="):
@@ -172,11 +213,13 @@ class DataGridUI:
             # Write the modified lines back to the file
             with open("PLC_INPUTS.txt", "w") as file:
                 file.writelines(lines)  # Writes the updated content back to the file
-            
+
             Self.Toggled = False
 
         importlib.reload(PLC_Program_A_F)  # Reloads the module to apply updates
         importlib.reload(PLC_Program_G_M)  # Reloads the module to apply updates
+        importlib.reload(PLC_Program_N_Q)  # Reloads the module to apply updates
+        importlib.reload(PLC_Program_R_Z)  # Reloads the module to apply updates
         # Open and read the Output file
         # Read the file and store its content
         with open("PLC_OUTPUTS.txt", "r") as file:
@@ -198,13 +241,12 @@ class DataGridUI:
                 Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
             elif line.startswith("Cross_Bar_Control="):
                 Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
-
         if Self.Speed_Change == True:
             Suggested_Speed_Out[Self.Test_Block] = Self.User_Speed[Self.Test_Block]
-            Self.Speed_Change == False
+            Self.Speed_Change = False
         if Self.Authority_Change == True:
             Suggested_Authority_Out[Self.Test_Block] = Self.User_Authority[Self.Test_Block]
-            Self.Speed_Change == False                
+            Self.Speed_Change = False                
 
         # Modify the lines
         for i, line in enumerate(lines):
@@ -242,6 +284,7 @@ class DataGridUI:
         Binary_Temp_Authority = Suggested_Authority_Out
         Self.Cross_Bar = [""] * 150
         Self.Switch_Data = [""] * 150
+        Self.Lights = [""] * 150
         Self.Switch_Data[11] = Actual_Switch_Position_Out[0]
         Self.Switch_Data[27] = Actual_Switch_Position_Out[1]
         Self.Switch_Data[57] = Actual_Switch_Position_Out[2]
@@ -250,9 +293,19 @@ class DataGridUI:
         Self.Switch_Data[84] = Actual_Switch_Position_Out[5]
         Self.Cross_Bar[18] = Cross_Bar_Control_Out[0]
         Self.Cross_Bar[107] = Cross_Bar_Control_Out[1]
-        Self.Lights = Light_Control_Out
+        Self.Lights[0] = Light_Control_Out[0]
+        Self.Lights[11] = Light_Control_Out[1]
+        Self.Lights[28] = Light_Control_Out[2]
+        Self.Lights[149] = Light_Control_Out[3]
+        Self.Lights[56] = Light_Control_Out[4]
+        Self.Lights[57] = Light_Control_Out[5]
+        Self.Lights[62] = Light_Control_Out[6]
+        Self.Lights[61] = Light_Control_Out[7]
+        Self.Lights[75] = Light_Control_Out[8]
+        Self.Lights[100] = Light_Control_Out[9]
+        Self.Lights[99] = Light_Control_Out[10]
+        Self.Lights[85] = Light_Control_Out[11]
         Self.Failure = Track_Failure_Out  # Reset failures (Adjust logic if needed)
-
         # Convert binary speed to integer
         Temp_Speed = [1] * 150
         Temp_Authority = [1] * 150
@@ -311,6 +364,10 @@ class DataGridUI:
 
         #Re-run the function to check for updates periodically
         Self.Root.after(500, Self.Update_UI)  #Check for updates every 500ms
+
+# Create a thread that will run the update_in_background function
+background_thread = threading.Thread(target=update_in_background, daemon=True)
+background_thread.start()
 
 #Start UI
 if __name__ == "__main__":

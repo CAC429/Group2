@@ -27,7 +27,7 @@ with open("PLC_OUTPUTS.txt", "r") as file:
             Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 #Initialize variables
-Light_Control = [1] * 150
+Light_Control = [0] * 12
 Actual_Switch_Position = Actual_Switch_Position_Out
 Suggested_Speed = [100] * 150
 Suggested_Authority = [100] * 150
@@ -35,20 +35,32 @@ Track_Failure = Track_Failure_Out
 Cross_Bar_Control = [0] * 2
 Temp_Occupancy = Occupancy_Out
 
-#Switch Control
+#Switch Control and Light Control
 if Occupancy_In[1] == 1 and Occupancy_In[2] == 1:
     Actual_Switch_Position[0] = 1
+    Light_Control[0] = 1
+    Light_Control[1] = 0
 elif Actual_Switch_Position[0] == 1 and (Occupancy_In[1] == 1 or Occupancy_In[0] == 1):
     Actual_Switch_Position[0] = 1
+    Light_Control[0] = 1
+    Light_Control[1] = 0
 else:
     Actual_Switch_Position[0] = 0
+    Light_Control[0] = 0
+    Light_Control[1] = 1
 
 if Occupancy_In[25] == 1 and Occupancy_In[26] == 1:
     Actual_Switch_Position[1] = 0
+    Light_Control[2] = 1
+    Light_Control[3] = 0
 elif Actual_Switch_Position[1] == 0 and (Occupancy_In[26] == 1 or Occupancy_In[27] == 1):
     Actual_Switch_Position[1] = 0
+    Light_Control[2] = 1
+    Light_Control[3] = 0
 else:
     Actual_Switch_Position[1] = 1
+    Light_Control[2] = 0
+    Light_Control[3] = 1
 
 #Cross Bar Control
 Cross_Bar_Control[0] = 1 if any(Occupancy_In[i] for i in [17, 18, 19]) else 0
@@ -161,13 +173,6 @@ if Track_Failure[26] == 1:
 if Track_Failure[25] == 1:
     Suggested_Speed[149] = "1111"
 
-#Light Control
-for Occupancy_Check in range(28):
-    if Occupancy_In[Occupancy_Check] or Suggested_Authority[Occupancy_Check] == 0:
-        Light_Control[Occupancy_Check] = 0
-    else:
-        Light_Control[Occupancy_Check] = 1
-
 # Read the file
 with open("PLC_OUTPUTS.txt", "r") as file:
     lines = file.readlines()  # Read all lines into a list
@@ -188,6 +193,8 @@ for line in lines:
         Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 for i in range(150):
+    if i > 3 and i < 12:
+        Light_Control[i] = Light_Control_Out[i]
     if i > 1 and i < 6:
         Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
     if i == 1:
@@ -196,7 +203,6 @@ for i in range(150):
         Suggested_Speed[i] = Suggested_Speed_Out[i]
         Suggested_Authority[i] = Suggested_Authority_Out[i]
         Track_Failure[i] = Track_Failure_Out[i]
-        Light_Control[i] = Light_Control_Out[i]
     if i <= 27:
         if Suggested_Speed[i] != 100:
             Suggested_Speed_Out[i] = Suggested_Speed[i]

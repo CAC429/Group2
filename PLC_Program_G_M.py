@@ -27,7 +27,7 @@ with open("PLC_OUTPUTS.txt", "r") as file:
             Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 #Initialize variables
-Light_Control = [1] * 150
+Light_Control = [0] * 12
 Actual_Switch_Position = Actual_Switch_Position_Out
 Suggested_Speed = [100] * 150
 Suggested_Authority = [100] * 150
@@ -36,8 +36,25 @@ Temp_Occupancy = Occupancy_Out
 
 #Switch Control
 Actual_Switch_Position[2] = 1
+Light_Control[4] = 1
+Light_Control[5] = 0
 
 Actual_Switch_Position[3] = 1
+Light_Control[6] = 1
+Light_Control[7] = 0
+
+if Occupancy_In[73] and Occupancy_In[74]:
+    Actual_Switch_Position[4] = 0
+    Light_Control[8] = 1
+    Light_Control[9] = 0
+elif Actual_Switch_Position[4] == 0 and (Occupancy_In[74] or Occupancy_In[75]):
+        Actual_Switch_Position[4] = 0
+        Light_Control[8] = 1
+        Light_Control[9] = 0
+else:
+    Actual_Switch_Position[4] = 1
+    Light_Control[8] = 0
+    Light_Control[9] = 1
 
 #Detects the failures that occur
 #General failure check for most cases
@@ -45,11 +62,9 @@ for i in range(28,76):
     if Track_Failure[i] != 1 and Occupancy_In[i] != 1:
 
         for Occupancy_Check in range(28,76):
-            #print(Temp_Occupancy[Occupancy_Check-1], Temp_Occupancy[Occupancy_Check+1], Occupancy_In[Occupancy_Check])
             if Occupancy_In[Occupancy_Check] == 1 and Temp_Occupancy[Occupancy_Check] == 1 and Track_Failure[Occupancy_Check] == 0:
                 Track_Failure[Occupancy_Check] = 0
             elif Temp_Occupancy[Occupancy_Check-1] == 0 and Temp_Occupancy[Occupancy_Check+1] == 0 and Occupancy_In[Occupancy_Check] == 1:
-                print("TEST")
                 Track_Failure[Occupancy_Check] = 1
             else:
                 Track_Failure[Occupancy_Check] = 0
@@ -78,13 +93,6 @@ if Track_Failure[28] == 1:
     Suggested_Speed[149] = "1010"
     Suggested_Speed[148] = "1111"
 
-#Light Control
-for Occupancy_Check in range (28,76):
-    if Occupancy_In[Occupancy_Check] or Suggested_Authority[Occupancy_Check] == 0:
-        Light_Control[Occupancy_Check] = 0
-    else:
-        Light_Control[Occupancy_Check] = 1
-
 # Read the file
 with open("PLC_OUTPUTS.txt", "r") as file:
     lines = file.readlines()  # Read all lines into a list
@@ -105,27 +113,26 @@ for line in lines:
         Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
 for i in range(150):
-    if (i != 2 and i != 3) and i < 6:
+    if i < 4 or (i > 9 and i < 12):
+        Light_Control[i] = Light_Control_Out[i]
+    if (i != 2 and i != 3 and i != 4) and i < 6:
         Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
     if i > 75 or i < 28:
         Suggested_Speed[i] = Suggested_Speed_Out[i]
         Suggested_Authority[i] = Suggested_Authority_Out[i]
         Track_Failure[i] = Track_Failure_Out[i]
-        Light_Control[i] = Light_Control_Out[i]
     if i <= 75 and i >= 28:
         if Suggested_Speed[i] != 100:
             Suggested_Speed_Out[i] = Suggested_Speed[i]
         if Suggested_Authority[i] != 100:
             Suggested_Authority_Out[i] = Suggested_Authority[i]
-
+            
 # Modify the lines
 for i, line in enumerate(lines):
     if line.startswith("Suggested_Speed="):
         lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_Out))}\n"
     elif line.startswith("Suggested_Authority="):
         lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_Out))}\n"
-    elif line.startswith("Occupancy="):
-        lines[i] = f"Occupancy={','.join(map(str, Occupancy_In))}\n"
     elif line.startswith("Track_Failure="):
         lines[i] = f"Track_Failure={','.join(map(str, Track_Failure))}\n"
     elif line.startswith("Light_Control="):
