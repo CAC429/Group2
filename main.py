@@ -10,6 +10,8 @@ from system_timer import system_timer
 import global_variables
 import pandas as pd
 import os
+import fileinput
+import ast
 
 class main(QWidget):
     #accept parent parameter (CTC_base)
@@ -85,7 +87,7 @@ class main(QWidget):
 
         #throughput
         throughput = 0
-        throughput_label = QLabel(f'Throughput: {throughput} tickets/hr')
+        self.throughput_label = QLabel(f'Throughput: {throughput} tickets/hr')
 
         #set system speed
         #options: 1x 2x, 4x, 8x, 10x, 20x, 25x, 40x, 50x
@@ -132,7 +134,7 @@ class main(QWidget):
         auto_and_man.addLayout(r_layout)
         full_layout.addLayout(auto_and_man)
         full_layout.addLayout(time_date)
-        full_layout.addWidget(throughput_label)
+        full_layout.addWidget(self.throughput_label)
         full_layout.addWidget(sys_speed_txt)
         full_layout.addWidget(self.sys_speed_slider)
 
@@ -185,3 +187,20 @@ class main(QWidget):
     def update_system_timer(self):
         self.time_txt.setText(f'Current time: {str(global_variables.current_time)[11:19]}')
         system_timer()
+
+        ###
+        #UPDATE THROUGHPUT EVERY SECOND
+        ###
+        file_name = 'occupancy_data.txt'
+        tickets_hours = 0
+
+        #read from train controller output file
+        for line in fileinput.input(file_name):
+            if line.startswith('Tickets Sold:'):
+                tickets = line[13:]
+                tickets = ast.literal_eval(tickets)
+        for i in tickets:
+            #check if time stamps are within the last hour
+            if int(str(i[1])[:2]+str(i[1])[3:]) <= int(str(global_variables.current_time)[11:13]+str(global_variables.current_time)[14:16]) and int(str(i[1])[:2]+str(i[1])[3:]) >= int(str(global_variables.current_time)[11:13]+str(global_variables.current_time)[14:16])-100:
+                tickets_hours += i[0]
+        self.throughput_label.setText(f'{tickets_hours} tickets per hours')
