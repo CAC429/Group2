@@ -94,7 +94,7 @@ if Track_Failure[28] == 1:
     Suggested_Speed[148] = "1111"
 
 Find_Occupancy = 0
-for i in range(28,56):
+for i in range(28,75):
     if Occupancy_In[i] == 1:
         Find_Occupancy = 1
 if Find_Occupancy > 0:
