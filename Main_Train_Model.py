@@ -7,14 +7,18 @@ import random
 from tkinter import messagebox
 
 class Train_Model:
-    def __init__(self, root, Power=50000, Passenger_Number=150, Cabin_Temp=73, 
+    def __init__(self, root, Power=10000, Passenger_Number=150, Cabin_Temp=73, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon=0, Suggested_Speed_Authority=1000):
-        # Initialize train parameters with default values
+        # Initialize all attributes first
+        self.emergency_brake_active = False  # Initialize before it's used
+        self.station_status = 0
+        
+        # Then initialize other parameters
         self.Power = Power
         self.Passenger_Number = Passenger_Number
-        self._cabin_temp = Cabin_Temp  # Private variable for actual temperature
-        self.target_temp = Cabin_Temp  # Target temperature
+        self._cabin_temp = Cabin_Temp
+        self.target_temp = Cabin_Temp
         self.Right_Door = Right_Door
         self.Left_Door = Left_Door
         self.Exterior_Lights = Exterior_Lights
@@ -23,7 +27,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(0.001, 40900, 20, 1000, 4)
+        self.Train_Ca = Train_Calc(0.001, 40900, 20, 1000, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
@@ -45,28 +49,21 @@ class Train_Model:
     @Cabin_Temp.setter
     def Cabin_Temp(self, value):
         """Set a new target temperature"""
-        if 60 <= value <= 85:  # Keep temperature within reasonable bounds
+        if 60 <= value <= 85:
             self.target_temp = value
-            # Update the display immediately
             self.update_temp_display()
         
     def initialize_ui(self):
-        # Initialize the main window
         self.root.title('Train Model UI')
-
-        # Create frames for different sections
         self.create_frames()
         self.create_train_specs()
         self.create_calculation_display()
         self.create_component_display()
         self.create_failure_section()
         self.create_emergency_brake()
-        
-        # Start the update loop
         self.update_all_displays()
         
     def create_frames(self):
-        # Create frames for different sections
         self.Calc_Frame = tk.LabelFrame(self.root, text="Train Calculations", padx=10, pady=10)
         self.Calc_Frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
@@ -83,7 +80,6 @@ class Train_Model:
         self.Spec_Frame.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
         
     def create_train_specs(self):
-        # Train Specs
         tk.Label(self.Spec_Frame, text="Train Mass is 90169.07 pounds (40.9 tons)").grid(row=0, column=0, sticky="w")
         tk.Label(self.Spec_Frame, text="Train Length is 105.6 ft (32.2 m)").grid(row=1, column=0, sticky="w")
         tk.Label(self.Spec_Frame, text="Train Width is 2.65 ft (8.69 m)").grid(row=2, column=0, sticky="w")
@@ -91,7 +87,6 @@ class Train_Model:
         tk.Label(self.Spec_Frame, text="Maximum of 222 passengers").grid(row=4, column=0, sticky="w")
         
     def create_calculation_display(self):
-        # Labels to display calculation values
         self.Speed_Label = tk.Label(self.Calc_Frame, text="Actual Speed: N/A")
         self.Speed_Label.grid(row=0, column=0, columnspan=2, sticky="w")
 
@@ -114,7 +109,6 @@ class Train_Model:
         self.Passenger_Label.grid(row=4, column=0, columnspan=2, sticky="w")
         
     def create_component_display(self):
-        # Labels to display component values
         self.Cabin_Temp_Display = tk.Label(self.Comp_Frame, text=f"Cabin Temperature: {self._cabin_temp:.1f} °F")
         self.Cabin_Temp_Display.grid(row=0, column=0, columnspan=2, sticky="w")
 
@@ -131,7 +125,6 @@ class Train_Model:
         self.Failure_Status_Label = tk.Label(self.Fail_Frame, text="Failure Status: All systems operational")
         self.Failure_Status_Label.grid(row=0, column=0, columnspan=2, sticky="w")
 
-        # Failure simulation buttons
         tk.Button(self.Fail_Frame, text='Simulate Engine Failure', bg='orange', 
                  command=self.simulate_engine_failure).grid(row=1, column=0, pady=5)
         tk.Button(self.Fail_Frame, text='Simulate Signal Pickup Failure', bg='orange', 
@@ -154,43 +147,46 @@ class Train_Model:
         self.Emergency_Brake_Button.grid(row=3, column=0, columnspan=3, pady=10)
         
     def update_temp_display(self):
-        """Update the temperature display label"""
         self.Cabin_Temp_Display.config(text=f"Cabin Temperature: {self._cabin_temp:.1f} °F")
     
     def adjust_temperature(self):
-        """Gradually adjust temperature towards target"""
-        if abs(self._cabin_temp - self.target_temp) > 0.05:  # If not close enough to target
-            # Calculate direction of change (0.1°F per 0.5 seconds)
+        if abs(self._cabin_temp - self.target_temp) > 0.05:
             change = 0.1 if self.target_temp > self._cabin_temp else -0.1
             self._cabin_temp += change
-            
-            # Update the actual temperature in the train component
             self.Train_C.Set_Cabin_Temp(self._cabin_temp)
-            
-            # Update the display
             self.update_temp_display()
         
     def update_all_displays(self):
-        """Update all UI elements with current values"""
-        # Update calculations
-        actual_speed = self.Train_Ca.Actual_Speed_Calc(self.Power, self.Passenger_Number)
-        actual_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
-        acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+        # Skip physics updates if emergency brake is active
+        if not self.emergency_brake_active:
+            # Get current values
+            current_speed = self.Train_Ca.Actual_Speed
+            current_authority = self.Train_Ca.Actual_Authority
+            
+            # Calculate new values
+            acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+            new_speed = current_speed + acceleration * self.Train_Ca.Dt
+            new_authority = current_authority - (new_speed * self.Train_Ca.Dt)
+            
+            # Update model state
+            self.Train_Ca.Actual_Speed = max(0, new_speed)
+            self.Train_Ca.Actual_Authority = max(0, new_authority)
+        
+        # Update UI
+        self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
+        self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
+        self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph^2")
+        
+        # Update other displays
         elevation = self.Train_Ca.Get_Elevation()
         grade = self.Train_Ca.Grade_Calc(self.Power, self.Passenger_Number)
-        
-        self.Speed_Label.config(text=f"Actual Speed: {actual_speed:.2f} mph")
-        self.Authority_Label.config(text=f"Actual Authority: {actual_authority:.2f} ft")
-        self.Acceleration_Label.config(text=f"Acceleration: {acceleration:.2f} mph^2")
         self.Elevation_Label.config(text=f"Elevation: {elevation:.2f} ft")
         self.Grade_Label.config(text=f"Grade: {grade:.2f}%")
         self.Power_Label.config(text=f"Power: {self.Power:.2f} W")
         self.Passenger_Label.config(text=f"Number of Passengers: {self.Passenger_Number} Passengers")
         
-        # Adjust temperature gradually
         self.adjust_temperature()
         
-        # Update components
         ext_lights = "ON" if self.Exterior_Lights else "OFF"
         int_lights = "ON" if self.Interior_Lights else "OFF"
         self.Lights_Status_Label.config(text=f"Exterior Lights: {ext_lights}, Interior Lights: {int_lights}")
@@ -199,12 +195,11 @@ class Train_Model:
         left_door = "OPEN" if self.Left_Door else "CLOSED"
         self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
         
-        # Update reference objects
         self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon} bits\nSuggested Speed and Authority: {self.Suggested_Speed_Authority} bits")
         
-        # Schedule the next update
+        # Schedule next update
         self.root.after(500, self.update_all_displays)
-        
+
     def simulate_engine_failure(self):
         self.Train_F.Engine_Fail = True
         self.check_failure_status()
@@ -237,10 +232,10 @@ class Train_Model:
 
     def activate_emergency_brake(self):
         self.emergency_brake_active = True
-        self.station_status = 0  # Emergency brake means not properly stopped at station
+        self.station_status = 0
         
         # Get current speed from the calculation
-        current_speed = self.Train_Ca.Actual_Speed_Calc(self.Power, self.Passenger_Number)
+        current_speed = self.Train_Ca.Actual_Speed
         
         # Constant deceleration of 2.73 m/s² converted to mph² (~6.1 mph²)
         deceleration = -6.1
@@ -253,32 +248,30 @@ class Train_Model:
             if current_speed < 0:
                 current_speed = 0
             
+            # Update model state
+            self.Train_Ca.Actual_Speed = current_speed
+            
             # Update UI
             self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
             self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph^2")
             
             # Continue braking until stopped
             if current_speed > 0:
-                self.root.after(50, update_braking)  # Update every 50ms
+                self.root.after(50, update_braking)
             else:
-                # When fully stopped
                 self.Acceleration_Label.config(text="Acceleration: 0.00 mph^2")
                 self.Authority_Label.config(text="Actual Authority: 0.00 ft")
                 messagebox.showinfo("Emergency Brake", "Train has come to a complete stop!")
-                self.train_stopped()  # Update station status after complete stop
+                self.train_stopped()
         
-        # Start the braking process
         update_braking()
 
     def train_stopped(self):
-        # Get current speed from calculation
-        current_speed = self.Train_Ca.Actual_Speed_Calc(self.Power, self.Passenger_Number)
+        current_speed = self.Train_Ca.Actual_Speed
         
-        # Check if speed is 0 and emergency brake is not active
         if current_speed == 0 and not self.emergency_brake_active:
             self.station_status = 1
             
-            # Passenger handling - only when station_status becomes 1
             if self.Passenger_Number > 0:
                 passengers_leaving = random.randint(0, self.Passenger_Number)
                 self.Passenger_Number -= passengers_leaving
@@ -294,8 +287,7 @@ class Train_Model:
         return Delta_Pos
     
     def Get_Actual_Speed(self):
-        Actual_Speed = self.Train_Ca.Actual_Speed_Calc(self.Power, self.Passenger_Number)
-        return Actual_Speed
+        return self.Train_Ca.Actual_Speed
     
     def Get_Current_Passengers(self):
         return self.Passenger_Number
@@ -321,12 +313,11 @@ class Train_Model:
     def run(self):
         self.root.mainloop()
 
-# Create and run the train model
 if __name__ == "__main__":
     root = tk.Tk()
     train_model = Train_Model(
         root=root,
-        Power=50000, 
+        Power=10000, 
         Passenger_Number=150, 
         Cabin_Temp=73, 
         Right_Door=False, 
