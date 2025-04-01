@@ -5,7 +5,9 @@ from PyQt5.QtCore import *
 from main import *
 from routes_maintenance import *
 from speed_authority import *
-from occupancies import *
+
+from send_train import send_train
+import global_variables
 
 class routes_maintenance(QWidget):
     #accept parent parameter (CTC_base)
@@ -13,77 +15,123 @@ class routes_maintenance(QWidget):
         super().__init__(parent)
         self.parent_window = parent #store reference
 
-        #initialize necessary lists/variables (can only be changed upon user interaction)
-        #self. makes this accessible outside of __init__
-        self.checkbox_states = [False for i in range(15)]
-
         #allows you to use layout to store order of widgets
         layout = QVBoxLayout()
-        layout.setSpacing(5) #isn't working properly but whatever come back to this
 
-        #CHECK BOXES
-        checkboxes = [QCheckBox(f"Block {i+1}") for i in range(15)]
-        #use a list to and anonymous function to send state and index of any checked box to checkbox_checked
-        [cb.stateChanged.connect(lambda state, i=i+1: self.checkbox_checked(state, i)) for i, cb in enumerate(checkboxes)]
-        #adds every checkbox to the layout
-        [layout.addWidget(cb) for cb in checkboxes]
+        ###
+        #SENT TRAINS TIMER
+        ###
+        self.train_list = []
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.train_check)
+        self.timer.setInterval(global_variables.timer_interval)
+        self.timer.start()
 
+        ###
+        #DROPDOWN
+        ###
+        self.dropdown = QComboBox()
+        self.current_choice = QLabel('Selected: None')
+        self.dropdown.addItems([f'Block {i+1}' for i in range(150)])
+        #connect to function (passes a reference since there are NO parentheses;
+        #otherwise immediate execution would occur)
+        self.dropdown.currentIndexChanged.connect(self.update_block)
+
+        layout.addWidget(self.dropdown)
+        layout.addWidget(self.current_choice)
+
+        ###
         #MAINTENANCE BUTTON 
+        ###
         button = QPushButton('Send for maintenance')
-        #send clicked signal along with current checked box
-        #return i+1 for each iterable i if cb is checked
-        button.clicked.connect(lambda: self.the_button_was_clicked(next((i+1 for i, cb in enumerate(checkboxes) if cb.isChecked()), -1)))
+        button.setFixedWidth(250)
+        button.setStyleSheet('background-color: red; color: white;')
+        #store maintenance_pressed reference in lambda, so that it is not immediately
+        #called and returned faulty value, then when button is pressed lambda is called
+        button.pressed.connect(lambda: self.maintenance_pressed(self.dropdown.currentIndex()))
         layout.addWidget(button)
 
+        ###
+        #DEFAULT SWITCH POSITION
+        ###
+        self.switch_txt = QLabel('Current default switch position: UP')
+        self.switch_button = QPushButton('Change to DOWN')
+        self.switch_button.clicked.connect(self.switch_default_position)
+        self.switch_position = 0
+        layout.addWidget(self.switch_txt)
+        layout.addWidget(self.switch_button)
+
+        ###
         #TRAIN LISTS
+        ###
         #create table for trains
         self.table = QTableWidget()
-        self.table.setRowCount(1)
+        self.table.setRowCount(0)
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(['Train #', 'Start Time', 'Start Station', 'End Station'])
-        #self.table.setVerticalHeaderLabels(['', '', ''])
-
-        #dummy data for presenting
-        data = [
-            ['0', '0:00 PM', 'X', 'Y']
-        ]
-
-        for col in range(4):
-            self.table.setItem(0, col, QTableWidgetItem(data[0][col]))
+        self.table.setHorizontalHeaderLabels(['Train #', 'Start Time', 'Est. End Time', 'Status'])
 
         layout.addWidget(self.table)
 
         self.setLayout(layout)
 
-    def the_button_was_clicked(self, index):
+    def maintenance_pressed(self, index):
         pop_up = QMessageBox()
         #check to ensure block is not occupied
-        if self.parent_window.occupancies_tab.check_occupancy(index):
+        if global_variables.block_occupancies[index]:
             pop_up.setIcon(QMessageBox.Warning)
             pop_up.setWindowTitle('Failure')
-            pop_up.setText(f'Block {index} currently occupied!\nCan not send maintenance now')
+            pop_up.setText(f'Block {index+1} currently occupied!\nCan not send maintenance now')
             pop_up.setStandardButtons(QMessageBox.Ok)
+            pop_up.exec_()
         #box pop up to confirm maintenance sent
         else:
             pop_up.setIcon(QMessageBox.Information)
             pop_up.setWindowTitle('Maintenance Sent')
-            pop_up.setText(f'Maintenance Sent for Block {index}')
+            pop_up.setText(f'Maintenance Sent for Block {index+1}')
             pop_up.setStandardButtons(QMessageBox.Ok)
-        pop_up.exec_()
+            pop_up.exec_()
+            #update custom CTC occupancies to lower authority/speed surrounding maintenance
+            global_variables.current_maintenance.append(index)
+        #send_maintenance_update(index+1)
 
-    def checkbox_checked(self, state, index):
-        if state == 2:
-            self.checkbox_states[index] = True
-        else:
-            self.checkbox_states[index] = False
+    def update_block(self):
+        self.current_choice.setText(f'Selected: {self.dropdown.currentText()}')
 
     def update_scheduled_trains(self, stops, time):
-        print(stops, time)
-        new_row_position = self.table.rowCount()
+        #print(stops, time)
+        new_train_number = self.table.rowCount()+1
         self.table.insertRow(0)
+        self.table.setVerticalHeaderLabels(['' for i in range (new_train_number)])
+        data = [str(new_train_number), str(time), str("N/A"), 'WAITING']
+        #train number, time to send, 0 to flag it has not been sent
+        self.train_list.append([str(time), 0])
+        for col in range(4):
+            self.table.setItem(0, col, QTableWidgetItem(data[col]))
+    
+    def switch_default_position(self):
+        if self.switch_position == 0:
+            self.switch_txt.setText('Current default switch position: DOWN')
+            self.switch_button.setText('Change to UP')
+            self.switch_position = 1
+        else:
+            self.switch_txt.setText('Current default switch position: UP')
+            self.switch_button.setText('Change to DOWN')
+            self.switch_position = 0
 
-        #data
-        self.table.setItem(0, 0, QTableWidgetItem(str(new_row_position+1)))
-        self.table.setItem(0, 1, QTableWidgetItem(time))
-        self.table.setItem(0, 2, QTableWidgetItem('Yard / Station A'))
-        self.table.setItem(0, 3, QTableWidgetItem(stops)) #should eventually include all stops, but that algorithm hasn't been written yet
+    def train_check(self):
+        #testing
+        for i, train in enumerate(self.train_list):
+
+            print(str(train[0][:8]))
+            print(str(global_variables.current_time)[11:19])
+            print(str(train[0][:8]) == str(str(global_variables.current_time)[11:19]))
+            print(train[1] == 0)
+
+            #make sure times match up and train has never been sent
+            if str(train[0][:8]) == str(str(global_variables.current_time)[11:19]) and train[1] == 0:
+                #flag that the train has been sent
+                train[1] = 1
+                send_train(1)
+                self.table.setItem(i, 3, QTableWidgetItem('SENT'))
+            else:
+                send_train(0)

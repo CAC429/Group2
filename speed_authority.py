@@ -5,7 +5,11 @@ from PyQt5.QtCore import *
 from main import *
 from routes_maintenance import *
 from speed_authority import *
-from occupancies import *
+from get_block_occupancies import *
+from set_speed_authority import set_speed_authority
+
+import global_variables
+import math
 
 class speed_authority(QWidget):
     #accept parent parameter (CTC_base)
@@ -13,25 +17,80 @@ class speed_authority(QWidget):
         super().__init__(parent)
         self.parent_window = parent #store reference
 
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
         
-        #create table for speed/authority
-        self.table = QTableWidget()
-        self.table.setRowCount(3)
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(['Train #', 'Current Suggested\nSpeed (km/hr)', 'Current Suggest\nAuthority (km)', 'Last Reached Block'])
-        self.table.setVerticalHeaderLabels(['', '', ''])
+        ###
+        #SPEED/AUTHORITY TIMER
+        ###
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_speed_authority)
+        self.timer.setInterval(global_variables.timer_interval)
+        self.timer.start()
 
-        #dummy data for now
-        data = [
-            ['1', '64', '8', 'E'],
-            ['2', '72', '7', 'D'],
-            ['3', '49', '9', 'B']
-        ]
+        ###
+        #GRID
+        ###
+        #scroll area
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
 
-        for row in range(3):
-            for col in range(4):
-                self.table.setItem(row, col, QTableWidgetItem(data[row][col]))
+        #grid for speed/authority
+        container = QWidget()
+        statistics = QGridLayout(container)
+        statistics.setSpacing(40)
 
-        layout.addWidget(self.table)
+        self.blocks = 150
+        cols = 10
+        self.labels = [QLabel(f'Block {i+1}\nSpeed: {global_variables.static_speed[i]} km/hr\nAuthority: {global_variables.static_authority[i]} km') for i in range(self.blocks)]
+        for i in self.labels:
+            pass
+        for i in range(self.blocks):
+            statistics.addWidget(self.labels[i], i // cols, i % cols)
+
+        scroll_area.setWidget(container)
+        layout.addWidget(scroll_area)
         self.setLayout(layout)
+
+    ###
+    #RUNS EVERY x SECONDS
+    ###
+    def update_speed_authority(self):
+
+        #store speed, authority, occupancies
+        #sped and authority are copies so the static values aren't impacted
+        speed = global_variables.static_speed[:]
+        authority = global_variables.static_authority[:]
+        global_variables.block_occupancies = get_block_occupancies()
+
+        for i in range(len(global_variables.block_occupancies)):
+            self.labels[i].setStyleSheet('color: black')
+            #if block is occupied
+            if global_variables.block_occupancies[i] == 1:
+                self.labels[i].setStyleSheet('color: red')
+                authority[i] = 0
+                speed[i] = 0
+                #impact block before
+                if i >= 1:
+                    self.labels[i-1].setStyleSheet('color: orange')
+                    authority[i-1] = authority[i-1] / 2
+                    speed[i-1] = speed[i-1] / 2
+                #impact two blocks before
+                if i >= 2:
+                    #self.labels[i-2].setStyleSheet('color: yellow')
+                    speed[i-2] = speed[i-1] / 3
+                    authority[i-2] = authority[i-2] / 3
+    
+        #set global speed and authority to new values
+        global_variables.dynamic_speed = [math.floor(i) for i in speed]
+        global_variables.dynamic_authority = [math.floor(i) for i in authority]
+
+        [label.setText(f'Block {i+1}\nSpeed: {global_variables.dynamic_speed[i]} km/hr\nAuthority: {global_variables.dynamic_authority[i]} km') for i, label in enumerate(self.labels)]
+        #change text for blocks in maintenance
+        if global_variables.current_maintenance:
+            for i in global_variables.current_maintenance:
+                self.labels[i].setText(f'Block {i+1}\n !UNDER!\n!MAINTENANCE!')
+
+        #update wayside controller (binary authority)
+        bin_authority = [bin(i)[2:] for i in global_variables.dynamic_authority]
+
+        set_speed_authority(global_variables.dynamic_speed, bin_authority)
