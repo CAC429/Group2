@@ -1,3 +1,4 @@
+import os
 # Open and read the Input file
 Occupancy_In = [0] * 150
 Default_Switch_In = [0] * 6
@@ -237,3 +238,5 @@ for i, line in enumerate(lines):
 # Write the modified lines back to the file
 with open("PLC_OUTPUTS.txt", "w") as file:
     file.writelines(lines)  # Writes the updated content back to the file
+    file.flush()  # Ensure data is written
+    os.fsync(file.fileno())  # Finalize writing

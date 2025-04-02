@@ -1,3 +1,4 @@
+import os
 # Open and read the Input file
 Occupancy_In = [0] * 150
 Default_Switch_In = [0] * 6
@@ -152,16 +153,6 @@ if Track_Failure[147] == 1:
     Suggested_Speed[146] = "1010"
     Suggested_Speed[145] = "1111"
 
-Find_Occupancy = 0
-for i in range(100,150):
-    if Occupancy_In[i] == 1:
-        Find_Occupancy = 1
-if Find_Occupancy > 0:
-    Suggested_Speed[99] = "0"
-    Suggested_Speed[98] = "1010"
-    Suggested_Speed[97] = "1111"
-    Suggested_Authority[99] = "0"
-
 # Read the file
 with open("PLC_OUTPUTS.txt", "r") as file:
     lines = file.readlines()  # Read all lines into a list
@@ -180,6 +171,16 @@ for line in lines:
         Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
     elif line.startswith("Cross_Bar_Control="):
         Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+
+Find_Occupancy = 0
+for i in range(100,150):
+    if Occupancy_In[i] == 1:
+        Find_Occupancy = 1
+if Find_Occupancy > 0:
+    Suggested_Speed[99] = "0"
+    Suggested_Speed[98] = "1010"
+    Suggested_Speed[97] = "1111"
+    Suggested_Authority[99] = "0"
 
 for i in range(150):
     if i == 0:
@@ -210,3 +211,5 @@ for i, line in enumerate(lines):
 # Write the modified lines back to the file
 with open("PLC_OUTPUTS.txt", "w") as file:
     file.writelines(lines)  # Writes the updated content back to the file
+    file.flush()  # Ensure data is written
+    os.fsync(file.fileno())  # Finalize writing
