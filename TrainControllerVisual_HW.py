@@ -23,8 +23,12 @@ class power_controller:
 
     def compute_Pcmd(self, P_target, P_actual, service_brake, emergency_brake, current_speed, mass=50000):
         if emergency_brake:
-            deceleration = 2.73
-        elif service_brake:
+            print("Emergency brake active")
+            self.P_k_1 = 0
+            self.integral = 0
+            return 0
+
+        if service_brake:
             deceleration = 1.2
         else:
             deceleration = 0
@@ -32,12 +36,7 @@ class power_controller:
         braking_force = mass * deceleration
         power_reduction = braking_force / 1000
 
-        if emergency_brake:
-            self.P_k_1 = 0
-            self.integral = 0
-            return 0  
-
-        error = P_target - P_actual
+        error = P_target  - P_actual
         self.integral += error
         P_cmd = self.P_k_1 + (self.Kp * error) + (self.Ki * self.integral)
 
@@ -45,11 +44,12 @@ class power_controller:
             reduction_step = max(0, self.P_k_1 - (power_reduction * 0.35))
             P_cmd = max(0, reduction_step)
             self.integral = 0
-
+        
         P_cmd = max(0, min(P_cmd, self.P_max))
+        print(f"P_target: {P_target}, P_actual: {P_actual}, P_cmd: {P_cmd}")  # Debug print
+
         self.P_k_1 = P_cmd
         return P_cmd
-
 
 class train_controller_ui(tk.Tk):
     def __init__(self, controller, oled, csv_file):
@@ -58,7 +58,7 @@ class train_controller_ui(tk.Tk):
         self.oled = oled
         self.csv_file = csv_file
         self.title("Train Controller UI")
-        self.geometry("400x600")
+        self.geometry("400x700")
 
         self.is_automatic_mode = False
 
@@ -76,6 +76,9 @@ class train_controller_ui(tk.Tk):
         self.P_target = 50  
         self.P_actual = 0  
         self.current_speed = 0  
+        self.current_authority = 100
+        self.suggested_authority = 100
+        self.suggested_speed = 0
 
         self.create_widgets()
         self.update_power()
@@ -99,6 +102,21 @@ class train_controller_ui(tk.Tk):
 
         self.is_automatic_mode_button = tk.Button(self, text="Toggle Automatic Mode", command=self.toggle_automatic_mode)
         self.is_automatic_mode_button.pack(pady=10)
+
+        # Current Authority and Speed Labels
+        self.current_authority_label = tk.Label(self, text="Current Authority: 100", font=("Arial", 12))
+        self.current_authority_label.pack(pady=5)
+
+        self.current_speed_label = tk.Label(self, text="Current Speed: 0 km/h", font=("Arial", 12))
+        self.current_speed_label.pack(pady=5)
+
+        # Suggested Authority and Speed Labels (Read-only)
+        self.suggested_authority_label = tk.Label(self, text=f"Suggested Authority: {self.suggested_authority}", font=("Arial", 12))
+        self.suggested_authority_label.pack(pady=5)
+
+        self.suggested_speed_label = tk.Label(self, text=f"Suggested Speed: {self.suggested_speed} km/h", font=("Arial", 12))
+        self.suggested_speed_label.pack(pady=5)
+
         
 
         self.create_led_buttons()
@@ -172,12 +190,20 @@ class train_controller_ui(tk.Tk):
         messagebox.showinfo("Mode Changed", f"Switched to {mode} Mode")
         self.update_ui()
 
+
+
     def update_ui(self):
         brake_status = "ON" if self.leds["service_brake"].is_lit else "OFF"
         emergency_status = "ON" if self.leds["emergency_brake"].is_lit else "OFF"
         failure_status = "ON" if self.leds["failure"].is_lit else "OFF"
 
         self.power_label.config(text=f"Mode: {'Automatic' if self.is_automatic_mode else 'Manual'} | Brake: {brake_status} | Emergency: {emergency_status} | Failure: {failure_status}")
+
+        # Update the authority and speed labels
+        self.current_authority_label.config(text=f"Current Authority: {self.current_authority}")
+        self.current_speed_label.config(text=f"Current Speed: {round(self.current_speed, 2)} km/h")
+        self.suggested_authority_label.config(text=f"Suggested Authority: {self.suggested_authority}")
+        self.suggested_speed_label.config(text=f"Suggested Speed: {round(self.suggested_speed, 2)} km/h")
 
 
     def update_power(self):
@@ -193,7 +219,9 @@ class train_controller_ui(tk.Tk):
         self.P_actual = P_cmd
         self.update_oled(P_cmd)
 
+
         self.after(1000, self.update_power)
+
     
     def apply_automatic_mode(self):
         try:
@@ -221,8 +249,24 @@ class train_controller_ui(tk.Tk):
                             self.leds["ac"].on() if state == "on" else self.leds["ac"].off()
                         elif control_name == "failure":
                             self.leds["failure"].on() if state == "on" else self.leds["failure"].off()
+            
+            if self.leds["service_brake"].is_lit and self.leds["emergency_brake"].is_lit:
+                self.leds["service_brake"].off()
+                messagebox.showinfo("Info", "Service brake disabled because emergency brake is active")
+            
+            if self.leds["failure"].is_lit and not self.leds["emergency_brake"].is_lit:
+                self.leds["emergency_brake"].on()
+                messagebox.showinfo("Warning", "Failure detected! Emergency brake activated")
+            
+            if self.P_actual > 0:
+                if self.leds["left_door"].is_lit or self.leds["right_door"].is_lit:
+                    messagebox.showwarning("Warning", "Cannot open doors while power > 0, Failure triggered")
+                    self.leds["failure"].on()
+                    self.leds["emergency_brake"].on()
+                    messagebox.showwarning("Warning", "Failure detected! Emergency brake activated")
 
             self.update_ui()
+
         except FileNotFoundError:
             messagebox.showerror("Error", "CSV file not found.")
         except Exception as e:
