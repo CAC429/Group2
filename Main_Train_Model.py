@@ -10,14 +10,19 @@ from tkinter import messagebox
 class Train_Model:
     def __init__(self, root, Train_Number=1, Power=10000, Passenger_Number=150, Cabin_Temp=73, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
-                 Interior_Lights=True, Beacon=0, Suggested_Speed_Authority=1000):
-        # Initialize all attributes first
+                 Interior_Lights=True, Beacon=0, Suggested_Speed_Authority=1010101000,
+                 emergency_brake=0, service_brake=0):
+        
+        # Initialize all attributes
         self.emergency_brake_active = False
+        self.service_brake_active = False
+        self.emergency_brake = emergency_brake
+        self.service_brake = service_brake
         self.station_status = 0
         self.Train_Number = Train_Number
         self.cumulative_distance = 0
         
-        # Initialize logging file path
+        # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.txt"
         
         # Initialize parameters
@@ -41,6 +46,12 @@ class Train_Model:
         self.root = root
         self.initialize_log_file()
         self.initialize_ui()
+
+        # Activate brakes if specified
+        if self.emergency_brake == 1:
+            self.activate_emergency_brake()
+        elif self.service_brake == 1:
+            self.activate_service_brake()
 
     def initialize_log_file(self):
         with open(self.log_file, 'w') as f:
@@ -191,8 +202,16 @@ class Train_Model:
             self.update_temp_display()
         
     def update_all_displays(self):
-        # Only update speed if not in emergency brake and no engine failure
-        if not self.emergency_brake_active and not self.Train_F.Engine_Fail:
+        # Check brake status from external signals
+        if self.emergency_brake == 1 and not self.emergency_brake_active:
+            self.activate_emergency_brake()
+        elif self.service_brake == 1 and not self.service_brake_active:
+            self.activate_service_brake()
+            
+        # Only update speed if not in any brake mode and no engine failure
+        if (not self.emergency_brake_active and 
+            not self.service_brake_active and 
+            not self.Train_F.Engine_Fail):
             current_speed = self.Train_Ca.Actual_Speed
             current_authority = self.Train_Ca.Actual_Authority
             
@@ -203,14 +222,13 @@ class Train_Model:
             self.Train_Ca.Actual_Speed = max(0, new_speed)
             self.Train_Ca.Actual_Authority = max(0, new_authority)
         elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
-            # During engine failure, maintain current speed (acceleration = 0)
             self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
         
         self.Get_Delta_Pos()
         
         self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
         self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
-        if not self.Train_F.Engine_Fail:
+        if not self.Train_F.Engine_Fail and not self.service_brake_active:
             self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
         
         elevation = self.Train_Ca.Get_Elevation()
@@ -235,10 +253,36 @@ class Train_Model:
         self.write_outputs_to_file()
         self.root.after(100, self.update_all_displays)
 
+    def activate_service_brake(self):
+        """Slows down the train at 1.2 m/s² (converted to mph/s)"""
+        if not self.emergency_brake_active:
+            self.service_brake_active = True
+            initial_speed = self.Train_Ca.Actual_Speed
+            deceleration = -1.2 * 2.23694  # Convert m/s² to mph/s
+            start_time = time.time()
+            
+            def update_braking():
+                elapsed = time.time() - start_time
+                current_speed = max(0, initial_speed + deceleration * elapsed)
+                
+                self.Train_Ca.Actual_Speed = current_speed
+                self.Get_Delta_Pos()
+                
+                self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
+                self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s (Service Brake)")
+                
+                if current_speed > 0:
+                    self.root.after(50, update_braking)
+                else:
+                    self.service_brake_active = False
+                    self.station_status = 1
+                    self.train_stopped()
+            
+            update_braking()
+
     def simulate_engine_failure(self):
         self.Train_F.Engine_Fail = True
         self.check_failure_status()
-        # When engine fails, speed becomes locked (no acceleration)
         messagebox.showwarning("Engine Failure", 
                              "Engine has failed! Speed is now locked.\n"
                              "Pull emergency brake or reset failures to stop.")
@@ -256,7 +300,6 @@ class Train_Model:
         self.Train_F.Reset()
         self.check_failure_status()
         if was_engine_failure:
-            # When resetting from engine failure, allow normal deceleration
             self.Train_Ca.Actual_Speed = max(0, self.Train_Ca.Actual_Speed)
 
     def check_failure_status(self):
@@ -294,7 +337,7 @@ class Train_Model:
             if current_speed > 0:
                 self.root.after(50, update_braking)
             else:
-                self.emergency_brake_active = False
+                self.emergency_brake_active = True
                 self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
                 self.Authority_Label.config(text="Actual Authority: 0.00 ft")
                 messagebox.showinfo("Emergency Brake", f"Train stopped in {elapsed:.1f} seconds")
@@ -368,6 +411,8 @@ if __name__ == "__main__":
         Exterior_Lights=True, 
         Interior_Lights=True, 
         Beacon=0,
-        Suggested_Speed_Authority=1000
+        Suggested_Speed_Authority=1010101000,
+        emergency_brake=0,
+        service_brake=0
     )
     train_model.run()
