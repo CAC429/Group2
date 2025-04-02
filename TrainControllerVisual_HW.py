@@ -73,7 +73,7 @@ class train_controller_ui(tk.Tk):
             "failure": LED(17)
         }
 
-        self.P_target = 50  
+        self.P_target =50  
         self.P_actual = 0  
         self.current_speed = 0  
         self.current_authority = 100
@@ -294,6 +294,6 @@ def setup_oled():
 
 if __name__ == "__main__":
     oled = setup_oled()
-    controller = power_controller(P_max=100)
+    controller = power_controller(P_max=120)
     app = train_controller_ui(controller, oled, 'TestBench.csv')
     app.mainloop()
