@@ -119,7 +119,7 @@ def update_in_background():
                 elif Train_Bauds[2][0] == "0":  # Should only execute if the first if does not
                     Train_Bauds[2] = "1" + str(bin(Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1])[2:])
                     break
-        for i in range(100, 150):
+        for i in range(100, 149):
             if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
                 (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
                 if Train_Bauds[3][0] == "1":
