@@ -91,6 +91,4 @@ class speed_authority(QWidget):
                 self.labels[i].setText(f'Block {i+1}\n !UNDER!\n!MAINTENANCE!')
 
         #update wayside controller (binary authority)
-        bin_authority = [bin(i)[2:] for i in global_variables.dynamic_authority]
-
-        set_speed_authority(global_variables.dynamic_speed, bin_authority)
+        set_speed_authority(global_variables.dynamic_speed, global_variables.dynamic_authority)
