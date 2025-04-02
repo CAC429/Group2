@@ -72,13 +72,13 @@ class speed_authority(QWidget):
                 #impact block before
                 if i >= 1:
                     self.labels[i-1].setStyleSheet('color: orange')
-                    authority[i-1] = authority[i-1] / 2
-                    speed[i-1] = speed[i-1] / 2
+                    authority[i-1] = 0
+                    speed[i-1] = speed[i-1] / 4
                 #impact two blocks before
                 if i >= 2:
                     #self.labels[i-2].setStyleSheet('color: yellow')
-                    speed[i-2] = speed[i-1] / 3
-                    authority[i-2] = authority[i-2] / 3
+                    speed[i-2] = speed[i-2] / 2
+                    authority[i-2] = authority[i-2] / 2
     
         #set global speed and authority to new values
         global_variables.dynamic_speed = [math.floor(i) for i in speed]
