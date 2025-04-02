@@ -297,7 +297,6 @@ class DataGridUI:
                             Train_Bauds[3] = "1" + str(bin(Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1])[2:])
                     break
 
-        print(Train_Bauds)
         # Open and read the Output file
         with open("PLC_INPUTS.txt", "r") as file:
             lines = file.readlines()  # Read all lines into a list
