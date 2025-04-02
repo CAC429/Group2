@@ -7,6 +7,7 @@ import busio
 import adafruit_ssd1306
 import csv
 from PIL import Image, ImageDraw, ImageFont
+import os
 
 
 class power_controller:
@@ -52,11 +53,11 @@ class power_controller:
         return P_cmd
 
 class train_controller_ui(tk.Tk):
-    def __init__(self, controller, oled, csv_file):
+    def __init__(self, controller, oled, text_file):
         super().__init__()
         self.controller = controller
         self.oled = oled
-        self.csv_file = csv_file
+        self.text_file = text_file
         self.title("Train Controller UI")
         self.geometry("400x700")
 
@@ -73,15 +74,19 @@ class train_controller_ui(tk.Tk):
             "failure": LED(17)
         }
 
-        self.P_target =50  
+        self.P_target = 50  
         self.P_actual = 0  
         self.current_speed = 0  
         self.current_authority = 100
         self.suggested_authority = 100
         self.suggested_speed = 0
 
+        self.last_modified_time = None
+
         self.create_widgets()
         self.update_power()
+
+        self.last_modified_time = None  # Track the last modified time of the file
 
     def create_widgets(self):
         self.power_label = tk.Label(self, text="Current Power: 0 kW", font=("Arial", 16))
@@ -107,17 +112,15 @@ class train_controller_ui(tk.Tk):
         self.current_authority_label = tk.Label(self, text="Current Authority: 100", font=("Arial", 12))
         self.current_authority_label.pack(pady=5)
 
-        self.current_speed_label = tk.Label(self, text="Current Speed: 0 km/h", font=("Arial", 12))
+        self.current_speed_label = tk.Label(self, text="Current Speed: 0 mph", font=("Arial", 12))
         self.current_speed_label.pack(pady=5)
 
         # Suggested Authority and Speed Labels (Read-only)
         self.suggested_authority_label = tk.Label(self, text=f"Suggested Authority: {self.suggested_authority}", font=("Arial", 12))
         self.suggested_authority_label.pack(pady=5)
 
-        self.suggested_speed_label = tk.Label(self, text=f"Suggested Speed: {self.suggested_speed} km/h", font=("Arial", 12))
+        self.suggested_speed_label = tk.Label(self, text=f"Suggested Speed: {self.suggested_speed} mph", font=("Arial", 12))
         self.suggested_speed_label.pack(pady=5)
-
-        
 
         self.create_led_buttons()
 
@@ -190,8 +193,6 @@ class train_controller_ui(tk.Tk):
         messagebox.showinfo("Mode Changed", f"Switched to {mode} Mode")
         self.update_ui()
 
-
-
     def update_ui(self):
         brake_status = "ON" if self.leds["service_brake"].is_lit else "OFF"
         emergency_status = "ON" if self.leds["emergency_brake"].is_lit else "OFF"
@@ -201,9 +202,9 @@ class train_controller_ui(tk.Tk):
 
         # Update the authority and speed labels
         self.current_authority_label.config(text=f"Current Authority: {self.current_authority}")
-        self.current_speed_label.config(text=f"Current Speed: {round(self.current_speed, 2)} km/h")
+        self.current_speed_label.config(text=f"Current Speed: {round(self.current_speed, 2)} mph")
         self.suggested_authority_label.config(text=f"Suggested Authority: {self.suggested_authority}")
-        self.suggested_speed_label.config(text=f"Suggested Speed: {round(self.suggested_speed, 2)} km/h")
+        self.suggested_speed_label.config(text=f"Suggested Speed: {round(self.suggested_speed, 2)} mph")
 
 
     def update_power(self):
@@ -219,58 +220,49 @@ class train_controller_ui(tk.Tk):
         self.P_actual = P_cmd
         self.update_oled(P_cmd)
 
+        if self.suggested_authority == 0:
+            if not self.leds["failure"].is_lit:
+                self.leds["failure"].on()
+                messagebox.showinfo("Failure", "Suggested authority is 0, halt")
+                self.leds["emergency_brake"].on()
+                messagebox.showinfo("Emergency Brake", "Activate ebrake")
 
         self.after(1000, self.update_power)
+        self.check_for_file_changes()
 
     
     def apply_automatic_mode(self):
         try:
-            with open(self.csv_file, mode='r') as file:
+            with open(self.text_file, mode='r') as file:  # Reading from a CSV file
                 csv_reader = csv.reader(file)
                 for row in csv_reader:
-                    if len(row) == 2:
-                        control_name, state = row
-                        state = state.strip().lower()
-
-                        # Handle control state toggling based on CSV data
-                        if control_name == "service_brakes":
-                            self.leds["service_brake"].on() if state == "on" else self.leds["service_brake"].off()
-                        elif control_name == "emergency_brakes":
-                            self.leds["emergency_brake"].on() if state == "on" else self.leds["emergency_brake"].off()
-                        elif control_name == "left_door":
-                            self.leds["left_door"].on() if state == "on" else self.leds["left_door"].off()
-                        elif control_name == "right_door":
-                            self.leds["right_door"].on() if state == "on" else self.leds["right_door"].off()
-                        elif control_name == "outside_lights":
-                            self.leds["out_light"].on() if state == "on" else self.leds["out_light"].off()
-                        elif control_name == "cabin_lights":
-                            self.leds["cabin_light"].on() if state == "on" else self.leds["cabin_light"].off()
-                        elif control_name == "ac":
-                            self.leds["ac"].on() if state == "on" else self.leds["ac"].off()
-                        elif control_name == "failure":
-                            self.leds["failure"].on() if state == "on" else self.leds["failure"].off()
-            
-            if self.leds["service_brake"].is_lit and self.leds["emergency_brake"].is_lit:
-                self.leds["service_brake"].off()
-                messagebox.showinfo("Info", "Service brake disabled because emergency brake is active")
-            
-            if self.leds["failure"].is_lit and not self.leds["emergency_brake"].is_lit:
-                self.leds["emergency_brake"].on()
-                messagebox.showinfo("Warning", "Failure detected! Emergency brake activated")
-            
-            if self.P_actual > 0:
-                if self.leds["left_door"].is_lit or self.leds["right_door"].is_lit:
-                    messagebox.showwarning("Warning", "Cannot open doors while power > 0, Failure triggered")
-                    self.leds["failure"].on()
-                    self.leds["emergency_brake"].on()
-                    messagebox.showwarning("Warning", "Failure detected! Emergency brake activated")
-
-            self.update_ui()
+                    if row:  # Ensure the row is not empty
+                        binary_string = row[0].strip()  # Read the binary string
+                        self.read_binary_string(binary_string)
 
         except FileNotFoundError:
             messagebox.showerror("Error", "CSV file not found.")
         except Exception as e:
-            messagebox.showerror("Error", f"Error reading CSV: {str(e)}")
+            messagebox.showerror("Error", f"Error reading CSV file: {str(e)}")
+
+    def read_binary_string(self, binary_string):
+        # Determine suggested speed or authority
+        if binary_string[0] == '0':  # Suggested speed
+            self.suggested_speed = int(binary_string[1:], 2) * 0.0625  # Convert to mph
+        elif binary_string[0] == '1':  # Suggested authority
+            self.suggested_authority = int(binary_string[1:], 2)
+
+        # Update the UI with these values
+        self.update_ui()
+
+    def check_for_file_changes(self):
+        # Get the current modification time of the file
+        current_modified_time = os.path.getmtime(self.text_file)
+
+        if self.last_modified_time is None or current_modified_time != self.last_modified_time:
+            self.last_modified_time = current_modified_time
+            self.apply_automatic_mode()
+
 
     def update_oled(self, P_cmd):
         image = Image.new("1", (self.oled.width, self.oled.height))
@@ -295,5 +287,5 @@ def setup_oled():
 if __name__ == "__main__":
     oled = setup_oled()
     controller = power_controller(P_max=120)
-    app = train_controller_ui(controller, oled, 'TestBench.csv')
+    app = train_controller_ui(controller, oled, 'TestBench.txt')  # Using the text file now
     app.mainloop()
