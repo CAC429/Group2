@@ -1,16 +1,8 @@
-Utility, on/off
-Authority,30
-Current_speed,70
-Service_brakes,on
-Emergency_brakes,on
-Left_door,on
-Right_door,off
-Outside_lights,on
-Cabin_lights,on
-Air_conditioning,on
-Cabin_temp,50
-Problem,off
-Kp,0.5
-Ki,0.1
-P_target,80
-P_actual,50
+service_brakes,off
+emergency_brakes,off
+left_door,off
+right_door,off
+outside_lights,off
+cabin_lights,off
+ac,off
+failure,off
