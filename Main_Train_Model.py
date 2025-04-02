@@ -4,17 +4,23 @@ from Train_Component import Train_Comp
 from Reference_Object import Reference_Objects
 import tkinter as tk
 import random
+import time
 from tkinter import messagebox
 
 class Train_Model:
-    def __init__(self, root, Power=10000, Passenger_Number=150, Cabin_Temp=73, 
+    def __init__(self, root, Train_Number=1, Power=10000, Passenger_Number=150, Cabin_Temp=73, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon=0, Suggested_Speed_Authority=1000):
         # Initialize all attributes first
-        self.emergency_brake_active = False  # Initialize before it's used
+        self.emergency_brake_active = False
         self.station_status = 0
+        self.Train_Number = Train_Number
+        self.cumulative_distance = 0
         
-        # Then initialize other parameters
+        # Initialize logging file path
+        self.log_file = f"train{Train_Number}_outputs.txt"
+        
+        # Initialize parameters
         self.Power = Power
         self.Passenger_Number = Passenger_Number
         self._cabin_temp = Cabin_Temp
@@ -27,20 +33,49 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(0.001, 40900, 20, 1000, 0)
+        self.Train_Ca = Train_Calc(0.1, 40900, 20, 1000, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
         
-        # Store the root window
         self.root = root
-        
-        # Initialize UI
+        self.initialize_log_file()
         self.initialize_ui()
-        
-        # State variables
-        self.emergency_brake_active = False
-        self.station_status = 0
+
+    def initialize_log_file(self):
+        with open(self.log_file, 'w') as f:
+            f.write("Passengers: \n")
+            f.write("Station_Status: \n")
+            f.write("Actual_Speed: \n")
+            f.write("Delta_Position: \n")
+            f.write("Emergency_Brake: \n")
+            f.write("Brake_Fail: \n")
+            f.write("Signal_Fail: \n")
+            f.write("Engine_Fail: \n")
+            f.write("Beacon: \n")
+            f.write("Suggested_Speed_Authority: \n")
+
+    def write_outputs_to_file(self):
+        try:
+            data_entries = {
+                "Passengers": str(self.Passenger_Number),
+                "Station_Status": str(self.station_status),
+                "Actual_Speed": str(self.Get_Actual_Speed()),
+                "Actual_Authority": str(self.Get_Actual_Authority()),
+                "Delta_Position": str(self.Get_Delta_Pos()),
+                "Emergency_Brake": str(int(self.Get_Emergency_Brake_Status())),
+                "Brake_Fail": str(int(self.Get_Brake_Fail_Status())),
+                "Signal_Fail": str(int(self.Get_Signal_Pickup_Fail_Status())),
+                "Engine_Fail": str(int(self.Get_Train_Engine_Fail_Status())),
+                "Beacon": str(self.Get_Beacon()),
+                "Suggested_Speed_Authority": str(self.Get_Suggested_Speed_Authority()),
+            }
+            
+            with open(self.log_file, 'w') as f:
+                for key, value in data_entries.items():
+                    f.write(f"{key}: {value}\n")
+        except Exception as e:
+            print(f"Error writing to log file: {e}")
 
     @property
     def Cabin_Temp(self):
@@ -48,7 +83,6 @@ class Train_Model:
     
     @Cabin_Temp.setter
     def Cabin_Temp(self, value):
-        """Set a new target temperature"""
         if 60 <= value <= 85:
             self.target_temp = value
             self.update_temp_display()
@@ -157,27 +191,28 @@ class Train_Model:
             self.update_temp_display()
         
     def update_all_displays(self):
-        # Skip physics updates if emergency brake is active
-        if not self.emergency_brake_active:
-            # Get current values
+        # Only update speed if not in emergency brake and no engine failure
+        if not self.emergency_brake_active and not self.Train_F.Engine_Fail:
             current_speed = self.Train_Ca.Actual_Speed
             current_authority = self.Train_Ca.Actual_Authority
             
-            # Calculate new values
             acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
             new_speed = current_speed + acceleration * self.Train_Ca.Dt
-            new_authority = current_authority - (new_speed * self.Train_Ca.Dt)
+            new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
             
-            # Update model state
             self.Train_Ca.Actual_Speed = max(0, new_speed)
             self.Train_Ca.Actual_Authority = max(0, new_authority)
+        elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
+            # During engine failure, maintain current speed (acceleration = 0)
+            self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
         
-        # Update UI
+        self.Get_Delta_Pos()
+        
         self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
         self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
-        self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph^2")
+        if not self.Train_F.Engine_Fail:
+            self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
         
-        # Update other displays
         elevation = self.Train_Ca.Get_Elevation()
         grade = self.Train_Ca.Grade_Calc(self.Power, self.Passenger_Number)
         self.Elevation_Label.config(text=f"Elevation: {elevation:.2f} ft")
@@ -197,12 +232,16 @@ class Train_Model:
         
         self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon} bits\nSuggested Speed and Authority: {self.Suggested_Speed_Authority} bits")
         
-        # Schedule next update
-        self.root.after(500, self.update_all_displays)
+        self.write_outputs_to_file()
+        self.root.after(100, self.update_all_displays)
 
     def simulate_engine_failure(self):
         self.Train_F.Engine_Fail = True
         self.check_failure_status()
+        # When engine fails, speed becomes locked (no acceleration)
+        messagebox.showwarning("Engine Failure", 
+                             "Engine has failed! Speed is now locked.\n"
+                             "Pull emergency brake or reset failures to stop.")
 
     def simulate_signal_failure(self):
         self.Train_F.Signal_Pickup_Fail = True
@@ -213,8 +252,12 @@ class Train_Model:
         self.check_failure_status()
 
     def reset_failures(self):
+        was_engine_failure = self.Train_F.Engine_Fail
         self.Train_F.Reset()
         self.check_failure_status()
+        if was_engine_failure:
+            # When resetting from engine failure, allow normal deceleration
+            self.Train_Ca.Actual_Speed = max(0, self.Train_Ca.Actual_Speed)
 
     def check_failure_status(self):
         Status = []
@@ -233,35 +276,28 @@ class Train_Model:
     def activate_emergency_brake(self):
         self.emergency_brake_active = True
         self.station_status = 0
-        
-        # Get current speed from the calculation
-        current_speed = self.Train_Ca.Actual_Speed
-        
-        # Constant deceleration of 2.73 m/s² converted to mph² (~6.1 mph²)
-        deceleration = -6.1
+        initial_speed = self.Train_Ca.Actual_Speed
+        deceleration = -6.1  # mph/s
+        start_time = time.time()
         
         def update_braking():
-            nonlocal current_speed
+            elapsed = time.time() - start_time
+            current_speed = max(0, initial_speed + deceleration * elapsed)
             
-            # Update speed
-            current_speed += deceleration * self.Train_Ca.Dt
-            if current_speed < 0:
-                current_speed = 0
-            
-            # Update model state
             self.Train_Ca.Actual_Speed = current_speed
+            self.Get_Delta_Pos()
             
-            # Update UI
             self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
-            self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph^2")
+            self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s")
+            self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
             
-            # Continue braking until stopped
             if current_speed > 0:
                 self.root.after(50, update_braking)
             else:
-                self.Acceleration_Label.config(text="Acceleration: 0.00 mph^2")
+                self.emergency_brake_active = False
+                self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
                 self.Authority_Label.config(text="Actual Authority: 0.00 ft")
-                messagebox.showinfo("Emergency Brake", "Train has come to a complete stop!")
+                messagebox.showinfo("Emergency Brake", f"Train stopped in {elapsed:.1f} seconds")
                 self.train_stopped()
         
         update_braking()
@@ -283,11 +319,17 @@ class Train_Model:
             return self.station_status
         
     def Get_Delta_Pos(self):
-        Delta_Pos = self.Train_Ca.Delta_Position_Track_Model(self.Power, self.Passenger_Number)
-        return Delta_Pos
+        current_speed_mph = self.Train_Ca.Actual_Speed
+        current_speed_fps = current_speed_mph * 1.46667
+        delta = current_speed_fps * self.Train_Ca.Dt
+        self.cumulative_distance += max(0, delta)
+        return self.cumulative_distance
     
     def Get_Actual_Speed(self):
         return self.Train_Ca.Actual_Speed
+    
+    def Get_Actual_Authority(self):
+        return self.Train_Ca.Actual_Authority
     
     def Get_Current_Passengers(self):
         return self.Passenger_Number
@@ -317,6 +359,7 @@ if __name__ == "__main__":
     root = tk.Tk()
     train_model = Train_Model(
         root=root,
+        Train_Number=1,
         Power=10000, 
         Passenger_Number=150, 
         Cabin_Temp=73, 
