@@ -475,6 +475,33 @@ class MainWindow(QWidget):
             speed_mph = float(data.get('Actual_Speed', 0))
             self.current_speed_mps = speed_mph * self.MPH_TO_MPS
 
+            if self.current_speed_mps > self.suggested_speed_mps:
+                self.current_speed_mps = self.suggested_speed_mps
+
+            suggested_speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
+            if suggested_speed_auth and all(bit in '01' for bit in suggested_speed_auth):
+                msb = suggested_speed_auth[0]  # First bit determines speed (0) or authority (1)
+                remaining_bits = suggested_speed_auth[1:] if len(suggested_speed_auth) > 1 else '0'
+            
+            # Convert remaining bits to decimal value
+                value = int(remaining_bits, 2) if remaining_bits else 0
+
+                if msb == '1':
+                # Handle authority
+                    self.suggested_authority = value
+                    self.write_outputs(suggested_authority=value)
+                else:
+                # Handle speed - use value directly as mph
+                    suggested_speed_mph = value if value > 0 else 20  # Default to 20 if 0
+                    self.suggested_speed_mps = suggested_speed_mph * self.MPH_TO_MPS
+                    self.write_outputs(suggested_speed=suggested_speed_mph)
+            else:
+            # Default case if format is invalid
+                suggested_speed_mph = 20
+                self.suggested_speed_mps = suggested_speed_mph * self.MPH_TO_MPS
+                self.write_outputs(suggested_speed=suggested_speed_mph)
+
+
             self.current_authority = float(data.get('Actual_Authority', 0))
             delta_position = float(data.get('Delta_Position', 0))
 
@@ -511,24 +538,6 @@ class MainWindow(QWidget):
             if service_brake and not self.emergency_brake_active:
                 self.service_brake_active = True
                 self.write_outputs(service_brake=1)
-
-            suggested_speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
-            if len(suggested_speed_auth) == 10 and all(bit in '01' for bit in suggested_speed_auth):
-                msb = suggested_speed_auth[0]
-                value = int(suggested_speed_auth[1:], 2)
-
-                if msb == '1':
-                    self.suggested_authority = value
-                    self.write_outputs(suggested_authority=value)
-                else:
-                    suggested_speed_mph = value if value > 0 else 20
-                    self.suggested_speed_mps = suggested_speed_mph * self.KMH_TO_MPH
-                    self.write_outputs(suggested_speed=suggested_speed_mph)
-
-            else:
-                suggested_speed_mph = 20
-                self.suggested_speed_mps = suggested_speed_mph * self.MPH_TO_MPS
-                self.write_outputs(suggested_speed=suggested_speed_mph)
             
             current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
             suggested_speed_mph = self.suggested_speed_mps * self.MPS_TO_MPH
@@ -796,6 +805,11 @@ class MainWindow(QWidget):
     def update_from_files(self):
         self.read_train_outputs()
         self.update_power_display()
+
+        if self.current_speed_mps > self.suggested_speed_mps:
+            self.current_speed_mps = self.suggested_speed_mps
+            current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
+            self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
 
         #suggested_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS
 
