@@ -88,6 +88,16 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.MPH_TO_MPS = 0.44704
+        self.MPS_TO_MPH = 2.23694
+        self.KMH_TO_MPS = 0.277778
+        self.MPS_TO_KMH = 3.6
+        self.KMH_TO_MPH = 0.621371
+
+        self.suggested_authority = 0
+        self.suggested_speed_kmh = 20 / self.KMH_TO_MPH
+        self.write_outputs(suggested_speed=self.suggested_speed_kmh, suggested_authority=0)
+
         #MASTER TIMER
         self.master_timer = QTimer(self)
         self.master_timer.timeout.connect(self.update_from_files)
@@ -98,13 +108,10 @@ class MainWindow(QWidget):
         self.power_control = PowerControl()
         self.current_authority = 0
         self.current_speed_mps = 0
-        self.suggested_authority = 0
-        self.suggested_speed_kmh = 70
         #self.acceleration_rate = 0.5
         self.target_temp = None
         #self.service_brake_decel = 1.2
         #self.emergency_brake_decel = 2.73
-
         self.service_brake_active = False
         self.emergency_brake_active = False
 
@@ -112,12 +119,6 @@ class MainWindow(QWidget):
 
         #self.brake_timer = QTimer(self)
         #self.brake_timer.timeout.connect(self.apply_braking)
-
-        self.MPH_TO_MPS = 0.44704
-        self.MPS_TO_MPH = 2.23694
-        self.KMH_TO_MPS = 0.277778
-        self.MPS_TO_KMH = 3.6
-        self.KMH_TO_MPH = 0.621371
 
         self.train_states = {
             "Train 1": {
@@ -498,8 +499,10 @@ class MainWindow(QWidget):
 
                 if msb == '1':
                     self.suggested_authority = value
+                    self.write_outputs(suggested_authority=value)
                 else:
                     self.suggested_speed_kmh = value
+                    self.write_outputs(suggested_speed=value)
 
             suggested_speed_kmh = self.suggested_speed_kmh
             suggested_speed_mph = suggested_speed_kmh * self.KMH_TO_MPH
@@ -698,7 +701,7 @@ class MainWindow(QWidget):
         #else:
         #    self.acceleration_timer.stop()
 
-    def write_outputs(self, power=None, emergency_brake=None, service_brake=None):
+    def write_outputs(self, power=None, emergency_brake=None, service_brake=None, suggested_speed=None, suggested_authority=None):
         try:
             try:
                 with open('TC_outputs.txt', 'r') as f:
@@ -706,20 +709,32 @@ class MainWindow(QWidget):
             except FileNotFoundError:
                 lines = []
 
-            data = {
+            updates = {
                 "Commanded Power": None if power is None else f"{power:.2f}",
                 "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
-                "Service Brake": None if service_brake is None else str(service_brake)
+                "Service Brake": None if service_brake is None else str(service_brake),
+                "Suggested Speed": None if suggested_speed is None else f"{suggested_speed * self.KMH_TO_MPH:.1f}",
+                "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}"
             }
 
+            updated = False
+            found_keys = set()
             for i, line in enumerate(lines):
-                for key in data:
-                    if line.startswith(f"{key}:") and data[key] is not None:
-                        lines[i] = f"{key}: {data[key]}\n"
-                        data[key] = None
+                if ':' in line:
+                    key = line.split(':')[0].strip()
+                    if key in updates and updates[key] is not None:
+                        lines[i] = f"{key}: {updates[key]}\n"
+                        updates[key] = None
+                        updated = True
 
-            with open('TC_outputs.txt', 'w') as f:
-                f.writelines(lines)
+            for key in updates:
+                if updates[key] is not None:
+                    lines.append(f"{key}: {updates[key]}\n")
+                    updated = True
+
+            if updated:
+                with open('TC_outputs.txt', 'w') as f:
+                    f.writelines(lines)
         except Exception as e:
             print(f"Error writing to TC_outputs.txt: {e}")
 
