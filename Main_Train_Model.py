@@ -107,6 +107,7 @@ class Train_Model:
             f.write("Passengers: \n")
             f.write("Station_Status: \n")
             f.write("Actual_Speed: \n")
+            f.write("Actual_Authority: \n")
             f.write("Delta_Position: \n")  # Will be in meters
             f.write("Emergency_Brake: \n")
             f.write("Brake_Fail: \n")
@@ -139,9 +140,6 @@ class Train_Model:
                     f.write(f"{key}: {value}\n")
         except Exception as e:
             print(f"Error writing to log file: {e}")
-
-    # [Rest of the class methods remain exactly the same as in your original code]
-    # Only the write_outputs_to_file() method was modified to convert feet to meters
 
     @property
     def Cabin_Temp(self):
@@ -256,13 +254,28 @@ class Train_Model:
             self.Train_C.Set_Cabin_Temp(self._cabin_temp)
             self.update_temp_display()
         
+    def handle_brake_release(self):
+        """Called when brake signals change from active to inactive"""
+        if not self.emergency_brake_active and not self.service_brake_active:
+            # Only restart if no failures are present
+            if not self.Train_F.Engine_Fail:
+                self.Acceleration_Label.config(text="Resuming normal operation...")
+                self.station_status = 0
+        
     def update_all_displays(self):
-        # Check brake status from external signals
+        # Check brake status changes
         if self.emergency_brake == 1 and not self.emergency_brake_active:
             self.activate_emergency_brake()
-        elif self.service_brake == 1 and not self.service_brake_active:
-            self.activate_service_brake()
+        elif self.emergency_brake == 0 and self.emergency_brake_active:
+            self.emergency_brake_active = False
+            self.handle_brake_release()
             
+        if self.service_brake == 1 and not self.service_brake_active:
+            self.activate_service_brake()
+        elif self.service_brake == 0 and self.service_brake_active:
+            self.service_brake_active = False
+            self.handle_brake_release()
+        
         # Only update speed if not in any brake mode and no engine failure
         if (not self.emergency_brake_active and 
             not self.service_brake_active and 
@@ -317,6 +330,10 @@ class Train_Model:
             start_time = time.time()
             
             def update_braking():
+                # Only continue braking if service brake is still active
+                if not self.service_brake_active:
+                    return
+                    
                 elapsed = time.time() - start_time
                 current_speed = max(0, initial_speed + deceleration * elapsed)
                 
@@ -329,7 +346,6 @@ class Train_Model:
                 if current_speed > 0:
                     self.root.after(50, update_braking)
                 else:
-                    self.service_brake_active = False
                     self.station_status = 1
                     self.train_stopped()
             
@@ -379,6 +395,10 @@ class Train_Model:
         start_time = time.time()
         
         def update_braking():
+            # Only continue braking if emergency brake is still active
+            if not self.emergency_brake_active:
+                return
+                
             elapsed = time.time() - start_time
             current_speed = max(0, initial_speed + deceleration * elapsed)
             
@@ -392,7 +412,6 @@ class Train_Model:
             if current_speed > 0:
                 self.root.after(50, update_braking)
             else:
-                self.emergency_brake_active = True
                 self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
                 self.Authority_Label.config(text="Actual Authority: 0.00 ft")
                 messagebox.showinfo("Emergency Brake", f"Train stopped in {elapsed:.1f} seconds")
