@@ -241,7 +241,7 @@ if __name__ == "__main__":
     train_number = 1 
     position = 0  # Example train position
     overlapping_blocks = green_line.find_blocks(position)
-    passengers, new_passengers, leaving_pass, starting_pass = green_line.pass_count(1)
+    passengers, new_passengers, starting_pass = pass_count(10, 1)
     ticket_array = []  # Initialize an empty list
     tickets_sold = [green_line.getTickets_sold(), str(global_variables.current_time)[11:16]]
     ticket_array.append(tickets_sold)  # Append tickets_sold to the array
