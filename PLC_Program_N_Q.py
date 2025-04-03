@@ -1,30 +1,42 @@
 # Open and read the Input file
 Occupancy_In = [0] * 150
 Default_Switch_In = [0] * 6
-with open("PLC_INPUTS.txt", "r") as file:
-    for line in file:
-        if line.startswith("Occupancy="):
-            # Extract values, split, and convert to integers
-            Occupancy_In = list(map(int, line.strip().split("=")[1].split(",")))
-        elif line.startswith("Default_Switch_Position="):
-            # Extract values, split, and convert to integers
-            Default_Switch_In = list(map(int, line.strip().split("=")[1].split(",")))
+
+try:
+    with open("PLC_INPUTS.txt", "r") as file:
+        for line in file:
+            if line.startswith("Occupancy="):
+                # Extract values, split, and convert to integers
+                Occupancy_In = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Default_Switch_Position="):
+                # Extract values, split, and convert to integers
+                Default_Switch_In = list(map(int, line.strip().split("=")[1].split(",")))
+except FileNotFoundError:
+    print("Error: File not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected Error: {e}")
 
 Occupancy_Out = [0] * 150
 Track_Failure_Out = [0] * 150
 Actual_Switch_Position_Out = [0] * 6
-# Open and read the Output file
-with open("PLC_OUTPUTS.txt", "r") as file:
-    for line in file:
-        if line.startswith("Occupancy="):
-            # Extract values, split, and convert to integers
-            Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
-        if line.startswith("Track_Failure="):
-            # Extract values, split, and convert to integers
-            Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
-        elif line.startswith("Actual_Switch_Position="):
-            # Extract values, split, and convert to integers
-            Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
+
+try:
+    # Open and read the Output file
+    with open("PLC_OUTPUTS.txt", "r") as file:
+        for line in file:
+            if line.startswith("Occupancy="):
+                # Extract values, split, and convert to integers
+                Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            if line.startswith("Track_Failure="):
+                # Extract values, split, and convert to integers
+                Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+            elif line.startswith("Actual_Switch_Position="):
+                # Extract values, split, and convert to integers
+                Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
+except FileNotFoundError:
+    print("Error: File not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected Error: {e}")
 
 #Initialize variables
 Light_Control = [0] * 12
@@ -143,53 +155,63 @@ if Find_Occupancy > 0:
     Suggested_Speed[73] = "1111"
     Suggested_Authority[75] = "0"
 
-# Read the file
-with open("PLC_OUTPUTS.txt", "r") as file:
-    lines = file.readlines()  # Read all lines into a list
+try:
+    # Read the file
+    with open("PLC_OUTPUTS.txt", "r") as file:
+        lines = file.readlines()  # Read all lines into a list
 
-# Parse the data
-for line in lines:
-    if line.startswith("Suggested_Speed="):
-        Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Suggested_Authority="):
-        Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Track_Failure="):
-        Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Light_Control="):
-        Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Actual_Switch_Position="):
-        Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Cross_Bar_Control="):
-        Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+    # Parse the data
+    for line in lines:
+        if line.startswith("Suggested_Speed="):
+            Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Suggested_Authority="):
+            Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Track_Failure="):
+            Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Light_Control="):
+            Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Actual_Switch_Position="):
+            Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
+        elif line.startswith("Cross_Bar_Control="):
+            Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
 
-for i in range(150):
-    if i != 10 and i != 11 and i < 12:
-        Light_Control[i] = Light_Control_Out[i]
-    if (i != 5) and i < 6:
-        Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
-    if i > 99 or i < 73:
-        Suggested_Speed[i] = Suggested_Speed_Out[i]
-        Suggested_Authority[i] = Suggested_Authority_Out[i]
-        Track_Failure[i] = Track_Failure_Out[i]
-    if i <= 99 and i >= 73:
-        if Suggested_Speed[i] != 100:
-            Suggested_Speed_Out[i] = Suggested_Speed[i]
-        if Suggested_Authority[i] != 100:
-            Suggested_Authority_Out[i] = Suggested_Authority[i]
+    for i in range(150):
+        if i != 10 and i != 11 and i < 12:
+            Light_Control[i] = Light_Control_Out[i]
+        if (i != 5) and i < 6:
+            Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
+        if i > 99 or i < 73:
+            Suggested_Speed[i] = Suggested_Speed_Out[i]
+            Suggested_Authority[i] = Suggested_Authority_Out[i]
+            Track_Failure[i] = Track_Failure_Out[i]
+        if i <= 99 and i >= 73:
+            if Suggested_Speed[i] != 100:
+                Suggested_Speed_Out[i] = Suggested_Speed[i]
+            if Suggested_Authority[i] != 100:
+                Suggested_Authority_Out[i] = Suggested_Authority[i]
 
-# Modify the lines
-for i, line in enumerate(lines):
-    if line.startswith("Suggested_Speed="):
-        lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_Out))}\n"
-    elif line.startswith("Suggested_Authority="):
-        lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_Out))}\n"
-    elif line.startswith("Track_Failure="):
-        lines[i] = f"Track_Failure={','.join(map(str, Track_Failure))}\n"
-    elif line.startswith("Light_Control="):
-        lines[i] = f"Light_Control={','.join(map(str, Light_Control))}\n"
-    elif line.startswith("Actual_Switch_Position="):
-        lines[i] = f"Actual_Switch_Position={','.join(map(str, Actual_Switch_Position))}\n"
+    # Modify the lines
+    for i, line in enumerate(lines):
+        if line.startswith("Suggested_Speed="):
+            lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_Out))}\n"
+        elif line.startswith("Suggested_Authority="):
+            lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_Out))}\n"
+        elif line.startswith("Track_Failure="):
+            lines[i] = f"Track_Failure={','.join(map(str, Track_Failure))}\n"
+        elif line.startswith("Light_Control="):
+            lines[i] = f"Light_Control={','.join(map(str, Light_Control))}\n"
+        elif line.startswith("Actual_Switch_Position="):
+            lines[i] = f"Actual_Switch_Position={','.join(map(str, Actual_Switch_Position))}\n"
+except FileNotFoundError:
+    print("Error: File not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected Error: {e}")
 
-# Write the modified lines back to the file
-with open("PLC_OUTPUTS.txt", "w") as file:
-    file.writelines(lines)  # Writes the updated content back to the file
+try:
+    # Write the modified lines back to the file
+    with open("PLC_OUTPUTS.txt", "w") as file:
+        file.writelines(lines)  # Writes the updated content back to the file
+except FileNotFoundError:
+    print("Error: File not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected Error: {e}")

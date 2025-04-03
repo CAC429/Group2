@@ -67,21 +67,29 @@ class speed_authority(QWidget):
             #if block is occupied
             if global_variables.block_occupancies[i] == 1:
                 #impact block before
+                self.labels[i].setStyleSheet('color: green')
                 if i >= 1:
-                    self.labels[i-1].setStyleSheet('color: red')
+                    self.labels[i-1].setStyleSheet('color: orange')
                     authority[i-1] = authority[i-1] / 4
                     speed[i-1] = speed[i-1] / 4
                 #impact two blocks before
                 if i >= 2:
-                    self.labels[i-2].setStyleSheet('color: orange')
+                    self.labels[i-2].setStyleSheet('color: yellow')
                     speed[i-2] = speed[i-2] / 2
+
+        #change text for blocks in maintenance
+        if global_variables.current_maintenance:
+            for i in global_variables.current_maintenance:
+                self.labels[i].setStyleSheet('color: red')
+                authority[i] = 0
+                speed[i] = 0
     
         #set global speed and authority to new values
         global_variables.dynamic_speed = [math.floor(i) for i in speed]
         global_variables.dynamic_authority = [math.floor(i) for i in authority]
 
         [label.setText(f'Block {i+1}\nSpeed: {global_variables.dynamic_speed[i]} km/hr\nAuthority: {global_variables.dynamic_authority[i]} km') for i, label in enumerate(self.labels)]
-        #change text for blocks in maintenance
+
         if global_variables.current_maintenance:
             for i in global_variables.current_maintenance:
                 self.labels[i].setText(f'Block {i+1}\n !UNDER!\n!MAINTENANCE!')
