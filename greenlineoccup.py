@@ -3,29 +3,59 @@ import csv
 import random
 import copy
 import global_variables
+from beacons import beacons
 
+BEACON_BLOCKS = {
+    64: "beacon 1",
+    72: "beacon 2",
+    74: "beacon 3",
+    87: "beacon 4",
+    95: "beacon 5",
+    # Beacon 6 has special condition (block 78 and position > 7500)
+    104: "beacon 7",
+    113: "beacon 8",
+    122: "beacon 9",
+    131: "beacon 10",
+    140: "beacon 11",
+    23: "beacon 12",
+    17: "beacon 13",
+    10: "beacon 14",
+    3: "beacon 15",
+    # Beacon 16 has special condition (block 15 and position > 15700)
+    # Beacon 17 has special condition (block 21 and position > 15700)
+    30: "beacon 18",
+    38: "beacon 19",
+    47: "beacon 20",
+    56: "beacon 21"
+}
+
+# Update the write_to_file function to include beacon info
 def write_to_file(content, mode="w"):
-    """Write content to the file with speed authority information."""
+    """Write content to the file with speed authority and beacon information."""
     try:
         with open("occupancy_data.txt", mode) as file:
             file.write(content)
     except Exception as e:
         print(f"Error writing to file: {e}")
 
-def append_new_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority=""):
-    """Append new train data with speed authority."""
+# Update append_new_train_data to include beacon info
+def append_new_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority="", beacon_info=None):
+    """Append new train data with speed authority and beacon info."""
+    beacon_text = f"Beacon Info: {beacon_info}\n" if beacon_info else "Beacon Info: None\n"
     content = (
         f"Train {train_number}:\n"
         f"Overlapping Blocks at position {position}m: {blocks}\n"
         f"Suggested_Speed_Authority: {speed_authority}\n"
         f"New passengers getting on: {new_passengers}\n"
         f"Total count: {total_count}\n"
-        f"Ticket Sales History: {ticket_data}\n\n"
+        f"Ticket Sales History: {ticket_data}\n"
+        f"{beacon_text}\n"
     )
     write_to_file(content, mode="a")
 
-def update_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority=""):
-    """Update train data with speed authority."""
+# Update update_train_data to include beacon info
+def update_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority="", beacon_info=None):
+    """Update train data with speed authority and beacon info."""
     try:
         with open("occupancy_data.txt", "r") as file:
             lines = file.readlines()
@@ -37,18 +67,41 @@ def update_train_data(train_number, blocks, ticket_data, new_passengers, total_c
                 break
 
         if train_start_index is not None:
+            beacon_text = f"Beacon Info: {beacon_info}\n" if beacon_info else "Beacon Info: None\n"
             lines[train_start_index] = f"Train {train_number}:\n"
             lines[train_start_index + 1] = f"Overlapping Blocks at position {position}m: {blocks}\n"
             lines[train_start_index + 2] = f"Suggested_Speed_Authority: {speed_authority}\n"
             lines[train_start_index + 3] = f"New passengers getting on: {new_passengers}\n"
             lines[train_start_index + 4] = f"Total count: {total_count}\n"
             lines[train_start_index + 5] = f"Ticket Sales History: {ticket_data}\n"
+            lines[train_start_index + 6] = beacon_text
 
             with open("occupancy_data.txt", "w") as file:
                 file.writelines(lines)
     except Exception as e:
         print(f"Error updating train data: {e}")
+
+# Add this new function to check for beacon blocks
+def check_beacon_blocks(blocks, position):
+    """Check if any of the occupied blocks is a beacon block and return the beacon info."""
+    beacon_info = None
+    
+    for block in blocks:
+        # Check special conditions first
+        if block == 78 and position > 7500:
+            beacon_info = beacons.get("beacon 6")
+        elif block == 15 and position > 15700:
+            beacon_info = beacons.get("beacon 16")
+        elif block == 21 and position > 15700:
+            beacon_info = beacons.get("beacon 17")
+        elif block in BEACON_BLOCKS:
+            beacon_info = beacons.get(BEACON_BLOCKS[block])
         
+        if beacon_info:
+            break
+    
+    return beacon_info
+
 def pass_count(passengers, station_status):
     """Calculates the number of passengers getting on and updates count."""
     if station_status == 1:

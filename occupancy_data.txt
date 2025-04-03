@@ -1,9 +1,10 @@
 Train 1:
-Overlapping Blocks at position 400.0m: [65, 66]
-Suggested_Speed_Authority: [1, 0, 1, 0]
+Overlapping Blocks at position 13752.6m: [17]
+Suggested_Speed_Authority: [1, 0]
 New passengers getting on: 0
 Total count: 0
 Ticket Sales History: []
+Beacon Info: {'station_side': 'right', 'arriving_station': 'LESUNSHINE STATION', 'new_station': 'EDGEBROOK', 'station_distance': 13792.6}
 
 Train 2:
 Overlapping Blocks at position 0.0m: [63]
@@ -11,4 +12,5 @@ Suggested_Speed_Authority: [1, 0, 1, 0]
 New passengers getting on: 0
 Total count: 0
 Ticket Sales History: []
+Beacon Info: None
 

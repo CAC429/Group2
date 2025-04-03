@@ -2,9 +2,10 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QGridLayout, QPushButton,
                             QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, 
                             QLineEdit, QComboBox)
 from PyQt5.QtCore import QTimer
-from greenlineoccup import GreenLineOccupancy, load_csv, write_to_file, append_new_train_data, update_train_data, pass_count
+from greenlineoccup import GreenLineOccupancy, load_csv, write_to_file, append_new_train_data, update_train_data, pass_count, BEACON_BLOCKS
 import global_variables
 from switch_window import SwitchWindow
+from beacons import beacons
 import sys
 
 class ClickableBox(QPushButton):
@@ -318,6 +319,23 @@ class GridWindow(QWidget):
                     global_occupancy.update({block: train_number for block in occupied_blocks})
                     train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
+                    # Check for beacon blocks
+                    beacon_info = None
+                    for block in occupied_blocks:
+                        # Check special conditions first
+                        if block == 78 and delta_position > 7500:
+                            beacon_info = beacons.get("beacon 6")
+                            break
+                        elif block == 15 and delta_position > 15700:
+                            beacon_info = beacons.get("beacon 16")
+                            break
+                        elif block == 21 and delta_position > 15700:
+                            beacon_info = beacons.get("beacon 17")
+                            break
+                        elif block in BEACON_BLOCKS:
+                            beacon_info = beacons.get(BEACON_BLOCKS[block])
+                            break
+
                     # Get current time for records
                     try:
                         current_time = global_variables.current_time.strftime("%H:%M")
@@ -345,9 +363,10 @@ class GridWindow(QWidget):
                                 f"Train {train_number}:\n"
                                 f"Position: {delta_position}m\n"
                                 f"Occupied Blocks: {occupied_blocks}\n"
-                                f"Speed Authority: {speed_auth}\n"
+                                f"Suggested_Speed_Authority: {speed_auth}\n"
                                 f"Passengers: 0\n"
-                                f"Ticket Sales: []\n\n",
+                                f"Ticket Sales: []\n"
+                                f"Beacon Info: {beacon_info}\n\n",
                                 mode="w"
                             )
                         else:
@@ -358,7 +377,8 @@ class GridWindow(QWidget):
                                 0,  # new_passengers
                                 0,  # total_passengers
                                 delta_position,
-                                speed_auth
+                                speed_auth,
+                                beacon_info
                             )
 
                     # Handle station arrivals
@@ -384,7 +404,8 @@ class GridWindow(QWidget):
                                 new_passengers,
                                 passengers,
                                 delta_position,
-                                speed_auth
+                                speed_auth,
+                                beacon_info
                             )
                             green_line.station_visited = True
                     
@@ -400,7 +421,8 @@ class GridWindow(QWidget):
                         green_line.new_passengers if hasattr(green_line, 'new_passengers') else 0,
                         green_line.passengers_count if hasattr(green_line, 'passengers_count') else 0,
                         delta_position,
-                        speed_auth
+                        speed_auth,
+                        beacon_info
                     )
 
                 except Exception as e:
