@@ -3,5 +3,5 @@ Current_Speed: 44.74
 Suggested_Speed: 10.62
 Current_Authority: 591.0
 Suggested_Authority: 100
-Service_Brake: 0
+Service_Brake: 1
 Emergency_Brake: 0
