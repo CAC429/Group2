@@ -1,11 +1,11 @@
 Passengers: 150
 Station_Status: 0
 Actual_Speed: 20
-Actual_Authority: 178.66480000000047
-Delta_Position: 500.6859379199998
+Actual_Authority: 383.99860000000035
+Delta_Position: 375.5144534399999
 Emergency_Brake: 0
 Brake_Fail: 0
 Signal_Fail: 0
 Engine_Fail: 0
-Beacon: 0
+Beacon: {'station_side': 'right', 'arriving_station': 'LESUNSHINE STATION', 'new_station': 'EDGEBROOK', 'station_distance': 13792.6}
 Suggested_Speed_Authority: 1010101000

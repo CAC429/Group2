@@ -5,12 +5,153 @@ from Reference_Object import Reference_Objects
 import tkinter as tk
 import random
 import time
+import ast
 from tkinter import messagebox
 
+class MainTrainModel:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.withdraw()  # Hide the main window
+        self.train_models = []
+        self.load_trains_from_file()
+        
+    def load_trains_from_file(self, file_path='occupancy_data.txt'):
+        try:
+            with open(file_path, 'r') as file:
+                content = file.read()
+            
+            # Split the file into sections for each train
+            train_sections = content.split('Train ')[1:]  # Skip the first empty split
+        
+            for section in train_sections:
+                try:
+                    # Extract train number (first part before colon)
+                    train_number_str = section.split(':', 1)[0].strip()
+                    train_number = int(train_number_str)
+                    
+                    # Get the rest of the section
+                    train_data_str = section.split(':', 1)[1] if ':' in section else ""
+                    
+                    # Parse the train data
+                    train_data = self.parse_train_data(train_data_str)
+                    
+                    # Safely get passenger count with default 0
+                    passenger_count = 0
+                    if 'Total count' in train_data:
+                        try:
+                            passenger_count = int(float(train_data['Total count']))
+                        except (ValueError, TypeError):
+                            passenger_count = 0
+                    
+                    # Create a new window for each train
+                    train_window = tk.Toplevel()
+                    train_window.title(f"Train {train_number} Controls")
+                    
+                    # Create a new Train_Model instance
+                    train_model = Train_Model(
+                        root=train_window,
+                        Train_Number=train_number,
+                        Passenger_Number=passenger_count,
+                        Suggested_Speed_Authority=self.process_speed_authority(
+                            train_data.get('Suggested_Speed_Authority', [])),
+                        Beacon=self.process_beacon_info(train_data.get('Beacon Info', None)))
+                    
+                    self.train_models.append(train_model)
+                    
+                except Exception as e:
+                    print(f"Error processing train {train_number_str}: {e}")
+                    continue
+                    
+            if not self.train_models:
+                messagebox.showwarning("No Trains", "No valid train data found in the file")
+                self.root.destroy()
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load train data: {str(e)}")
+            self.root.destroy()
+            
+    def parse_train_data(self, data_str):
+        data = {}
+        current_key = None
+        current_value = []
+        
+        for line in data_str.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+                
+            if ':' in line:
+                # Store previous key-value pair if exists
+                if current_key is not None:
+                    data[current_key] = '\n'.join(current_value).strip()
+                
+                # Start new key-value pair
+                key, value = line.split(':', 1)
+                current_key = key.strip()
+                current_value = [value.strip()]
+            else:
+                current_value.append(line)
+                
+        # Add the last key-value pair
+        if current_key is not None:
+            data[current_key] = '\n'.join(current_value).strip()
+            
+        # Convert some values from strings to Python objects
+        for key in ['Suggested_Speed_Authority', 'Beacon Info']:
+            if key in data and data[key] and data[key].strip().lower() not in ['none', 'null', '']:
+                try:
+                    # Handle list-like strings safely
+                    if key == 'Suggested_Speed_Authority' and data[key].startswith('['):
+                        data[key] = ast.literal_eval(data[key])
+                    elif key == 'Beacon Info' and data[key].startswith('{'):
+                        data[key] = ast.literal_eval(data[key])
+                except (ValueError, SyntaxError):
+                    pass
+                    
+        return data
+
+        
+    def process_speed_authority(self, speed_auth_list):
+        if not speed_auth_list:
+            return "0"
+        # Convert list to a binary string representation
+        return ''.join(str(int(x)) for x in speed_auth_list)
+        
+    def process_beacon_info(self, beacon_info):
+        """Convert beacon info to a human-readable string"""
+        # Handle None/empty cases
+        if not beacon_info or str(beacon_info).strip().lower() in ['none', 'null', '']:
+            return "No beacon info"
+        
+        # Handle dictionary format
+        if isinstance(beacon_info, dict):
+            parts = []
+            if 'station_side' in beacon_info:
+                parts.append(f"Side: {beacon_info['station_side']}")
+            if 'arriving_station' in beacon_info:
+                parts.append(f"Arriving: {beacon_info['arriving_station']}")
+            if 'new_station' in beacon_info:
+                parts.append(f"Next: {beacon_info['new_station']}")
+            if 'station_distance' in beacon_info:
+                try:
+                    distance = float(beacon_info['station_distance'])
+                    parts.append(f"Distance: {distance}m")
+                except (ValueError, TypeError):
+                    pass  # Skip invalid distance values
+            
+            return ', '.join(parts) if parts else "No valid beacon info"
+        
+        # Handle any other format by converting to string
+        return str(beacon_info)
+        
+    def run(self):
+        if self.train_models:  # Only run if we have trains to display
+            self.root.mainloop()
+
 class Train_Model:
-    def __init__(self, root, Train_Number=1, Power=10000, Passenger_Number=150, Cabin_Temp=73, 
+    def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=73, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
-                 Interior_Lights=True, Beacon=0, Suggested_Speed_Authority=1010101000,
+                 Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
                  emergency_brake=0, service_brake=0):
         
         # Initialize all attributes
@@ -76,6 +217,8 @@ class Train_Model:
                 self.service_brake = int(data.get('Service Brake', 0))
                 self.Left_Door = bool(int(data.get('Left Door', 0)))
                 self.Right_Door = bool(int(data.get('Right Door', 0)))
+                self.Suggested_Speed = bool(int(data.get('Suggested Speed', 0)))
+                self.Suggested_Authority = bool(int(data.get('Suggested Authority', 0)))
 
                 return True
         except Exception as e:
@@ -112,45 +255,50 @@ class Train_Model:
             return False
 
     def initialize_log_file(self):
-        with open(self.log_file, 'w') as f:
-            f.write("Passengers: \n")
-            f.write("Station_Status: \n")
-            f.write("Actual_Speed: \n")
-            f.write("Delta_Position: \n")  # Will be in meters
-            f.write("Emergency_Brake: \n")
-            f.write("Brake_Fail: \n")
-            f.write("Signal_Fail: \n")
-            f.write("Engine_Fail: \n")
-            f.write("Beacon: \n")
-            f.write("Suggested_Speed_Authority: \n")
+        """Initialize the log file by clearing any existing content"""
+        try:
+            # Open in write mode to clear the file
+            with open(self.log_file, 'w') as f:
+                # Don't write headers here - we'll write them with each update
+                pass
+        except Exception as e:
+            print(f"Error initializing log file: {e}")
 
     def write_outputs_to_file(self):
         try:
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
+            # Get beacon info - use the string representation we already have
+            beacon_info = self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon)
+            
             data_entries = {
                 "Passengers": str(self.Passenger_Number),
                 "Station_Status": str(self.station_status),
                 "Actual_Speed": str(self.Get_Actual_Speed()),
                 "Actual_Authority": str(self.Get_Actual_Authority()),
-                "Delta_Position": str(delta_pos_meters),  # Converted to meters
+                "Delta_Position": str(delta_pos_meters),
                 "Emergency_Brake": str(int(self.Get_Emergency_Brake_Status())),
                 "Brake_Fail": str(int(self.Get_Brake_Fail_Status())),
                 "Signal_Fail": str(int(self.Get_Signal_Pickup_Fail_Status())),
                 "Engine_Fail": str(int(self.Get_Train_Engine_Fail_Status())),
-                "Beacon": str(self.Get_Beacon()),
+                "Beacon": beacon_info,  # Use the string version
                 "Suggested_Speed_Authority": str(self.Get_Suggested_Speed_Authority()),
             }
+            
+            # Write to file in append mode to preserve previous data
+            with open(self.log_file, 'a') as f:
+                for key, value in data_entries.items():
+                    f.write(f"{key}: {value}\n")
+                f.write("\n")  # Add separator between updates
+        except Exception as e:
+            print(f"Error writing to log file: {e}")
             
             with open(self.log_file, 'w') as f:
                 for key, value in data_entries.items():
                     f.write(f"{key}: {value}\n")
         except Exception as e:
             print(f"Error writing to log file: {e}")
-
-    # [Rest of the class methods remain exactly the same as in your original code]
-    # Only the write_outputs_to_file() method was modified to convert feet to meters
 
     @property
     def Cabin_Temp(self):
@@ -163,15 +311,27 @@ class Train_Model:
             self.update_temp_display()
         
     def initialize_ui(self):
-        self.root.title('Train Model UI')
+        self.root.title(f'Train {self.Train_Number} Model UI')
         self.create_frames()
         self.create_train_specs()
         self.create_calculation_display()
         self.create_component_display()
         self.create_failure_section()
         self.create_emergency_brake()
+        self.create_advertisement()
         self.update_all_displays()
-        
+
+    def create_advertisement(self):
+        # Create a new frame for the advertisement
+        self.Ad_Frame = tk.LabelFrame(self.root, text="Advertisement", padx=10, pady=10)
+        self.Ad_Frame.grid(row=2, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+       
+        # Add advertisement text
+        ad_text = "Ride in comfort with MetroRail! Enjoy our premium seating and climate-controlled cabins."
+        tk.Label(self.Ad_Frame, text=ad_text, wraplength=500, justify=tk.LEFT).pack(anchor="w")
+       
+        tk.Label(self.Ad_Frame, text="Sponsored Content", font=('Arial', 7), fg='gray').pack(anchor="e")
+
     def create_frames(self):
         self.Calc_Frame = tk.LabelFrame(self.root, text="Train Calculations", padx=10, pady=10)
         self.Calc_Frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
@@ -189,11 +349,12 @@ class Train_Model:
         self.Spec_Frame.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
         
     def create_train_specs(self):
-        tk.Label(self.Spec_Frame, text="Train Mass is 90169.07 pounds (40.9 tons)").grid(row=0, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Train Length is 105.6 ft (32.2 m)").grid(row=1, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Train Width is 2.65 ft (8.69 m)").grid(row=2, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Train Height is 11.22 ft (3.42 m)").grid(row=3, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Maximum of 222 passengers").grid(row=4, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text=f"Train {self.Train_Number} Specifications").grid(row=0, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Mass is 90169.07 pounds (40.9 tons)").grid(row=1, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Length is 105.6 ft (32.2 m)").grid(row=2, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Width is 2.65 ft (8.69 m)").grid(row=3, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Height is 11.22 ft (3.42 m)").grid(row=4, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Maximum of 222 passengers").grid(row=5, column=0, sticky="w")
         
     def create_calculation_display(self):
         self.Speed_Label = tk.Label(self.Calc_Frame, text="Actual Speed: N/A")
@@ -227,7 +388,7 @@ class Train_Model:
         self.Door_Status_Label = tk.Label(self.Comp_Frame, text="Right Door: N/A, Left Door: N/A")
         self.Door_Status_Label.grid(row=2, column=0, columnspan=2, sticky="w")
 
-        self.Reference_Status_Label = tk.Label(self.Ref_Frame, text="Status: N/A")
+        self.Reference_Status_Label = tk.Label(self.Ref_Frame, text=f"Beacon: {self.Beacon}")
         self.Reference_Status_Label.grid(row=0, column=0, columnspan=2, sticky="w")
         
     def create_failure_section(self):
@@ -266,80 +427,88 @@ class Train_Model:
             self.update_temp_display()
         
     def update_all_displays(self):
-        #Read from TC_outputs.txt
-        self.read_tc_outputs()
+        """Update all UI elements and write to log file"""
+        try:
+            # Read from TC_outputs.txt
+            self.read_tc_outputs()
 
-        right_door = "CLOSED" if self.Right_Door else "OPEN"
-        left_door = "CLOSED" if self.Left_Door else "OPEN"
-        self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
+            # Update door status displays
+            right_door = "CLOSED" if self.Right_Door else "OPEN"
+            left_door = "CLOSED" if self.Left_Door else "OPEN"
+            self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
 
-        # Check brake status from external signals
-        if self.emergency_brake == 1 and not self.emergency_brake_active:
-            self.activate_emergency_brake()
-        elif self.service_brake == 1 and not self.service_brake_active:
-            self.activate_service_brake()
-            
-        # Only update speed if not in any brake mode and no engine failure
-        if (not self.emergency_brake_active and 
-            not self.service_brake_active and 
-            not self.Train_F.Engine_Fail):
+            # Check brake status
+            if self.emergency_brake == 1 and not self.emergency_brake_active:
+                self.activate_emergency_brake()
+            elif self.service_brake == 1 and not self.service_brake_active:
+                self.activate_service_brake()
+                
+            # Update speed and authority if not in brake mode and no engine failure
+            if (not self.emergency_brake_active and 
+                not self.service_brake_active and 
+                not self.Train_F.Engine_Fail):
 
-            suggested_speed = float(str(self.Get_Suggested_Speed_Authority).split()[0]) if isinstance(self.Suggested_Speed_Authority, str) else 0
+                suggested_speed = float(str(self.Get_Suggested_Speed_Authority).split()[0]) if isinstance(self.Suggested_Speed_Authority, str) else 0
 
-            current_speed = self.Train_Ca.Actual_Speed
-            current_authority = self.Train_Ca.Actual_Authority
+                current_speed = self.Train_Ca.Actual_Speed
+                current_authority = self.Train_Ca.Actual_Authority
 
-            #0.5 m/s^2 to mph/s
-            target_acceleration = 1.11847
-            suggested_speed = 20
-            #COMEMEMNTNTENTK
+                # 0.5 m/s^2 to mph/s
+                target_acceleration = 1.11847
+                self.Suggested_Speed = 20
 
-            
-            #acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
-
-            if current_speed < suggested_speed:
-                new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
-                if new_speed > suggested_speed:
+                if current_speed < suggested_speed:
+                    new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
+                    if new_speed > suggested_speed:
+                        new_speed = suggested_speed
+                else:
                     new_speed = suggested_speed
-            else:
-                new_speed = suggested_speed
-                self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
+                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
 
-            new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
+                new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
+                
+                self.Train_Ca.Actual_Speed = max(0, new_speed)
+                self.Train_Ca.Actual_Authority = max(0, new_authority)
+
+            elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
+                self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
             
-            self.Train_Ca.Actual_Speed = max(0, new_speed)
-            self.Train_Ca.Actual_Authority = max(0, new_authority)
-
-        elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
-            self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
+            # Update position
+            self.Get_Delta_Pos()
+            
+            # Update speed and authority displays
+            self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
+            self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
+            
+            # Update other displays
+            if not self.Train_F.Engine_Fail and not self.service_brake_active:
+                self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
+            
+            elevation = self.Train_Ca.Get_Elevation()
+            grade = self.Train_Ca.Grade_Calc(self.Power, self.Passenger_Number)
+            self.Elevation_Label.config(text=f"Elevation: {elevation:.2f} ft")
+            self.Grade_Label.config(text=f"Grade: {grade:.2f}%")
+            self.Power_Label.config(text=f"Power: {self.Power:.2f} W")
+            self.Passenger_Label.config(text=f"Number of Passengers: {self.Passenger_Number} Passengers")
+            
+            # Update temperature
+            self.adjust_temperature()
+            
+            # Update lights status
+            ext_lights = "ON" if self.Exterior_Lights else "OFF"
+            int_lights = "ON" if self.Interior_Lights else "OFF"
+            self.Lights_Status_Label.config(text=f"Exterior Lights: {ext_lights}, Interior Lights: {int_lights}")
+            
+            # Update beacon display
+            self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon}")
+            
+            # Write to output file
+            self.write_outputs_to_file()
+            
+        except Exception as e:
+            print(f"Error in update_all_displays: {e}")
         
-        self.Get_Delta_Pos()
-        
-        self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
-        self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
-        if not self.Train_F.Engine_Fail and not self.service_brake_active:
-            self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
-        
-        elevation = self.Train_Ca.Get_Elevation()
-        grade = self.Train_Ca.Grade_Calc(self.Power, self.Passenger_Number)
-        self.Elevation_Label.config(text=f"Elevation: {elevation:.2f} ft")
-        self.Grade_Label.config(text=f"Grade: {grade:.2f}%")
-        self.Power_Label.config(text=f"Power: {self.Power:.2f} W")
-        self.Passenger_Label.config(text=f"Number of Passengers: {self.Passenger_Number} Passengers")
-        
-        self.adjust_temperature()
-        
-        ext_lights = "ON" if self.Exterior_Lights else "OFF"
-        int_lights = "ON" if self.Interior_Lights else "OFF"
-        self.Lights_Status_Label.config(text=f"Exterior Lights: {ext_lights}, Interior Lights: {int_lights}")
-        
-        right_door = "OPEN" if self.Right_Door else "CLOSED"
-        left_door = "OPEN" if self.Left_Door else "CLOSED"
-        self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
-        
-        self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon} bits\nSuggested Speed and Authority: {self.Suggested_Speed_Authority} bits")
-        
-        self.write_outputs_to_file()
+        # Schedule next update
         self.root.after(1000, self.update_all_displays)
 
     def activate_service_brake(self):
@@ -483,24 +652,6 @@ class Train_Model:
     def Get_Suggested_Speed_Authority(self):
         return self.Suggested_Speed_Authority
 
-    def run(self):
-        self.root.mainloop()
-
 if __name__ == "__main__":
-    root = tk.Tk()
-    train_model = Train_Model(
-        root=root,
-        Train_Number=1,
-        Power=10000, 
-        Passenger_Number=150, 
-        Cabin_Temp=73, 
-        Right_Door=False, 
-        Left_Door=False, 
-        Exterior_Lights=True, 
-        Interior_Lights=True, 
-        Beacon=0,
-        Suggested_Speed_Authority=1010101000,
-        emergency_brake=0,
-        service_brake=0
-    )
-    train_model.run()
+    main_model = MainTrainModel()
+    main_model.run()

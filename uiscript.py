@@ -11,9 +11,9 @@ from PyQt5.QtCore import QFileSystemWatcher
 #################################################################################################
 
 class PowerControl:
-    def __init__(self, P_max = 120, T=0.1):
-        self.Kp = 0.0
-        self.Ki = 0.0
+    def __init__(self, P_max = 120, T=0.1, Kp=1, Ki=0.2):
+        self.Kp = Kp
+        self.Ki = Ki
         self.P_max = P_max
         self.T = T
         self.u_k_1 = 0
@@ -24,29 +24,26 @@ class PowerControl:
     def update_gains(self, Kp, Ki):
         self.Kp = Kp
         self.Ki = Ki
-
         self.u_k_1 = 0
         self.e_k_1 = 0
         self.P_k_1 = 0
 
-    def set_direct_power_mode(self, enable):
+    def set_direct_power_mode(self,enable):
         self.direct_power_mode = enable
         if enable:
             self.u_k_1 = 0
             self.e_k_1 = 0
-
 
     def compute_Pcmd(self, suggested_speed, current_speed_mps):
         if self.direct_power_mode:
             P_cmd = min(suggested_speed, self.P_max)
             self.u_k_1 = 0
             self.e_k_1 = 0
+
         else:
             error = suggested_speed - current_speed_mps
-
             u_k = self.u_k_1 + (self.T/2) * (error + self.e_k_1)
-
-            P_cmd = self.Kp * error + self.Ki* u_k
+            P_cmd = self.Kp * error + self.Ki * u_k
 
             if P_cmd >= self.P_max:
                 P_cmd = self.P_max
@@ -57,7 +54,7 @@ class PowerControl:
 
             self.u_k_1 = u_k
             self.e_k_1 = error
-
+        
         self.P_k_1 = P_cmd
         return P_cmd
 
@@ -95,8 +92,9 @@ class MainWindow(QWidget):
         self.KMH_TO_MPH = 0.621371
 
         self.suggested_authority = 0
-        self.suggested_speed_kmh = 20 / self.KMH_TO_MPH
-        self.write_outputs(suggested_speed=self.suggested_speed_kmh, suggested_authority=0)
+        self.suggested_speed_mps = 0
+        self.suggested_speed_kmh = 0
+        self.write_outputs(suggested_speed=0, suggested_authority=0)
 
         #MASTER TIMER
         self.master_timer = QTimer(self)
@@ -461,13 +459,28 @@ class MainWindow(QWidget):
             data = {}
             for line in lines:
                 if ':' in line:
-                    key, value = line.strip().split(':')
-                    data[key.strip()] = value.strip()
+                    parts = line.strip().split(':', 1)
+                    if len(parts) == 2:
+                        key, value = parts
+                        data[key.strip()] = value.strip()
+
             
             speed_mph = float(data.get('Actual_Speed', 0))
             self.current_speed_mps = speed_mph * self.MPH_TO_MPS
 
             self.current_authority = float(data.get('Actual_Authority', 0))
+            delta_position = float(data.get('Delta_Position', 0))
+
+            beacon_str = data.get('Beacon', '{}')
+            try:
+                beacon_data = eval(beacon_str)
+                station_distance = float(beacon_data.get('station_distance', float('inf')))
+
+                if abs(station_distance - delta_position) <= 10:
+                    self.sb_clicked()
+                    print(f"Service brake activated - approaching station. Distance: {abs(station_distance - delta_position):.2f}m")
+            except:
+                pass
 
             brake_fail = data.get('Brake_Fail', '0') == '1'
             signal_fail = data.get('Signal_Fail', '0') == '1'
@@ -501,13 +514,13 @@ class MainWindow(QWidget):
                     self.suggested_authority = value
                     self.write_outputs(suggested_authority=value)
                 else:
-                    self.suggested_speed_kmh = value
+                    suggested_speed_mph = value
+                    self.suggested_speed_mps = suggested_speed_mph * self.KMH_TO_MPH
+                    suggested_speed_mps = suggested_speed_mph / self.MPH_TO_MPS
                     self.write_outputs(suggested_speed=value)
-
-            suggested_speed_kmh = self.suggested_speed_kmh
-            suggested_speed_mph = suggested_speed_kmh * self.KMH_TO_MPH
-
+            
             current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
+            suggested_speed_mph = self.suggested_speed_mps * self.MPS_TO_MPH
 
             self.suggested_authority_label.setText(f"Suggested Authority: {self.suggested_authority} m")
             self.suggested_speed_label.setText(f"Suggested Speed: {suggested_speed_mph:.1f} mph")
@@ -636,8 +649,7 @@ class MainWindow(QWidget):
 
             if self.auto_checkbox.isChecked():
                 self.power_control.set_direct_power_mode(False)
-                target_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS
-                Kp, Ki = self.power_control.auto_tune_gains(target_speed_mps, self.current_speed_mps)
+                Kp, Ki = self.power_control.auto_tune_gains(self.suggested_speed_mps, self.current_speed_mps)
 
                 self.kp_input.setText(f"{Kp:.2f}")
                 self.ki_input.setText(f"{Ki:.2f}")
@@ -647,13 +659,12 @@ class MainWindow(QWidget):
                 Ki = float(self.ki_input.text())
 
             self.power_control.update_gains(Kp, Ki)
-            target_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS
-            P_cmd = self.power_control.compute_Pcmd(target_speed_mps, self.current_speed_mps)
+            P_cmd = self.power_control.compute_Pcmd(self.suggested_speed_mps, self.current_speed_mps)
 
             self.p_cmd_display.setText(f"{P_cmd:.2f} kW")
             self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
 
-            self.write_outputs(power = P_cmd)
+            self.write_outputs(power=P_cmd)
 
             self.train_states[train]["Kp"] = Kp
             self.train_states[train]["Ki"] = Ki
@@ -679,13 +690,12 @@ class MainWindow(QWidget):
     #            self.acceleration_timer.stop()
 
     def update_power_display(self):
-        target_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS
         P_cmd = self.power_control.compute_Pcmd(
-            target_speed_mps,
+            self.suggested_speed_mps,
             self.current_speed_mps
         )
         self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
-        self.write_outputs(power = P_cmd)
+        self.write_outputs(power=P_cmd)
 
     def update_from_files(self):
         self.read_train_outputs()
