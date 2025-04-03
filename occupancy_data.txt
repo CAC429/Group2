@@ -1,6 +1,6 @@
 Train 1:
-Overlapping Blocks at position 50.0m: [63]
-New passengers getting on: 141
-Total count: 141
-Ticket Sales History: [[73, '02:23'], [141, '02:23']]
+Overlapping Blocks at position 0.0m: [63]
+New passengers getting on: 56
+Total count: 56
+Ticket Sales History: [[159, '03:37'], [56, '03:38']]
 

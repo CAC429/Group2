@@ -139,13 +139,15 @@ class GridWindow(QWidget):
 
         # Track if we need to initialize file writing for new trains
         new_train_created = False
+        previous_train_count = len(self.green_lines)
 
-        # Create first train if needed
-        if self.train_creations == 1 and not self.green_lines:
-            print("Creating the first train...")
+        # Create new train if needed
+        if self.train_creations == 1 and (not self.green_lines or self.boxes.get(63).state == 0):
+            print(f"Creating train {len(self.green_lines) + 1}...")
             self.create_next_train()
             new_train_created = True
-            self.ticket_array = []  # Initialize ticket array for the new train
+            # Initialize ticket array for the new train
+            self.green_lines[-1].ticket_array = []
 
         if not self.green_lines:
             return
@@ -154,99 +156,99 @@ class GridWindow(QWidget):
         train_statuses = []
 
         for train_number, green_line in enumerate(self.green_lines, start=1):
-            if train_number > len(self.train_positions):
-                print(f"Skipping train {train_number} as it has no recorded position.")
-                continue
+            try:
+                if train_number > len(self.train_positions):
+                    print(f"Skipping train {train_number} as it has no recorded position.")
+                    continue
 
-            # Read train data
-            delta_position, station_status, passengers = self.read_train_output(train_number)
-            if None in (delta_position, station_status, passengers):
-                print(f"Error reading train {train_number}'s data.")
-                continue
+                # Read train data
+                delta_position, station_status, passengers = self.read_train_output(train_number)
+                if None in (delta_position, station_status, passengers):
+                    print(f"Error reading train {train_number}'s data.")
+                    continue
 
-            # Update train position
-            self.train_positions[train_number - 1] = delta_position
-            occupied_blocks = green_line.find_blocks(delta_position)
-            global_occupancy.update({block: train_number for block in occupied_blocks})
-            train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
+                # Update train position
+                self.train_positions[train_number - 1] = delta_position
+                occupied_blocks = green_line.find_blocks(delta_position)
+                global_occupancy.update({block: train_number for block in occupied_blocks})
+                train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
-            # Handle new train initialization
-            if new_train_created and train_number == len(self.green_lines):
-                current_time = global_variables.current_time.strftime("%H:%M") if hasattr(global_variables, 'current_time') else "00:00"
+                # Safely get current time
+                try:
+                    current_time = global_variables.current_time.strftime("%H:%M")
+                except:
+                    current_time = "--:--"
+
+                # Handle new train initialization
+                if new_train_created and train_number > previous_train_count:
+                    if train_number == 1:
+                        write_to_file(
+                            f"Train {train_number}:\n"
+                            f"Overlapping Blocks at position {delta_position}m: {occupied_blocks}\n"
+                            f"New passengers getting on: 0\n"
+                            f"Total count: 0\n"
+                            f"Ticket Sales History: []\n\n",
+                            mode="w"
+                        )
+                    else:
+                        append_new_train_data(
+                            train_number,
+                            occupied_blocks,
+                            [],
+                            0,
+                            0,
+                            delta_position
+                        )
+
+                # Handle station arrivals
+                if station_status == 1:
+                    if not hasattr(green_line, 'station_visited'):
+                        green_line.station_visited = False
+                    
+                    if not green_line.station_visited:
+                        print(f"Train {train_number} is at a station. Running pass_count()...")
+                        passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
+                        green_line.passengers_count = passengers
+                        green_line.new_passengers = new_passengers
+
+                        if not hasattr(green_line, 'ticket_array'):
+                            green_line.ticket_array = []
+                        
+                        green_line.ticket_array.append([new_passengers, current_time])
+
+                        update_train_data(
+                            train_number,
+                            occupied_blocks,
+                            green_line.ticket_array,
+                            new_passengers,
+                            passengers,
+                            delta_position
+                        )
+                        green_line.station_visited = True
                 
-                # For first train, overwrite the file
-                if train_number == 1:
-                    write_to_file(
-                        f"Train {train_number}:\n"
-                        f"Overlapping Blocks at position {delta_position}m: {occupied_blocks}\n"
-                        f"New passengers getting on: 0\n"
-                        f"Total count: 0\n"
-                        f"Ticket Sales History: []\n\n",
-                        mode="w"
-                    )
-                else:
-                    # For subsequent trains, append to file
-                    append_new_train_data(
-                        train_number,
-                        occupied_blocks,
-                        [],  # Empty ticket array for new train
-                        0,   # No passengers yet
-                        0,    # Total count 0
-                        delta_position
-                    )
-                new_train_created = False
-
-            # Handle station arrivals and passenger counting
-            if station_status == 1:
-                if not hasattr(green_line, 'station_visited'):
+                if station_status == 0 and hasattr(green_line, 'station_visited'):
                     green_line.station_visited = False
-                
-                if not green_line.station_visited:
-                    print(f"Train {train_number} is at a station. Running pass_count()...")
-                    passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
-                    green_line.passengers_count = passengers
-                    green_line.new_passengers = new_passengers
 
-                    # Update ticket array
-                    current_time = global_variables.current_time.strftime("%H:%M") if hasattr(global_variables, 'current_time') else "00:00"
-                    self.ticket_array.append([new_passengers, current_time])
+                update_train_data(
+                    train_number,
+                    occupied_blocks,
+                    green_line.ticket_array if hasattr(green_line, 'ticket_array') else [],
+                    green_line.new_passengers if hasattr(green_line, 'new_passengers') else 0,
+                    green_line.passengers_count if hasattr(green_line, 'passengers_count') else 0,
+                    delta_position
+                )
 
-                    # Update the file with new passenger data
-                    update_train_data(
-                        train_number,
-                        occupied_blocks,
-                        self.ticket_array,
-                        new_passengers,
-                        passengers,
-                        delta_position
-                    )
-                    green_line.station_visited = True
-            
-            # Reset station flag when leaving
-            if station_status == 0 and hasattr(green_line, 'station_visited'):
-                green_line.station_visited = False
+            except Exception as e:
+                print(f"Error processing train {train_number}: {str(e)}")
+                continue
 
-            # Update train data even when not at station (for position changes)
-            update_train_data(
-                train_number,
-                occupied_blocks,
-                self.ticket_array if hasattr(green_line, 'passengers_count') else [],
-                green_line.new_passengers if hasattr(green_line, 'new_passengers') else 0,
-                green_line.passengers_count if hasattr(green_line, 'passengers_count') else 0,
-                delta_position
-            )
+        new_train_created = False
 
         # Update UI
         for box in self.boxes.values():
             box.set_state(1 if box.index in global_occupancy else 0)
         self.train_list_display.setText("\n".join(train_statuses) if train_statuses else "No trains are active.")
-
-        # Create additional trains if needed
-        if self.train_creations == 1 and self.boxes.get(63).state == 0:
-            print("Creating a new train...")
-            self.create_next_train()
-            # The new train will be handled in the next iteration
-
+        
     def create_next_train(self):
         """Create a new train instance if there is no active train or block 63 is vacant."""
         grid_data = load_csv("data2.csv")
