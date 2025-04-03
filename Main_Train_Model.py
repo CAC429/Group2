@@ -65,6 +65,7 @@ class Train_Model:
                         data[key.strip()] = value.strip()
 
                 self.Power = float(data.get('Commanded Power', 0))
+                self.emergency_brake = float(data.get('Emergency Brake', 0))
         except Exception as e:
             print(f"Error in file append: {e}")
             return False
