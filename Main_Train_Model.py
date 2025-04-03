@@ -20,7 +20,6 @@ class MainTrainModel:
             with open(file_path, 'r') as file:
                 content = file.read()
             
-            # Split the file into sections for each train
             train_sections = content.split('Train ')[1:]  # Skip the first empty split
         
             for section in train_sections:
@@ -39,6 +38,7 @@ class MainTrainModel:
                     passenger_count = 0
                     if 'Total count' in train_data:
                         try:
+                            # First try to convert to float, then to int
                             passenger_count = int(float(train_data['Total count']))
                         except (ValueError, TypeError):
                             passenger_count = 0
@@ -205,20 +205,49 @@ class Train_Model:
                         key, value = line.strip().split(':')
                         data[key.strip()] = value.strip()
 
-                self.Power = float(data.get('Commanded Power', 0))
-                new_emergency_brake = float(data.get('Emergency Brake', 0))
-                if new_emergency_brake == 0 and self.emergency_brake_active:
-                    self.emergency_brake_active = False
-                    self.emergency_brake = 0
-                    if not self.service_brake_active:
-                        self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
+                # Safely convert values with error handling
+                try:
+                    self.Power = float(data.get('Commanded Power', 0))
+                except (ValueError, TypeError):
+                    self.Power = 0
+                    
+                try:
+                    new_emergency_brake = float(data.get('Emergency Brake', 0))
+                    if new_emergency_brake == 0 and self.emergency_brake_active:
+                        self.emergency_brake_active = False
+                        self.emergency_brake = 0
+                        if not self.service_brake_active:
+                            accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                            self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
+                except (ValueError, TypeError):
+                    new_emergency_brake = 0
 
                 self.emergency_brake = new_emergency_brake
-                self.service_brake = int(data.get('Service Brake', 0))
-                self.Left_Door = bool(int(data.get('Left Door', 0)))
-                self.Right_Door = bool(int(data.get('Right Door', 0)))
-                self.Suggested_Speed = bool(int(data.get('Suggested Speed', 0)))
-                self.Suggested_Authority = bool(int(data.get('Suggested Authority', 0)))
+                
+                try:
+                    self.service_brake = int(float(data.get('Service Brake', 0)))
+                except (ValueError, TypeError):
+                    self.service_brake = 0
+                    
+                try:
+                    self.Left_Door = bool(int(float(data.get('Left Door', 0))))
+                except (ValueError, TypeError):
+                    self.Left_Door = False
+                    
+                try:
+                    self.Right_Door = bool(int(float(data.get('Right Door', 0))))
+                except (ValueError, TypeError):
+                    self.Right_Door = False
+                    
+                try:
+                    self.Suggested_Speed = bool(int(float(data.get('Suggested Speed', 0))))
+                except (ValueError, TypeError):
+                    self.Suggested_Speed = False
+                    
+                try:
+                    self.Suggested_Authority = bool(int(float(data.get('Suggested Authority', 0))))
+                except (ValueError, TypeError):
+                    self.Suggested_Authority = False
 
                 return True
         except Exception as e:
@@ -448,14 +477,22 @@ class Train_Model:
                 not self.service_brake_active and 
                 not self.Train_F.Engine_Fail):
 
-                suggested_speed = float(str(self.Get_Suggested_Speed_Authority).split()[0]) if isinstance(self.Suggested_Speed_Authority, str) else 0
+                # Safely handle suggested speed/authority
+                try:
+                    if isinstance(self.Suggested_Speed_Authority, str):
+                        # Try to extract numeric value from string
+                        suggested_speed = float(self.Suggested_Speed_Authority.split()[0])
+                    else:
+                        suggested_speed = float(self.Suggested_Speed_Authority)
+                except (ValueError, TypeError, AttributeError):
+                    suggested_speed = 0
 
                 current_speed = self.Train_Ca.Actual_Speed
                 current_authority = self.Train_Ca.Actual_Authority
 
                 # 0.5 m/s^2 to mph/s
                 target_acceleration = 1.11847
-                self.Suggested_Speed = 20
+                self.Suggested_Speed = 20  # Default value if not set
 
                 if current_speed < suggested_speed:
                     new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
