@@ -135,6 +135,13 @@ class MainWindow(QWidget):
             }
         }
 
+        self.door_timer = QTimer(self)
+        self.door_timer.timeout.connect(self.close_doors_after_delay)
+
+        self.train_states["Train 1"]["left_door"] = False
+        self.train_states["Train 1"]["right_door"] = False
+        self.write_outputs(left_door=0, right_door=0)
+
         #self.acceleration_timer = QTimer(self)
         #self.acceleration_timer.timeout.connect(self.accelerate_train)
         
@@ -597,6 +604,91 @@ class MainWindow(QWidget):
             #self.acceleration_timer.stop()
             #self.brake_timer.start(100)
             print("Service Brake Engaged")
+            self.open_appropriate_doors()
+
+    def open_appriopriate_doors(self):
+        try:
+            with open('train1_outputs.txt', mode='r') as file:
+                lines = file.readlines()
+
+            beacon_str = '{}'
+            for line in lines:
+                if line.startswith('Beacon:'):
+                    beacon_str = line.split(':', 1)[1].strip()
+                    break
+
+            beacon_data = eval(beacon_str)
+            station_side = beacon_data.get('station_side', 'right').lower()
+
+            self.train_states["Train 1"]["left_door"] = False
+            self.train_states["Train 1"]["right_door"] = False
+
+            if station_side == 'left':
+                self.train_states["Train 1"]["left_door"] = True
+                self.write_outputs(left_door=1, right_door=0)
+                print("Opening LEFT doors")
+            else:  # default to right
+                self.train_states["Train 1"]["right_door"] = True
+                self.write_outputs(left_door=0, right_door=1)
+                print("Opening RIGHT doors")
+                
+            # Update UI
+            self.update_ui_from_state()
+            
+            # Start timer to close doors after 10 seconds
+            self.door_timer.start(10000)  # 10,000 ms = 10 seconds
+            
+        except Exception as e:
+            print(f"Error opening doors: {e}")
+
+    def close_doors_after_delay(self):
+        self.door_timer.stop()
+        self.train_states["Train 1"]["left_door"] = False
+        self.train_states["Train 1"]["right_door"] = False
+        self.write_outputs(left_door=0, right_door=0)
+        self.update_ui_from_state()
+        print("Doors closed after delay")
+
+    def write_outputs(self, power=None, emergency_brake=None, service_brake=None, 
+                    suggested_speed=None, suggested_authority=None,
+                    left_door=None, right_door=None):
+        try:
+            try:
+                with open('TC_outputs.txt', 'r') as f:
+                    lines = f.readlines()
+            except FileNotFoundError:
+                lines = []
+
+            updates = {
+                "Commanded Power": None if power is None else f"{power:.2f}",
+                "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
+                "Service Brake": None if service_brake is None else str(service_brake),
+                "Suggested Speed": None if suggested_speed is None else f"{suggested_speed * self.KMH_TO_MPH:.1f}",
+                "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}",
+                "Left Door": None if left_door is None else str(left_door),
+                "Right Door": None if right_door is None else str(right_door)
+            }
+
+            updated = False
+            found_keys = set()
+            for i, line in enumerate(lines):
+                if ':' in line:
+                    key = line.split(':')[0].strip()
+                    if key in updates and updates[key] is not None:
+                        lines[i] = f"{key}: {updates[key]}\n"
+                        updates[key] = None
+                        updated = True
+
+            for key in updates:
+                if updates[key] is not None:
+                    lines.append(f"{key}: {updates[key]}\n")
+                    updated = True
+
+            if updated:
+                with open('TC_outputs.txt', 'w') as f:
+                    f.writelines(lines)
+        except Exception as e:
+            print(f"Error writing to TC_outputs.txt: {e}")
 
     def apply_service_brake(self):
         if self.current_speed_mps > 0:
@@ -711,42 +803,42 @@ class MainWindow(QWidget):
         #else:
         #    self.acceleration_timer.stop()
 
-    def write_outputs(self, power=None, emergency_brake=None, service_brake=None, suggested_speed=None, suggested_authority=None):
-        try:
-            try:
-                with open('TC_outputs.txt', 'r') as f:
-                    lines = f.readlines()
-            except FileNotFoundError:
-                lines = []
+    #def write_outputs(self, power=None, emergency_brake=None, service_brake=None, suggested_speed=None, suggested_authority=None):
+    #    try:
+    #        try:
+    #            with open('TC_outputs.txt', 'r') as f:
+    #               lines = f.readlines()
+    #        except FileNotFoundError:
+    #            lines = []
 
-            updates = {
-                "Commanded Power": None if power is None else f"{power:.2f}",
-                "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
-                "Service Brake": None if service_brake is None else str(service_brake),
-                "Suggested Speed": None if suggested_speed is None else f"{suggested_speed * self.KMH_TO_MPH:.1f}",
-                "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}"
-            }
+    #        updates = {
+    #            "Commanded Power": None if power is None else f"{power:.2f}",
+    #            "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
+    #            "Service Brake": None if service_brake is None else str(service_brake),
+    #            "Suggested Speed": None if suggested_speed is None else f"{suggested_speed * self.KMH_TO_MPH:.1f}",
+    #            "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}"
+    #        }
 
-            updated = False
-            found_keys = set()
-            for i, line in enumerate(lines):
-                if ':' in line:
-                    key = line.split(':')[0].strip()
-                    if key in updates and updates[key] is not None:
-                        lines[i] = f"{key}: {updates[key]}\n"
-                        updates[key] = None
-                        updated = True
-
-            for key in updates:
-                if updates[key] is not None:
-                    lines.append(f"{key}: {updates[key]}\n")
-                    updated = True
-
-            if updated:
-                with open('TC_outputs.txt', 'w') as f:
-                    f.writelines(lines)
-        except Exception as e:
-            print(f"Error writing to TC_outputs.txt: {e}")
+     #       updated = False
+      #      found_keys = set()
+     #       for i, line in enumerate(lines):
+     #         if ':' in line:
+    #                key = line.split(':')[0].strip()
+      #              if key in updates and updates[key] is not None:
+       #                 lines[i] = f"{key}: {updates[key]}\n"
+        #                updates[key] = None
+         #               updated = True
+#
+ #           for key in updates:
+  #              if updates[key] is not None:
+   #                 lines.append(f"{key}: {updates[key]}\n")
+    #                updated = True
+#
+ #           if updated:
+  #              with open('TC_outputs.txt', 'w') as f:
+   #                 f.writelines(lines)
+    #    except Exception as e:
+     #       print(f"Error writing to TC_outputs.txt: {e}")
 
 
     

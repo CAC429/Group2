@@ -1,0 +1,7 @@
+Train 1:
+Overlapping Blocks at position 19790.6m: [57]
+Suggested_Speed_Authority: [1, 0, 1, 0]
+New passengers getting on: 0
+Total count: 0
+Ticket Sales History: []
+Beacon Info: Nones
