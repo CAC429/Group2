@@ -169,9 +169,12 @@ class GridWindow(QWidget):
             
             train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
-            # **NEW: Call pass_count() if Station_Status is 1**
-            if station_status == 1:
-                print(f"Train {train_number} is at a station. Calling pass_count function...")
+            # **NEW: Call pass_count() only once when station_status == 1**
+            if station_status == 1 and not hasattr(green_line, 'station_visited'):
+                green_line.station_visited = False  # Initialize the flag if it doesn't exist
+
+            if station_status == 1 and not green_line.station_visited:
+                print(f"Train {train_number} is at a station. Running pass_count()...")
 
                 passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
 
@@ -179,6 +182,13 @@ class GridWindow(QWidget):
                 green_line.passengers_count = passengers
 
                 print(f"Train {train_number} - Passengers Onboard: {passengers}, New: {new_passengers}, Initial: {starting_pass}")
+
+                # Mark that we've processed passengers at this station
+                green_line.station_visited = True
+
+            # **Reset the flag when leaving the station (Station_Status changes from 1 to 0)**
+            if station_status == 0:
+                green_line.station_visited = False
 
         # Update UI
         for box in self.boxes.values():
@@ -189,6 +199,7 @@ class GridWindow(QWidget):
         # Create additional trains if needed
         if self.train_creations == 1 and self.boxes.get(63).state == 0:
             self.create_next_train()
+
 
 
     def create_next_train(self):
