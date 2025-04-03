@@ -1,5 +1,12 @@
 Train 1:
-Overlapping Blocks at position 800.0m: [68]
+Overlapping Blocks at position 400.0m: [65, 66]
+Suggested_Speed_Authority: [1, 0, 1, 0]
+New passengers getting on: 0
+Total count: 0
+Ticket Sales History: []
+
+Train 2:
+Overlapping Blocks at position 0.0m: [63]
 Suggested_Speed_Authority: [1, 0, 1, 0]
 New passengers getting on: 0
 Total count: 0
