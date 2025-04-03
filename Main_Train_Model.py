@@ -21,6 +21,8 @@ class Train_Model:
         self.station_status = 0
         self.Train_Number = Train_Number
         self.cumulative_distance = 0
+        self.Suggested_Speed = 0
+        self.Suggested_Authority = 0
         
         # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.txt"
@@ -38,7 +40,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(0.1, 40900, 20, 1000, 0)
+        self.Train_Ca = Train_Calc(1, 40900, 20, 1000, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
@@ -65,10 +67,21 @@ class Train_Model:
                         data[key.strip()] = value.strip()
 
                 self.Power = float(data.get('Commanded Power', 0))
-                self.emergency_brake_active = float(data.get('Emergency Brake', 0))
-                self.service_brake_active = float(data.get('Service Brake', 0))
-                self.Left_Door = float(data.get('Left Door', 0))
-                self.Right_Door = float(data.get('Right Door', 0))
+                new_emergency_brake = float(data.get('Emergency Brake', 0))
+                if new_emergency_brake == 0 and self.emergency_brake_active:
+                    self.emergency_brake_active = False
+                    self.emergency_brake = 0
+                    if not self.service_brake_active:
+                        self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
+
+                self.emergency_brake = new_emergency_brake
+                self.service_brake = int(data.get('Service Brake', 0))
+                self.Left_Door = bool(int(data.get('Left Door', 0)))
+                self.Right_Door = bool(int(data.get('Right Door', 0)))
+                self.Suggested_Speed = bool(int(data.get('Suggested Speed', 0)))
+                self.Suggested_Authority = bool(int(data.get('Suggested Authority', 0)))
+
+                return True
         except Exception as e:
             print(f"Error in file append: {e}")
             return False
@@ -107,7 +120,6 @@ class Train_Model:
             f.write("Passengers: \n")
             f.write("Station_Status: \n")
             f.write("Actual_Speed: \n")
-            f.write("Actual_Authority: \n")
             f.write("Delta_Position: \n")  # Will be in meters
             f.write("Emergency_Brake: \n")
             f.write("Brake_Fail: \n")
@@ -141,6 +153,9 @@ class Train_Model:
         except Exception as e:
             print(f"Error writing to log file: {e}")
 
+    # [Rest of the class methods remain exactly the same as in your original code]
+    # Only the write_outputs_to_file() method was modified to convert feet to meters
+
     @property
     def Cabin_Temp(self):
         return self._cabin_temp
@@ -160,6 +175,20 @@ class Train_Model:
         self.create_failure_section()
         self.create_emergency_brake()
         self.update_all_displays()
+        self.create_advertisement()
+
+
+    def create_advertisement(self):
+        # Create a new frame for the advertisement
+        self.Ad_Frame = tk.LabelFrame(self.root, text="Advertisement", padx=10, pady=10)
+        self.Ad_Frame.grid(row=2, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+       
+        # Add advertisement text
+        ad_text = "Ride in comfort with MetroRail! Enjoy our premium seating and climate-controlled cabins."
+        tk.Label(self.Ad_Frame, text=ad_text, wraplength=500, justify=tk.LEFT).pack(anchor="w")
+       
+        tk.Label(self.Ad_Frame, text="Sponsored Content", font=('Arial', 7), fg='gray').pack(anchor="e")
+
         
     def create_frames(self):
         self.Calc_Frame = tk.LabelFrame(self.root, text="Train Calculations", padx=10, pady=10)
@@ -254,41 +283,51 @@ class Train_Model:
             self.Train_C.Set_Cabin_Temp(self._cabin_temp)
             self.update_temp_display()
         
-    def handle_brake_release(self):
-        """Called when brake signals change from active to inactive"""
-        if not self.emergency_brake_active and not self.service_brake_active:
-            # Only restart if no failures are present
-            if not self.Train_F.Engine_Fail:
-                self.Acceleration_Label.config(text="Resuming normal operation...")
-                self.station_status = 0
-        
     def update_all_displays(self):
-        # Check brake status changes
+        #Read from TC_outputs.txt
+        self.read_tc_outputs()
+
+        right_door = "CLOSED" if self.Right_Door else "OPEN"
+        left_door = "CLOSED" if self.Left_Door else "OPEN"
+        self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
+
+        # Check brake status from external signals
         if self.emergency_brake == 1 and not self.emergency_brake_active:
             self.activate_emergency_brake()
-        elif self.emergency_brake == 0 and self.emergency_brake_active:
-            self.emergency_brake_active = False
-            self.handle_brake_release()
-            
-        if self.service_brake == 1 and not self.service_brake_active:
+        elif self.service_brake == 1 and not self.service_brake_active:
             self.activate_service_brake()
-        elif self.service_brake == 0 and self.service_brake_active:
-            self.service_brake_active = False
-            self.handle_brake_release()
-        
+            
         # Only update speed if not in any brake mode and no engine failure
         if (not self.emergency_brake_active and 
             not self.service_brake_active and 
             not self.Train_F.Engine_Fail):
+
+            suggested_speed = float(str(self.Get_Suggested_Speed_Authority).split()[0]) if isinstance(self.Suggested_Speed_Authority, str) else 0
+
             current_speed = self.Train_Ca.Actual_Speed
             current_authority = self.Train_Ca.Actual_Authority
+
+            #0.5 m/s^2 to mph/s
+            target_acceleration = 1.11847
+            self.Suggested_Speed = 20
+            #COMEMEMNTNTENTK
+
             
-            acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
-            new_speed = current_speed + acceleration * self.Train_Ca.Dt
+            #acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+
+            if current_speed < suggested_speed:
+                new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
+                if new_speed > suggested_speed:
+                    new_speed = suggested_speed
+            else:
+                new_speed = suggested_speed
+                self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
+
             new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
             
             self.Train_Ca.Actual_Speed = max(0, new_speed)
             self.Train_Ca.Actual_Authority = max(0, new_authority)
+
         elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
             self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
         
@@ -330,10 +369,6 @@ class Train_Model:
             start_time = time.time()
             
             def update_braking():
-                # Only continue braking if service brake is still active
-                if not self.service_brake_active:
-                    return
-                    
                 elapsed = time.time() - start_time
                 current_speed = max(0, initial_speed + deceleration * elapsed)
                 
@@ -346,6 +381,7 @@ class Train_Model:
                 if current_speed > 0:
                     self.root.after(50, update_braking)
                 else:
+                    self.service_brake_active = False
                     self.station_status = 1
                     self.train_stopped()
             
@@ -395,10 +431,6 @@ class Train_Model:
         start_time = time.time()
         
         def update_braking():
-            # Only continue braking if emergency brake is still active
-            if not self.emergency_brake_active:
-                return
-                
             elapsed = time.time() - start_time
             current_speed = max(0, initial_speed + deceleration * elapsed)
             
@@ -412,9 +444,9 @@ class Train_Model:
             if current_speed > 0:
                 self.root.after(50, update_braking)
             else:
+                self.emergency_brake_active = True
                 self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
                 self.Authority_Label.config(text="Actual Authority: 0.00 ft")
-                messagebox.showinfo("Emergency Brake", f"Train stopped in {elapsed:.1f} seconds")
                 self.train_stopped()
         
         update_braking()
