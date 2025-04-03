@@ -123,6 +123,12 @@ beacons = {
         "station_side": "left",
         "arriving_station": "OVERBROOK",
         "new_station": "Yard",
-        "station_distance": 19852.6
+        "station_distance": 19742.6
+    },
+    "beacon 22": {
+        "station_side": "none",
+        "arriving_station": "YARD",
+        "new_station": "YARD",
+        "station_distance": 19830.6
     }
 }

@@ -26,7 +26,8 @@ BEACON_BLOCKS = {
     30: "beacon 18",
     38: "beacon 19",
     47: "beacon 20",
-    56: "beacon 21"
+    56: "beacon 21",
+    58: "beacon 22"
 }
 
 # Update the write_to_file function to include beacon info
@@ -208,7 +209,7 @@ class GreenLineOccupancy:
         elif 18702.6 < position <= 19802.6:
             return 'I'
         elif 19802.6 < position <= 20052.6:
-            return 'J'
+            return None
         else:
             return None
 
