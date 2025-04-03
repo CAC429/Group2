@@ -521,10 +521,14 @@ class MainWindow(QWidget):
                     self.suggested_authority = value
                     self.write_outputs(suggested_authority=value)
                 else:
-                    suggested_speed_mph = value
+                    suggested_speed_mph = value if value > 0 else 20
                     self.suggested_speed_mps = suggested_speed_mph * self.KMH_TO_MPH
-                    suggested_speed_mps = suggested_speed_mph / self.MPH_TO_MPS
-                    self.write_outputs(suggested_speed=value)
+                    self.write_outputs(suggested_speed=suggested_speed_mph)
+
+            else:
+                suggested_speed_mph = 20
+                self.suggested_speed_mps = suggested_speed_mph * self.MPH_TO_MPS
+                self.write_outputs(suggested_speed=suggested_speed_mph)
             
             current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
             suggested_speed_mph = self.suggested_speed_mps * self.MPS_TO_MPH
@@ -606,7 +610,7 @@ class MainWindow(QWidget):
             print("Service Brake Engaged")
             self.open_appropriate_doors()
 
-    def open_appriopriate_doors(self):
+    def open_appropriate_doors(self):
         try:
             with open('train1_outputs.txt', mode='r') as file:
                 lines = file.readlines()
