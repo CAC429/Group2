@@ -4,12 +4,19 @@ import global_variables
 def get_block_occupancies():
     
     occupancies = []
+    temp = ''
     file_name = 'PLC_OUTPUTS.txt'
 
     #read from wayside output file
-    for line in fileinput.input(file_name):
-        if line.startswith('Occupancy='):
-            temp = line
+    try:
+        for line in fileinput.input(file_name):
+            if line.startswith('Occupancy='):
+                temp = line
+    except FileNotFoundError:
+        print('CTC: File not accessible')
+    except Exception as e:
+        print('CTC: File error')
+
     #eliminate commas or other erronious characters
     for c in temp:
         if c != '0' and c != '1':

@@ -1,4 +1,8 @@
-x
-Tickets Sold:[[5, '17:30'], [6, '18:00'], [7, '19:30']]
-x
-x
+Train 1:
+Overlapping Blocks at position 16002.6m: [15, 16]
+Suggested_Speed_Authority: [0, 1, 0, 1]
+New passengers getting on: 0
+Total count: 0
+Ticket Sales History: []
+Beacon Info: {'station_side': 'left', 'arriving_station': 'LESUNSHINE STATION', 'new_station': 'WHITED', 'station_distance': 16042.6}
+
