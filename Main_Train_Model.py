@@ -241,9 +241,9 @@ class Train_Model:
                     self.Right_Door = False
                     
                 try:
-                    self.Suggested_Speed = bool(int(float(data.get('Suggested Speed', 0))))
+                    self.Suggested_Speed = float(data.get('Suggested Speed', 0))
                 except (ValueError, TypeError):
-                    self.Suggested_Speed = False
+                    self.Suggested_Speed = 0
                     
                 try:
                     self.Suggested_Authority = bool(int(float(data.get('Suggested Authority', 0))))
@@ -304,7 +304,7 @@ class Train_Model:
             beacon_info = self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon)
             
             data_entries = {
-                "Passengers": str(self.Passenger_Number),
+                "Passengers": str(int(self.Passenger_Number)),
                 "Station_Status": str(self.station_status),
                 "Actual_Speed": str(self.Get_Actual_Speed()),
                 "Actual_Authority": str(self.Get_Actual_Authority()),
@@ -475,34 +475,15 @@ class Train_Model:
                 not self.service_brake_active and 
                 not self.Train_F.Engine_Fail):
 
-                # Safely handle suggested speed/authority
-                try:
-                    if isinstance(self.Suggested_Speed_Authority, str):
-                        # Try to extract numeric value from string
-                        suggested_speed = float(self.Suggested_Speed_Authority.split()[0])
-                    else:
-                        suggested_speed = float(self.Suggested_Speed_Authority)
-                except (ValueError, TypeError, AttributeError):
-                    suggested_speed = 0
-
                 current_speed = self.Train_Ca.Actual_Speed
-                current_authority = self.Train_Ca.Actual_Authority
-
-                # 0.5 m/s^2 to mph/s
-                target_acceleration = 1.11847
-                self.Suggested_Speed = 20  # Default value if not set
-
-                if current_speed < suggested_speed:
-                    new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
-                    if new_speed > suggested_speed:
-                        new_speed = suggested_speed
-                else:
-                    new_speed = suggested_speed
-                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
-
-                new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
                 
-                self.Train_Ca.Actual_Speed = max(0, new_speed)
+                # If suggested speed is higher than current speed, set current speed to suggested speed
+                if self.Suggested_Speed > current_speed:
+                    self.Train_Ca.Actual_Speed = self.Suggested_Speed
+                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Speed matched to suggestion)")
+                
+                # Update authority
+                new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
                 self.Train_Ca.Actual_Authority = max(0, new_authority)
 
             elif self.Train_F.Engine_Fail and not self.emergency_brake_active:

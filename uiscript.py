@@ -92,9 +92,9 @@ class MainWindow(QWidget):
         self.KMH_TO_MPH = 0.621371
 
         self.suggested_authority = 0
-        self.suggested_speed_mps = 0
+        self.suggested_speed_mps = 20 * self.MPH_TO_MPS
         self.suggested_speed_kmh = 0
-        self.write_outputs(suggested_speed=0, suggested_authority=0)
+        self.write_outputs(suggested_speed=20, suggested_authority=0)
 
         #MASTER TIMER
         self.master_timer = QTimer(self)
@@ -478,7 +478,7 @@ class MainWindow(QWidget):
             if self.current_speed_mps > self.suggested_speed_mps:
                 self.current_speed_mps = self.suggested_speed_mps
 
-            suggested_speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
+            suggested_speed_auth = data.get('Suggested_Speed_Authority', '')
             if suggested_speed_auth and all(bit in '01' for bit in suggested_speed_auth):
                 msb = suggested_speed_auth[0]  # First bit determines speed (0) or authority (1)
                 remaining_bits = suggested_speed_auth[1:] if len(suggested_speed_auth) > 1 else '0'
@@ -492,9 +492,10 @@ class MainWindow(QWidget):
                     self.write_outputs(suggested_authority=value)
                 else:
                 # Handle speed - use value directly as mph
-                    suggested_speed_mph = value if value > 0 else 20  # Default to 20 if 0
-                    self.suggested_speed_mps = suggested_speed_mph * self.MPH_TO_MPS
-                    self.write_outputs(suggested_speed=suggested_speed_mph)
+                    if value > 0:
+                        suggested_speed_mph = value
+                        self.suggested_speed_mps = suggested_speed_mph * self.MPH_TO_MPS
+                        self.write_outputs(suggested_speed=suggested_speed_mph)
             else:
             # Default case if format is invalid
                 suggested_speed_mph = 20
@@ -676,7 +677,7 @@ class MainWindow(QWidget):
                 "Commanded Power": None if power is None else f"{power:.2f}",
                 "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
                 "Service Brake": None if service_brake is None else str(service_brake),
-                "Suggested Speed": None if suggested_speed is None else f"{suggested_speed * self.KMH_TO_MPH:.1f}",
+                "Suggested Speed": None if suggested_speed is None else f"{suggested_speed:.1f}",
                 "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}",
                 "Left Door": None if left_door is None else str(left_door),
                 "Right Door": None if right_door is None else str(right_door)
