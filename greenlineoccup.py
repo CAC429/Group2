@@ -5,32 +5,31 @@ import copy
 import global_variables
 
 def write_to_file(content, mode="w"):
-    """Write content to the file. Default mode is 'w' to overwrite."""
+    """Write content to the file with speed authority information."""
     try:
         with open("occupancy_data.txt", mode) as file:
             file.write(content)
     except Exception as e:
         print(f"Error writing to file: {e}")
 
-def append_new_train_data(train_number, overlapping_blocks, ticket_data, new_passengers, total_count, position):
-    """Append new train data to the occupancy file."""
+def append_new_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority=""):
+    """Append new train data with speed authority."""
     content = (
         f"Train {train_number}:\n"
-        f"Overlapping Blocks at position {position}m: {overlapping_blocks}\n"
+        f"Overlapping Blocks at position {position}m: {blocks}\n"
+        f"Suggested_Speed_Authority: {speed_authority}\n"
         f"New passengers getting on: {new_passengers}\n"
         f"Total count: {total_count}\n"
         f"Ticket Sales History: {ticket_data}\n\n"
     )
-    write_to_file(content, mode="a")  # Append mode
+    write_to_file(content, mode="a")
 
-def update_train_data(train_number, overlapping_blocks, ticket_data, new_passengers, total_count, position):
-    """Update specific train data in the occupancy file."""
+def update_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority=""):
+    """Update train data with speed authority."""
     try:
-        # Read all lines from the file
         with open("occupancy_data.txt", "r") as file:
             lines = file.readlines()
 
-        # Find the start of the train's data in the file
         train_start_index = None
         for i, line in enumerate(lines):
             if line.strip().startswith(f"Train {train_number}:"):
@@ -38,20 +37,18 @@ def update_train_data(train_number, overlapping_blocks, ticket_data, new_passeng
                 break
 
         if train_start_index is not None:
-            # Modify the lines for this train
-            lines[train_start_index + 1] = f"Overlapping Blocks at position {position}m: {overlapping_blocks}\n"
-            lines[train_start_index + 2] = f"New passengers getting on: {new_passengers}\n"
-            lines[train_start_index + 3] = f"Total count: {total_count}\n"
-            lines[train_start_index + 4] = f"Ticket Sales History: {ticket_data}\n"
+            lines[train_start_index] = f"Train {train_number}:\n"
+            lines[train_start_index + 1] = f"Overlapping Blocks at position {position}m: {blocks}\n"
+            lines[train_start_index + 2] = f"Suggested_Speed_Authority: {speed_authority}\n"
+            lines[train_start_index + 3] = f"New passengers getting on: {new_passengers}\n"
+            lines[train_start_index + 4] = f"Total count: {total_count}\n"
+            lines[train_start_index + 5] = f"Ticket Sales History: {ticket_data}\n"
 
-            # Write the updated lines back to the file
             with open("occupancy_data.txt", "w") as file:
                 file.writelines(lines)
     except Exception as e:
         print(f"Error updating train data: {e}")
-
-import random
-
+        
 def pass_count(passengers, station_status):
     """Calculates the number of passengers getting on and updates count."""
     if station_status == 1:
