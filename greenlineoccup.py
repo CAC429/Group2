@@ -50,18 +50,28 @@ def update_train_data(train_number, overlapping_blocks, ticket_data, new_passeng
     except Exception as e:
         print(f"Error updating train data: {e}")
 
+import random
+
 def pass_count(passengers, station_status):
     """Calculates the number of passengers getting on and updates count."""
     if station_status == 1:
-        starting_pass = passengers  # Store the initial passenger count
-        total_passengers = max(0, passengers)  # Ensure passenger count is non-negative
-        new_passengers = random.randint(0, 222)  # Generate new passengers boarding
-        passengers = min(222, total_passengers + new_passengers)  # Ensure max capacity of 222
+        starting_pass = passengers  # Store initial passenger count
+        total_passengers = max(0, passengers)  # Ensure non-negative passengers
+
+        # Calculate available space on the train
+        available_space = 222 - total_passengers  
+
+        # Generate new passengers but ensure we don't exceed capacity
+        new_passengers = random.randint(0, available_space)
+
+        # Update total passengers (ensuring max is 222)
+        passengers = total_passengers + new_passengers  
 
         print(f"New passengers: {new_passengers}, Updated total: {passengers}")
         return passengers, new_passengers, starting_pass
 
-      # If not at a station, no change
+    return passengers, 0, passengers  # No change if not at a station
+
 
 def load_csv(csv_file):
     
