@@ -1,0 +1,16 @@
+Utility, on/off
+Current_Authority,30
+Current_speed,0
+Service_brakes,off
+Emergency_brakes,off
+Left_door,off
+Right_door,off
+Outside_lights,off
+Cabin_lights,off
+Air_conditioning,off
+Cabin_temp,60
+Problem,off
+Kp,0.5
+Ki,0.1
+P_target,80
+P_actual,50

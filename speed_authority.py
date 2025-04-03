@@ -88,11 +88,11 @@ class speed_authority(QWidget):
         global_variables.dynamic_speed = [math.floor(i) for i in speed]
         global_variables.dynamic_authority = [math.floor(i) for i in authority]
 
-        [label.setText(f'Block {i+1}\nSpeed: {global_variables.dynamic_speed[i]} km/hr\nAuthority: {global_variables.dynamic_authority[i]} km') for i, label in enumerate(self.labels)]
+        [label.setText(f'Block {i+1}\nSpeed: {round(global_variables.dynamic_speed[i] * 0.621371, 1)} mi/hr\nAuthority: {round(global_variables.dynamic_authority[i] * 3.28084, 1)} ft') for i, label in enumerate(self.labels)]
 
         if global_variables.current_maintenance:
             for i in global_variables.current_maintenance:
                 self.labels[i].setText(f'Block {i+1}\n !UNDER!\n!MAINTENANCE!')
 
-        #update wayside controller (binary authority)
+        #update wayside controller
         set_speed_authority(global_variables.dynamic_speed, global_variables.dynamic_authority)

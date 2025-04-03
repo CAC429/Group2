@@ -193,11 +193,12 @@ class main(QWidget):
         ###
         file_name = 'occupancy_data.txt'
         tickets_hours = 0
+        tickets = []
 
         #read from train controller output file
         for line in fileinput.input(file_name):
-            if line.startswith('Tickets Sold:'):
-                tickets = line[13:]
+            if line.startswith('Ticket Sales History:'):
+                tickets = line[22:]
                 tickets = ast.literal_eval(tickets)
         for i in tickets:
             #check if time stamps are within the last hour

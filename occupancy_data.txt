@@ -1,4 +1,8 @@
-x
-Tickets Sold:[[5, '17:30'], [6, '18:00'], [7, '19:30']]
-x
-x
+Train 1:
+Overlapping Blocks at position 73.18186165128427m: [63]
+Suggested_Speed_Authority: [1, 1, 1, 0, 0, 1, 0, 0, 0]
+New passengers getting on: 0
+Total count: 0
+Ticket Sales History: []
+Beacon Info: None
+
