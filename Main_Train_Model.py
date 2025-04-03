@@ -69,6 +69,35 @@ class Train_Model:
         except Exception as e:
             print(f"Error in file append: {e}")
             return False
+        
+    def read_track_model_outputs(self, file_path='occupancy_data.txt'):
+        try: 
+            with open(file_path, mode='r') as file:
+                lines = file.readlines()
+
+                data = {}
+                for line in lines:
+                    if ':' in line:
+                        key, value = line.strip().split(':')
+                        key = key.strip()
+                        value = value.strip()
+                        data[key] = value
+                    
+                        # Extract train instance number if line starts with "Train"
+                        if key.startswith('Train'):
+                            # Extract the number after "Train" and before ":"
+                            train_instance = key.split('Train')[1].split(':')[0].strip()
+                            try:
+                                self.Train_Number = int(train_instance)
+                            except ValueError:
+                                print(f"Could not parse train number from: {key}")
+
+                self.Passenger_Number = float(data.get('Total count', 0))
+                return True
+            
+        except Exception as e:
+            print(f"Error in file append: {e}")
+            return False
 
     def initialize_log_file(self):
         with open(self.log_file, 'w') as f:
