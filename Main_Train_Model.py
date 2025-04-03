@@ -5,12 +5,149 @@ from Reference_Object import Reference_Objects
 import tkinter as tk
 import random
 import time
+import ast
 from tkinter import messagebox
 
+class MainTrainModel:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.withdraw()  # Hide the main window
+        self.train_models = []
+        self.load_trains_from_file()
+        
+    def load_trains_from_file(self, file_path='occupancy_data.txt'):
+        try:
+            with open(file_path, 'r') as file:
+                content = file.read()
+            
+            # Split the file into sections for each train
+            train_sections = content.split('Train ')[1:]  # Skip the first empty split
+        
+            for section in train_sections:
+                try:
+                    # Extract train number (first part before colon)
+                    train_number_str = section.split(':', 1)[0].strip()
+                    train_number = int(train_number_str)
+                    
+                    # Get the rest of the section
+                    train_data_str = section.split(':', 1)[1] if ':' in section else ""
+                    
+                    # Parse the train data
+                    train_data = self.parse_train_data(train_data_str)
+                    
+                    # Safely get passenger count with default 0
+                    passenger_count = 0
+                    if 'Total count' in train_data:
+                        try:
+                            passenger_count = int(float(train_data['Total count']))
+                        except (ValueError, TypeError):
+                            passenger_count = 0
+                    
+                    # Create a new window for each train
+                    train_window = tk.Toplevel()
+                    train_window.title(f"Train {train_number} Controls")
+                    
+                    # Create a new Train_Model instance
+                    train_model = Train_Model(
+                        root=train_window,
+                        Train_Number=train_number,
+                        Passenger_Number=passenger_count,
+                        Suggested_Speed_Authority=self.process_speed_authority(
+                            train_data.get('Suggested_Speed_Authority', [])),
+                        Beacon=self.process_beacon_info(train_data.get('Beacon Info', None)))
+                    
+                    self.train_models.append(train_model)
+                    
+                except Exception as e:
+                    print(f"Error processing train {train_number_str}: {e}")
+                    continue
+                    
+            if not self.train_models:
+                messagebox.showwarning("No Trains", "No valid train data found in the file")
+                self.root.destroy()
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load train data: {str(e)}")
+            self.root.destroy()
+            
+    def parse_train_data(self, data_str):
+        data = {}
+        current_key = None
+        current_value = []
+        
+        for line in data_str.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+                
+            if ':' in line:
+                # Store previous key-value pair if exists
+                if current_key is not None:
+                    data[current_key] = '\n'.join(current_value).strip()
+                
+                # Start new key-value pair
+                key, value = line.split(':', 1)
+                current_key = key.strip()
+                current_value = [value.strip()]
+            else:
+                current_value.append(line)
+                
+        # Add the last key-value pair
+        if current_key is not None:
+            data[current_key] = '\n'.join(current_value).strip()
+            
+        # Convert some values from strings to Python objects
+        for key in ['Suggested_Speed_Authority', 'Beacon Info']:
+            if key in data and data[key] and data[key].strip().lower() not in ['none', 'null', '']:
+                try:
+                    # Handle list-like strings safely
+                    if key == 'Suggested_Speed_Authority' and data[key].startswith('['):
+                        data[key] = ast.literal_eval(data[key])
+                    elif key == 'Beacon Info' and data[key].startswith('{'):
+                        data[key] = ast.literal_eval(data[key])
+                except (ValueError, SyntaxError):
+                    pass
+                    
+        return data
+
+        
+    def process_speed_authority(self, speed_auth_list):
+        if not speed_auth_list:
+            return "0"
+        # Convert list to a binary string representation
+        return ''.join(str(int(x)) for x in speed_auth_list)
+        
+    def process_beacon_info(self, beacon_info):
+        if not beacon_info or beacon_info == "None":
+            return "No beacon info"
+        
+        if isinstance(beacon_info, dict):
+            parts = []
+            if 'station_side' in beacon_info:
+                parts.append(f"Side: {beacon_info['station_side']}")
+            if 'arriving_station' in beacon_info:
+                parts.append(f"Arriving: {beacon_info['arriving_station']}")
+            if 'new_station' in beacon_info:
+                parts.append(f"Next: {beacon_info['new_station']}")
+            if 'station_distance' in beacon_info:
+                # Convert distance to float first to ensure it's a valid number
+                try:
+                    distance = float(beacon_info['station_distance'])
+                    parts.append(f"Distance: {distance}m")
+                except (ValueError, TypeError):
+                    pass  # Skip if distance can't be converted to float
+            return ', '.join(parts) if parts else "No valid beacon info"
+        
+        return str(beacon_info)
+        
+    def run(self):
+        if self.train_models:  # Only run if we have trains to display
+            self.root.mainloop()
+
 class Train_Model:
-    def __init__(self, root, Train_Number=1, Power=10000, Passenger_Number=150, Cabin_Temp=73, 
+    def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=73, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
-                 Interior_Lights=True, Beacon=0, Suggested_Speed_Authority=1010101000,
+                 Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
                  emergency_brake=0, service_brake=0):
         
         # Initialize all attributes
@@ -21,8 +158,6 @@ class Train_Model:
         self.station_status = 0
         self.Train_Number = Train_Number
         self.cumulative_distance = 0
-        self.Suggested_Speed = 0
-        self.Suggested_Authority = 0
         
         # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.txt"
@@ -153,9 +288,6 @@ class Train_Model:
         except Exception as e:
             print(f"Error writing to log file: {e}")
 
-    # [Rest of the class methods remain exactly the same as in your original code]
-    # Only the write_outputs_to_file() method was modified to convert feet to meters
-
     @property
     def Cabin_Temp(self):
         return self._cabin_temp
@@ -167,16 +299,15 @@ class Train_Model:
             self.update_temp_display()
         
     def initialize_ui(self):
-        self.root.title('Train Model UI')
+        self.root.title(f'Train {self.Train_Number} Model UI')
         self.create_frames()
         self.create_train_specs()
         self.create_calculation_display()
         self.create_component_display()
         self.create_failure_section()
         self.create_emergency_brake()
-        self.update_all_displays()
         self.create_advertisement()
-
+        self.update_all_displays()
 
     def create_advertisement(self):
         # Create a new frame for the advertisement
@@ -189,7 +320,6 @@ class Train_Model:
        
         tk.Label(self.Ad_Frame, text="Sponsored Content", font=('Arial', 7), fg='gray').pack(anchor="e")
 
-        
     def create_frames(self):
         self.Calc_Frame = tk.LabelFrame(self.root, text="Train Calculations", padx=10, pady=10)
         self.Calc_Frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
@@ -207,11 +337,12 @@ class Train_Model:
         self.Spec_Frame.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
         
     def create_train_specs(self):
-        tk.Label(self.Spec_Frame, text="Train Mass is 90169.07 pounds (40.9 tons)").grid(row=0, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Train Length is 105.6 ft (32.2 m)").grid(row=1, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Train Width is 2.65 ft (8.69 m)").grid(row=2, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Train Height is 11.22 ft (3.42 m)").grid(row=3, column=0, sticky="w")
-        tk.Label(self.Spec_Frame, text="Maximum of 222 passengers").grid(row=4, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text=f"Train {self.Train_Number} Specifications").grid(row=0, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Mass is 90169.07 pounds (40.9 tons)").grid(row=1, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Length is 105.6 ft (32.2 m)").grid(row=2, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Width is 2.65 ft (8.69 m)").grid(row=3, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Train Height is 11.22 ft (3.42 m)").grid(row=4, column=0, sticky="w")
+        tk.Label(self.Spec_Frame, text="Maximum of 222 passengers").grid(row=5, column=0, sticky="w")
         
     def create_calculation_display(self):
         self.Speed_Label = tk.Label(self.Calc_Frame, text="Actual Speed: N/A")
@@ -245,7 +376,7 @@ class Train_Model:
         self.Door_Status_Label = tk.Label(self.Comp_Frame, text="Right Door: N/A, Left Door: N/A")
         self.Door_Status_Label.grid(row=2, column=0, columnspan=2, sticky="w")
 
-        self.Reference_Status_Label = tk.Label(self.Ref_Frame, text="Status: N/A")
+        self.Reference_Status_Label = tk.Label(self.Ref_Frame, text=f"Beacon: {self.Beacon}")
         self.Reference_Status_Label.grid(row=0, column=0, columnspan=2, sticky="w")
         
     def create_failure_section(self):
@@ -310,10 +441,6 @@ class Train_Model:
             #0.5 m/s^2 to mph/s
             target_acceleration = 1.11847
             self.Suggested_Speed = 20
-            #COMEMEMNTNTENTK
-
-            
-            #acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
 
             if current_speed < suggested_speed:
                 new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
@@ -355,7 +482,7 @@ class Train_Model:
         left_door = "OPEN" if self.Left_Door else "CLOSED"
         self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
         
-        self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon} bits\nSuggested Speed and Authority: {self.Suggested_Speed_Authority} bits")
+        self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon}")
         
         self.write_outputs_to_file()
         self.root.after(1000, self.update_all_displays)
@@ -501,24 +628,6 @@ class Train_Model:
     def Get_Suggested_Speed_Authority(self):
         return self.Suggested_Speed_Authority
 
-    def run(self):
-        self.root.mainloop()
-
 if __name__ == "__main__":
-    root = tk.Tk()
-    train_model = Train_Model(
-        root=root,
-        Train_Number=1,
-        Power=10000, 
-        Passenger_Number=150, 
-        Cabin_Temp=73, 
-        Right_Door=False, 
-        Left_Door=False, 
-        Exterior_Lights=True, 
-        Interior_Lights=True, 
-        Beacon=0,
-        Suggested_Speed_Authority=1010101000,
-        emergency_brake=0,
-        service_brake=0
-    )
-    train_model.run()
+    main_model = MainTrainModel()
+    main_model.run()
