@@ -94,7 +94,7 @@ class GridWindow(QWidget):
         # Timer for updates
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_blocks)
-        self.timer.start(500)  # Update every 500ms
+        self.timer.start(1000)  # Update every 500ms
 
     def read_train_creation_status(self):
         """Reads Train_Creations value from PLC_OUTPUTS.txt."""
@@ -108,59 +108,71 @@ class GridWindow(QWidget):
         except Exception as e:
             print(f"Error reading PLC_OUTPUTS_Baud_Train_Instance.txt: {e}")
 
+    def read_train_output(self, train_number):
+        """Reads Delta_Position and Station_Status from the specific train's output file."""
+        try:
+            file_path = f"train{train_number}_outputs.txt"
+            with open(file_path, "r") as file:
+                data = file.readlines()
+
+            delta_position = None
+            station_status = None
+            
+            for line in data:
+                if line.startswith("Delta_Position:"):
+                    delta_position = float(line.split(":")[1].strip())
+                elif line.startswith("Station_Status:"):
+                    station_status = int(line.split(":")[1].strip())
+
+            return delta_position, station_status
+
+        except Exception as e:
+            #print(f"Error reading {file_path}: {e}")
+            return None, None  # Return None if any error occurs
+
     def update_blocks(self):
         """Check train positions, update block occupancy, and log ticket sales."""
         self.read_train_creation_status()
+
+        # Ensure a train is created if Train_Creations is 1
+        if self.train_creations == 1 and not self.green_lines:
+            print("Creating the first train...")
+            self.create_next_train()
+
+        if not self.green_lines:
+            return
+
         global_occupancy = {}
         train_statuses = []
 
         for train_number, green_line in enumerate(self.green_lines, start=1):
-            occupied_blocks = green_line.find_blocks(self.train_positions[train_number - 1])
+            if train_number > len(self.train_positions):
+                print(f"Skipping train {train_number} as it has no recorded position.")
+                continue  # Avoid index errors
+
+            # Read the Delta_Position and Station_Status for the current train
+            delta_position, station_status = self.read_train_output(train_number)
+
+            if delta_position is None or station_status is None:
+                print(f"Error reading train {train_number}'s data.")
+                continue
+
+            # Update train position
+            self.train_positions[train_number - 1] = delta_position
 
             # Log occupancy
+            occupied_blocks = green_line.find_blocks(self.train_positions[train_number - 1])
             global_occupancy.update({block: train_number for block in occupied_blocks})
-
-            # Advance train position
-            self.train_positions[train_number - 1] += 50
+            
             train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
-            # Passenger count and ticket sales
-            passengers, new_passengers, leaving_pass, starting_pass = green_line.pass_count(1)
-            current_time = str(global_variables.current_time)[11:16]
+            # **NEW: Call passengers() if Station_Status is 1**
+            #if station_status == 1:
+             #   print(f"Train {train_number} is at a station. Calling passengers function...")
+              #  passengers, new_passengers, leaving_pass, starting_pass = green_line.passengers(station_status)
 
-            # Append new ticket sales data to ticket_array
-            self.ticket_array.append([green_line.getTickets_sold(), current_time])
-
-            # If it's the first train, overwrite the file
-            if train_number == 1:
-                write_to_file(
-                    f"Train {train_number}:\n"
-                    f"Overlapping Blocks at position {self.train_positions[train_number - 1]}m: {occupied_blocks}\n"
-                    f"New passengers getting on: {new_passengers}\n"
-                    f"Total count: {passengers}\n"
-                    f"Ticket Sales History: {self.ticket_array}\n\n",
-                    mode="w"  # Overwrite mode for the first train
-                )
-            else:
-                # For subsequent trains, append the new train data
-                append_new_train_data(
-                    train_number,
-                    occupied_blocks,
-                    self.ticket_array,  # Full ticket history
-                    new_passengers,
-                    passengers,
-                    self.train_positions[train_number - 1]
-                )
-
-            # Update existing train data for further changes (i.e., ticket sales, new passengers)
-            update_train_data(
-                train_number,
-                occupied_blocks,
-                self.ticket_array,  # Full ticket history
-                new_passengers,
-                passengers,
-                self.train_positions[train_number - 1]
-            )
+                # Log or use the results as needed
+               # print(f"Train {train_number} - Passengers Onboard: {passengers}, New: {new_passengers}, Leaving: {leaving_pass}, Initial: {starting_pass}")
 
         # Update UI
         for box in self.boxes.values():
@@ -168,21 +180,22 @@ class GridWindow(QWidget):
 
         self.train_list_display.setText("\n".join(train_statuses) if train_statuses else "No trains are active.")
 
-        # Create new trains if Train_Creations is 1 and block 63 is vacant
+        # Create additional trains if needed
         if self.train_creations == 1 and self.boxes.get(63).state == 0:
             self.create_next_train()
 
+
     def create_next_train(self):
-        """Create a new train instance if block 63 is vacant."""
+        """Create a new train instance if there is no active train or block 63 is vacant."""
         grid_data = load_csv("data2.csv")
         new_green_line = GreenLineOccupancy(grid_data)
         self.green_lines.append(new_green_line)
-        self.train_positions.append(0)
+        self.train_positions.append(0)  # Ensure positions are correctly tracked
         print(f"A new train has been created. Total trains: {len(self.green_lines)}.")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = GridWindow()
     window.show()
     sys.exit(app.exec_())
-

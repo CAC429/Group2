@@ -151,8 +151,8 @@ class GreenLineOccupancy:
         train_start = position - 16.1
         train_end = position + 16.1
 
-        print(f"\nTrain position: {position}m (range: {train_start}m to {train_end}m)")
-        print(f"Looking for blocks in section: {block_section}\n")
+        #print(f"\nTrain position: {position}m (range: {train_start}m to {train_end}m)")
+        #print(f"Looking for blocks in section: {block_section}\n")
 
         overlapping_blocks = []
         previous_end_position = 0  # Initialize previous end position to 0 for the first block
@@ -193,7 +193,7 @@ class GreenLineOccupancy:
                 block_start = previous_end_position
                 block_end = 0 + block_length
 
-                print(f"Block: {block_num}, Start: {block_start}, End: {block_end}")
+                #print(f"Block: {block_num}, Start: {block_start}, End: {block_end}")
 
                 # Check if the train overlaps with the block
                 if not (train_end < block_start or train_start > block_end):
@@ -216,6 +216,7 @@ class GreenLineOccupancy:
             self.passengers = max(0, self.passengers - leaving_pass)
             self.new_passengers = random.randint(0, 222)
             self.passengers = min(222, self.passengers + self.new_passengers)
+            print(f"{new_passengers}, {self.passengers}")
 
         return self.passengers, self.new_passengers, leaving_pass, starting_pass
 
