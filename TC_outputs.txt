@@ -1,5 +1,5 @@
 Commanded Power: 0.00
 Emergency Brake: 0
-Service Brake: 1
+Service Brake: 0
 Left Door: 0
 Right Door: 0
