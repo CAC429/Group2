@@ -1,7 +1,9 @@
-Commanded_Power: 0.00
-Current_Speed: 45.43
+Commanded_Power: 22.74
+Current_Speed: 20.18
 Suggested_Speed: 0.00
-Current_Authority: 807.8312088172031
+Current_Authority: 890.9731694743863
 Suggested_Authority: 168
 Service_Brake: 0
-Emergency_Brake: 1
+Emergency_Brake: 0
+Beacon: {}
+Delta_Position: 66.46275588841381
