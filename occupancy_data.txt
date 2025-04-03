@@ -1,6 +1,6 @@
 Train 1:
-Overlapping Blocks at position 8220.0m: [101]
-Suggested_Speed_Authority: Baud4: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+Overlapping Blocks at position 100.0m: [63, 64]
+Suggested_Speed_Authority: [1, 0, 1, 0]
 New passengers getting on: 0
 Total count: 0
 Ticket Sales History: []

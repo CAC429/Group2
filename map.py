@@ -235,13 +235,13 @@ class GridWindow(QWidget):
                 if occupied_blocks:
                     block_num = occupied_blocks[0]
                     if 1 <= block_num <= 28:
-                        speed_auth = f"Baud1: {baud_rates['Baud1']}"
+                        speed_auth = f"{baud_rates['Baud1']}"
                     elif 29 <= block_num <= 76:
-                        speed_auth = f"Baud2: {baud_rates['Baud2']}"
+                        speed_auth = f"{baud_rates['Baud2']}"
                     elif 77 <= block_num <= 100:
-                        speed_auth = f"Baud3: {baud_rates['Baud3']}"
+                        speed_auth = f"{baud_rates['Baud3']}"
                     elif 101 <= block_num <= 150:
-                        speed_auth = f"Baud4: {baud_rates['Baud4']}"
+                        speed_auth = f"{baud_rates['Baud4']}"
 
                 # Handle new train initialization
                 if new_train_created and train_number > previous_train_count:
