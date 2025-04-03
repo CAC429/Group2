@@ -1,7 +1,7 @@
 Commanded_Power: 0.00
-Current_Speed: 0.00
+Current_Speed: 45.43
 Suggested_Speed: 0.00
-Current_Authority: 976.5079627971492
+Current_Authority: 807.8312088172031
 Suggested_Authority: 168
 Service_Brake: 0
 Emergency_Brake: 1

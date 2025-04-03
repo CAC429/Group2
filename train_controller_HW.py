@@ -12,8 +12,8 @@ from datetime import datetime
 
 class PowerControl:
     def __init__(self, P_max=120, T=0.1):
-        self.Kp = 0.0
-        self.Ki = 0.0
+        self.Kp = 0.5
+        self.Ki = 0.1
         self.P_max = P_max
         self.T = T
         self.u_k_1 = 0
@@ -132,7 +132,19 @@ class train_controller_ui(tk.Tk):
             "failure": LED(17)
         }
 
-        # Setup UI
+        # Create main container frame
+        self.main_frame = tk.Frame(self)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create top frame for power output and controls
+        self.top_frame = tk.Frame(self.main_frame)
+        self.top_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Create bottom frame for status updates
+        self.bottom_frame = tk.Frame(self.main_frame)
+        self.bottom_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Setup UI widgets in their respective frames
         self.create_widgets()
         
         # Initialize file monitoring
@@ -146,111 +158,50 @@ class train_controller_ui(tk.Tk):
         self.update_power()
         self.after(1000, self.check_file_updates)
 
-    def read_train_outputs(self, file_path='train1_outputs.txt'):
-            try:
-                with open(file_path, 'r') as file:
-                    data = {}
-                    for line in file:
-                        line = line.strip()
-                        if line and ':' in line:
-                            key, value = line.split(':', 1)
-                            data[key.strip()] = value.strip()
-
-                # Process actual values
-                self.current_speed = float(data.get('Actual_Speed', 0)) * 2.23694  # m/s to mph
-                self.current_authority = float(data.get('Actual_Authority', 0))
-
-                # Process failure states
-                failures = {
-                    'Brake_Fail': data.get('Brake_Fail', '0') == '1',
-                    'Signal_Fail': data.get('Signal_Fail', '0') == '1',
-                    'Engine_Fail': data.get('Engine_Fail', '0') == '1'
-                }
-                emergency_brake = data.get('Emergency_Brake', '0') == '1'
-                any_failure = any(failures.values())
-
-                # Control LEDs based on states
-                self.leds['failure'].on() if any_failure else self.leds['failure'].off()
-                self.leds['emergency_brake'].on() if (emergency_brake or any_failure) else self.leds['emergency_brake'].off()
-                
-                # Turn off service brake if emergency brake is on
-                if self.leds['emergency_brake'].is_lit and self.leds['service_brake'].is_lit:
-                    self.leds['service_brake'].off()
-
-                # Process suggested speed/authority from binary string
-                speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
-                if len(speed_auth) == 10 and all(bit in '01' for bit in speed_auth):
-                    msb = speed_auth[0]  # Most significant bit determines type
-                    value = int(speed_auth[1:], 2)  # Convert remaining 9 bits to decimal
-                    
-                    if msb == '0':  # Speed command
-                        # Convert binary value to mph (0.0625 mph per bit)
-                        self.suggested_speed = value * 0.0625
-                        print(f"Suggested speed set to: {self.suggested_speed:.2f} mph")
-                    else:  # Authority command
-                        self.suggested_authority = value  # Direct value in meters
-                        print(f"Suggested authority set to: {self.suggested_authority} m")
-
-                # Update all UI elements
-                self.update_ui()
-                return True
-
-            except Exception as e:
-                print(f"Error reading train outputs: {e}")
-                return False
-
-
-    def check_file_updates(self):
-        """Check for file changes every second"""
-        try:
-            current_modified_time = os.path.getmtime(self.text_file)
-            if current_modified_time != self.last_modified_time:
-                self.last_modified_time = current_modified_time
-                self.read_train_outputs()
-        except Exception as e:
-            print(f"File check error: {e}")
-        
-        # Schedule next check
-        self.after(1000, self.check_file_updates)
-
     def create_widgets(self):
-        self.power_label = tk.Label(self, text="Current Power: 0 kW", font=("Arial", 16))
+        # Top frame widgets - Power output and controls
+        self.power_label = tk.Label(self.top_frame, text="Current Power: 0 kW", font=("Arial", 16))
         self.power_label.pack(pady=10)
 
-        self.Kp_label = tk.Label(self, text="Kp:", font=("Arial", 12))
+        self.Kp_label = tk.Label(self.top_frame, text="Kp:", font=("Arial", 12))
         self.Kp_label.pack()
-        self.Kp_entry = tk.Entry(self, font=("Arial", 12))
+        self.Kp_entry = tk.Entry(self.top_frame, font=("Arial", 12))
         self.Kp_entry.pack()
 
-        self.Ki_label = tk.Label(self, text="Ki:", font=("Arial", 12))
+        self.Ki_label = tk.Label(self.top_frame, text="Ki:", font=("Arial", 12))
         self.Ki_label.pack()
-        self.Ki_entry = tk.Entry(self, font=("Arial", 12))
+        self.Ki_entry = tk.Entry(self.top_frame, font=("Arial", 12))
         self.Ki_entry.pack()
 
-        self.update_button = tk.Button(self, text="Update Kp & Ki", command=self.update_gains)
+        self.update_button = tk.Button(self.top_frame, text="Update Kp & Ki", command=self.update_gains)
         self.update_button.pack(pady=10)
 
         self.direct_mode_var = tk.IntVar()
-        self.direct_mode_check = tk.Checkbutton(self, text="Direct Power Mode", variable=self.direct_mode_var,
+        self.direct_mode_check = tk.Checkbutton(self.top_frame, text="Direct Power Mode", variable=self.direct_mode_var,
                                               command=self.toggle_direct_mode)
         self.direct_mode_check.pack(pady=5)
 
-        self.is_automatic_mode_button = tk.Button(self, text="Toggle Automatic Mode", command=self.toggle_automatic_mode)
+        self.is_automatic_mode_button = tk.Button(self.top_frame, text="Toggle Automatic Mode", command=self.toggle_automatic_mode)
         self.is_automatic_mode_button.pack(pady=10)
 
+        # Bottom frame widgets - Status information
         # Current Authority and Speed Labels
-        self.current_authority_label = tk.Label(self, text="Current Authority: 100", font=("Arial", 12))
-        self.current_authority_label.pack(pady=5)
+        self.current_authority_label = tk.Label(self.bottom_frame, text="Current Authority: 100", font=("Arial", 12))
+        self.current_authority_label.pack(pady=5, anchor='w')
 
-        self.current_speed_label = tk.Label(self, text="Current Speed: 0 mph", font=("Arial", 12))
-        self.current_speed_label.pack(pady=5)
+        self.current_speed_label = tk.Label(self.bottom_frame, text="Current Speed: 0 mph", font=("Arial", 12))
+        self.current_speed_label.pack(pady=5, anchor='w')
 
         # Suggested Authority and Speed Labels (Read-only)
-        self.suggested_authority_label = tk.Label(self, text=f"Suggested Authority: {self.suggested_authority}", font=("Arial", 12))
-        self.suggested_authority_label.pack(pady=5)
+        self.suggested_authority_label = tk.Label(self.bottom_frame, text=f"Suggested Authority: {self.suggested_authority}", font=("Arial", 12))
+        self.suggested_authority_label.pack(pady=5, anchor='w')
 
-        self.suggested_speed_label = tk.Label(self, text=f"Suggested Speed: {self.suggested_speed} mph", font=("Arial", 12))
-        self.suggested_speed_label.pack(pady=5)
+        self.suggested_speed_label = tk.Label(self.bottom_frame, text=f"Suggested Speed: {self.suggested_speed} mph", font=("Arial", 12))
+        self.suggested_speed_label.pack(pady=5, anchor='w')
+
+        # Status label at the very bottom
+        self.status_label = tk.Label(self.bottom_frame, text="Status: Normal", font=("Arial", 12))
+        self.status_label.pack(pady=10, anchor='w')
 
         self.create_led_buttons()
 
@@ -266,13 +217,18 @@ class train_controller_ui(tk.Tk):
             ("Toggle failure Indicator", "failure"),
         ]
         
-        for text, led_name in buttons:
-            tk.Button(self, text=text, command=lambda ln=led_name: self.toggle_led(ln)).pack(pady=5)
+        button_frame = tk.Frame(self.bottom_frame)
+        button_frame.pack(pady=10)
+        
+        for i, (text, led_name) in enumerate(buttons):
+            row = i // 2
+            col = i % 2
+            tk.Button(button_frame, text=text, command=lambda ln=led_name: self.toggle_led(ln)).grid(row=row, column=col, padx=5, pady=5, sticky='ew')
 
     def toggle_direct_mode(self):
         self.controller.set_direct_power_mode(self.direct_mode_var.get() == 1)
         mode = "Direct" if self.direct_mode_var.get() else "PI"
-        messagebox.showinfo("Info", f"Switched to {mode} Power Mode")
+        self.update_status(f"Switched to {mode} Power Mode")
 
     def read_train_outputs(self, file_path='train1_outputs.txt'):
         try:
@@ -304,30 +260,18 @@ class train_controller_ui(tk.Tk):
             if self.leds['emergency_brake'].is_lit and self.leds['service_brake'].is_lit:
                 self.leds['service_brake'].off()
 
-            # Process suggested speed/authority - flexible bit length handling
-            speed_auth = data.get('Suggested_Speed_Authority', '0')
-            
-            if speed_auth and all(bit in '01' for bit in speed_auth):
-                # Get type bit (first bit) and value bits (remaining bits)
-                type_bit = speed_auth[0] if len(speed_auth) >= 1 else '0'
-                value_bits = speed_auth[1:] if len(speed_auth) > 1 else '0'
+            # Process suggested speed/authority from binary string
+            speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
+            if len(speed_auth) == 10 and all(bit in '01' for bit in speed_auth):
+                msb = speed_auth[0]  # Most significant bit determines type
+                value = int(speed_auth[1:], 2)  # Convert remaining 9 bits to decimal
                 
-                # Convert value bits to decimal (minimum 0, maximum 511 for 9 bits)
-                value = int(value_bits, 2) if value_bits else 0
-                
-                if type_bit == '0':  # Speed command
+                if msb == '0':  # Speed command
                     self.suggested_speed = value * 0.0625  # 0.0625 mph per bit
-                    print(f"Suggested speed: {value_bits} -> {value} -> {self.suggested_speed:.2f} mph")
                 else:  # Authority command
-                    self.suggested_authority = value  # 1 meter per bit
-                    print(f"Suggested authority: {value_bits} -> {value} meters")
-            else:
-                print(f"Invalid binary string: {speed_auth}")
-                # Default to current values if invalid
-                self.suggested_speed = self.current_speed
-                self.suggested_authority = self.current_authority
+                    self.suggested_authority = value  # Direct value in meters
 
-            # Update UI with all values
+            # Update all UI elements
             self.update_ui()
             return True
 
@@ -335,18 +279,32 @@ class train_controller_ui(tk.Tk):
             print(f"Error reading train outputs: {e}")
             return False
 
+    def check_file_updates(self):
+        """Check for file changes every second"""
+        try:
+            current_modified_time = os.path.getmtime(self.text_file)
+            if current_modified_time != self.last_modified_time:
+                self.last_modified_time = current_modified_time
+                if self.read_train_outputs():
+                    self.update_status("Configuration updated from file")
+        except Exception as e:
+            print(f"File check error: {e}")
+        
+        # Schedule next check
+        self.after(1000, self.check_file_updates)
 
     def update_gains(self):
         try:
             Kp = float(self.Kp_entry.get())
             Ki = float(self.Ki_entry.get())
             self.controller.update_gains(Kp, Ki)
-            messagebox.showinfo("Info", f"Kp and Ki updated to: {Kp}, {Ki}")
+            self.update_status(f"Kp and Ki updated to: {Kp}, {Ki}")
         except ValueError:
-            messagebox.showerror("Error", "Invalid input for Kp or Ki. Please enter numeric values.")
+            self.update_status("Error: Invalid input for Kp or Ki", is_error=True)
 
     def toggle_led(self, led_name):
         if self.is_automatic_mode:
+            self.update_status("Cannot toggle LEDs in automatic mode", is_error=True)
             return
         
         led = self.leds.get(led_name)
@@ -358,17 +316,17 @@ class train_controller_ui(tk.Tk):
                 led.on()
                 state = "ON"
             
-            messagebox.showinfo("Info", f"{led_name.replace('_', ' ').capitalize()} turned {state}")
+            self.update_status(f"{led_name.replace('_', ' ').capitalize()} turned {state}")
             
             if led_name in ["left_door", "right_door"] and self.P_actual > 0:
-                messagebox.showwarning("Warning", "Cannot open doors while power > 0")
+                self.update_status("Warning: Cannot open doors while power > 0", is_error=True)
                 return
             
             if led_name in ["left_door", "right_door"] and self.P_actual > 0:
-                messagebox.showwarning("Warning", "Cannot open doors while power > 0, Failure triggered")
+                self.update_status("Warning: Cannot open doors while power > 0, Failure triggered", is_error=True)
                 self.leds["failure"].on()
                 self.leds["emergency_brake"].on()
-                messagebox.showwarning("Warning", "Failure detected! Emergency brake activated")
+                self.update_status("Failure detected! Emergency brake activated", is_error=True)
                 self.update_ui()
                 return 
             
@@ -379,14 +337,13 @@ class train_controller_ui(tk.Tk):
 
             if self.leds["service_brake"].is_lit and self.leds["emergency_brake"].is_lit:
                 self.leds["service_brake"].off()
-                messagebox.showinfo("Info", "Service brake disabled because emergency brake is active")
+                self.update_status("Service brake disabled because emergency brake is active")
             
             if led_name == "failure" and self.leds["failure"].is_lit:
                 self.leds["emergency_brake"].on()
-                messagebox.showinfo("Warning", "Failure detected! Emergency brake activated")
+                self.update_status("Failure detected! Emergency brake activated", is_error=True)
             
             self.update_ui()
-
 
     def write_commanded_power(self, power):
         """Write the commanded power to output file"""
@@ -400,34 +357,38 @@ class train_controller_ui(tk.Tk):
                 f.write(f"Service_Brake: {'1' if self.leds['service_brake'].is_lit else '0'}\n")
                 f.write(f"Emergency_Brake: {'1' if self.leds['emergency_brake'].is_lit else '0'}\n")
         except Exception as e:
-            print(f"Error writing commanded power: {e}")
+            self.update_status(f"Error writing commanded power: {e}", is_error=True)
 
     def toggle_automatic_mode(self):
         self.is_automatic_mode = not self.is_automatic_mode
         color = "green" if self.is_automatic_mode else "red"
         self.is_automatic_mode_button.config(bg=color)
         mode = "Automatic" if self.is_automatic_mode else "Manual"
-        messagebox.showinfo("Mode Changed", f"Switched to {mode} Mode")
+        self.update_status(f"Switched to {mode} Mode")
         self.update_ui()
 
     def update_ui(self):
         """Update all UI elements with current values"""
-        # Update status bar
-        mode = "AUTO" if self.is_automatic_mode else "MANUAL"
-        brake = "ON" if self.leds['service_brake'].is_lit else "OFF"
-        emergency = "ON" if self.leds['emergency_brake'].is_lit else "OFF"
-        failure = "ON" if self.leds['failure'].is_lit else "OFF"
-        self.power_label.config(text=f"Mode: {mode} | Brake: {brake} | Emergency: {emergency} | Failure: {failure}")
-
         # Update numerical displays
         self.current_speed_label.config(text=f"Current Speed: {self.current_speed:.1f} mph")
         self.current_authority_label.config(text=f"Current Authority: {self.current_authority} m")
         self.suggested_speed_label.config(text=f"Suggested Speed: {self.suggested_speed:.1f} mph")
         self.suggested_authority_label.config(text=f"Suggested Authority: {self.suggested_authority} m")
 
-        # Force UI refresh
-        self.update_idletasks()
+        # Update status indicator
+        mode = "AUTO" if self.is_automatic_mode else "MANUAL"
+        brake = "ON" if self.leds['service_brake'].is_lit else "OFF"
+        emergency = "ON" if self.leds['emergency_brake'].is_lit else "OFF"
+        failure = "ON" if self.leds['failure'].is_lit else "OFF"
+        self.status_label.config(text=f"Status: Mode={mode} | Brake={brake} | Emerg={emergency} | Fail={failure}")
 
+    def update_status(self, message, is_error=False):
+        """Update the status message in the UI"""
+        if is_error:
+            self.status_label.config(text=f"Status: ERROR - {message}", fg="red")
+        else:
+            self.status_label.config(text=f"Status: {message}", fg="black")
+        self.update_idletasks()
 
     def update_power(self):
         if self.is_automatic_mode:
@@ -457,10 +418,9 @@ class train_controller_ui(tk.Tk):
             if not self.leds["failure"].is_lit:
                 self.leds["failure"].on()
                 self.leds["emergency_brake"].on()
-                messagebox.showwarning("Emergency Stop", "Suggested authority is 0 - Emergency brake activated")
+                self.update_status("Emergency Stop: Suggested authority is 0", is_error=True)
 
         self.after(1000, self.update_power)
-  
 
     def apply_automatic_mode(self):
         try:
@@ -497,9 +457,9 @@ class train_controller_ui(tk.Tk):
             self.update_ui()
 
         except FileNotFoundError:
-            messagebox.showerror("Error", "Text file not found.")
+            self.update_status("Error: Text file not found", is_error=True)
         except Exception as e:
-            messagebox.showerror("Error", f"Error reading text file: {str(e)}")
+            self.update_status(f"Error reading text file: {str(e)}", is_error=True)
 
     def read_binary_string(self, binary_string):
         if binary_string[0] == '0':  # Suggested speed
@@ -508,7 +468,6 @@ class train_controller_ui(tk.Tk):
             self.suggested_authority = int(binary_string[1:], 2)
 
         self.update_ui()
-
 
     def update_oled(self, P_cmd):
         image = Image.new("1", (self.oled.width, self.oled.height))

@@ -1,11 +1,11 @@
 Passengers: 150
 Station_Status: 0
-Actual_Speed: 0
-Actual_Authority: 976.5079627971492
-Delta_Position: 46.114072787108235
-Emergency_Brake: 1
+Actual_Speed: 20.309486017558743
+Actual_Authority: 807.8312088172031
+Delta_Position: 138.936110937978
+Emergency_Brake: 0
 Brake_Fail: 0
 Signal_Fail: 0
-Engine_Fail: 0
+Engine_Fail: 1
 Beacon: 0
 Suggested_Speed_Authority: 1010101000
