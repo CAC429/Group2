@@ -260,31 +260,29 @@ class Train_Model:
             with open(file_path, mode='r') as file:
                 lines = file.readlines()
 
-                data = {}
-                for line in lines:
-                    if ':' in line:
-                        key, value = line.strip().split(':')
-                        key = key.strip()
-                        value = value.strip()
-                        data[key] = value
-                    
-                        # Extract train instance number if line starts with "Train"
-                        if key.startswith('Train'):
-                            # Extract the number after "Train" and before ":"
-                            train_instance = key.split('Train')[1].split(':')[0].strip()
-                            try:
-                                self.Train_Number = int(train_instance)
-                            except ValueError:
-                                print(f"Could not parse train number from: {key}")
+            data = {}
+            for line in lines:
+                if ':' in line:
+                    # Split only on the first ':' to avoid unpacking errors
+                    key, sep, value = line.strip().partition(':')
+                    key = key.strip()
+                    value = value.strip()
+                    data[key] = value
 
-                self.Passenger_Number = float(data.get('Total count', 0))
-                
-                # Reset delta position calculation when new data arrives
-                self.last_update_time = time.time()
-                return True
+                    # Extract train instance number if line starts with "Train"
+                    if key.startswith('Train'):
+                        train_instance = key.split('Train')[1].split(':')[0].strip()
+                        try:
+                            self.Train_Number = int(train_instance)
+                        except ValueError:
+                            print(f"Could not parse train number from: {key}")
+
+            self.Passenger_Number = float(data.get('Total count', 0))
+            self.last_update_time = time.time()  # Reset delta position timer
+            return True
             
         except Exception as e:
-            print(f"Error in file append: {e}")
+            print(f"Error reading track model outputs: {e}")
             return False
 
     def initialize_log_file(self):
