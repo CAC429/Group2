@@ -122,7 +122,7 @@ class MainWindow(QWidget):
                 "right_door": False,
                 "outside_lights": False,
                 "cabin_lights": False,
-                "cabin_temp": 22,
+                "cabin_temp": 70,
                 "service_brakes": False,
                 "emergency_brakes": False,
                 "problem": False,
@@ -140,10 +140,10 @@ class MainWindow(QWidget):
         self.temp_timer.timeout.connect(self.update_temp)
 
         self.file_watcher = QFileSystemWatcher()
-        self.file_watcher.addPath('TestBench_SW.csv')
+        self.file_watcher.addPath('train1_outputs.txt')
 
         self.init_ui()
-        self.read_tb()
+        self.read_train_outputs()
         self.acceleration_timer.start(100)
 
     def init_ui(self):
@@ -285,20 +285,16 @@ class MainWindow(QWidget):
         power_group = QGroupBox("Power Control")
         power_layout = QVBoxLayout()
         
-        self.kp_input = QLineEdit("0.5")
-        self.ki_input = QLineEdit("0.1")
-        self.p_target_input = QLineEdit("80")
-        self.p_actual_input = QLineEdit("50")
-        self.p_cmd_display = QLabel("0")
+        self.kp_input = QLineEdit("0")
+        self.ki_input = QLineEdit("0")
+        self.p_cmd_display = QLabel("0 kW")
         
         form_layout = QFormLayout()
         form_layout.addRow("Kp Value:", self.kp_input)
         form_layout.addRow("Ki Value:", self.ki_input)
-        form_layout.addRow("Target Power:", self.p_target_input)
-        form_layout.addRow("Actual Power:", self.p_actual_input)
         form_layout.addRow("Commanded Power:", self.p_cmd_display)
         
-        self.set_constants_button = QPushButton("Calculate Power")
+        self.set_constants_button = QPushButton("Update Power")
         
         power_layout.addLayout(form_layout)
         power_layout.addWidget(self.set_constants_button)
@@ -355,9 +351,23 @@ class MainWindow(QWidget):
         
         self.set_constants_button.clicked.connect(self.calculate_power)
         self.auto_checkbox.stateChanged.connect(self.auto_clicked)
-        
+
         # Initial UI update
         self.train_changed()
+
+        self.ext_light_on.setEnabled(False)
+        self.ext_light_off.setEnabled(False)
+        self.cabin_light_on.setEnabled(False)
+        self.cabin_light_off.setEnabled(False)
+
+        self.open_left.setEnabled(False)
+        self.close_left.setEnabled(False)
+        self.open_right.setEnabled(False)
+        self.close_right.setEnabled(False)
+
+        self.kp_input.setEnabled(False)
+        self.ki_input.setEnabled(False)
+        self.set_constants_button.setEnabled(False)
 
     def set_light_state(self, light_type, state):
         train = self.get_selected_train()
@@ -438,81 +448,58 @@ class MainWindow(QWidget):
         if self.train_states[train]["cabin_temp"] == self.target_temp:
             self.temp_timer.stop()
 
-    def read_tb(self, file_path='TestBench_SW.csv'):
+    def read_train_outputs(self, file_path='train1_outputs.txt'):
         try:
-            with open(file_path, mode='r', newline='', encoding='utf-8') as file:
-                csv_reader = csv.reader(file)
-                headers = next(csv_reader)
-                data = {row[0]: row[1] for row in csv_reader if len(row) >= 2}
-            
-            train = "Train 1"
-            
-            # Update train states from CSV data
-            self.train_states[train]["left_door"] = data.get('Left_door', 'off') == 'on'
-            self.train_states[train]["right_door"] = data.get('Right_door', 'off') == 'on'
-            self.train_states[train]["outside_lights"] = data.get('Outside_lights', 'off') == 'on'
-            self.train_states[train]["cabin_lights"] = data.get('Cabin_lights', 'off') == 'on'
-            self.train_states[train]["cabin_temp"] = int(data.get('Cabin_temp', 22))
-            self.train_states[train]["service_brakes"] = data.get('Service_brakes', 'off') == 'on'
-            self.train_states[train]["emergency_brakes"] = data.get('Emergency_brakes', 'off') == 'on'
-            self.train_states[train]["Kp"] = float(data.get('Kp', 0.5))
-            self.train_states[train]["Ki"] = float(data.get('Ki', 0.1))
-            self.train_states[train]["P_target"] = float(data.get('P_target', 80))
-            self.train_states[train]["P_actual"] = float(data.get('P_actual', 50))
-            
-            # Update power control
-            self.power_control.update_gains(
-                self.train_states[train]["Kp"],
-                self.train_states[train]["Ki"]
-            )
-            
-            #Calculate and display commanded power
-            P_cmd = self.power_control.compute_Pcmd(
-                self.train_states[train]["P_target"],
-                self.train_states[train]["P_actual"]
-            )
-            self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
-            self.p_cmd_display.setText(f"{P_cmd:.2f}")
+            with open(file_path, mode='r') as file:
+                lines = file.readlines()
 
-            # Update UI
-            self.update_ui_from_state()
+            data = {}
+            for line in lines:
+                if ':' in line:
+                    key, value = line.strip().split(':')
+                    data[key.strip()] = value.strip()
+            
+            self.current_speed_mps = float(data.get('Actual_Speed', 0))
+            self.current_authority = float(data.get('Actual_Authority', 0))
+
+            brake_fail = data.get('Brake_Fail', '0') == '1'
+            signal_fail = data.get('Signal_Fail', '0') == '1'
+            engine_fail = data.get('Engine_Fail', '0') == '1'
+            emergency_brake = data.get('Emergency_Brake', '0') == '1'
+
+            if brake_fail or signal_fail or engine_fail or emergency_brake:
+                self.emergency_brake_active = True
+                self.service_brake_active = False
+                self.brake_timer.start(100)
+            else:
+                self.emergency_brake_active = False
+
+            suggested_speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
+            if len(suggested_speed_auth) == 10 and all(bit in '01' for bit in suggested_speed_auth):
+                msb = suggested_speed_auth[0]
+                value = int(suggested_speed_auth[1:], 2)
+
+                if msb == '1':
+                    self.suggested_authority = value
+                else:
+                    self.suggested_speed_kmh = value
+
+            suggested_speed_mph = self.suggested_speed_kmh * 0.621371
+            current_speed_mph = self.current_speed_mps * 2.23694
+
+            self.suggested_authority_label.setText(f"Suggested Authority: {self.suggested_authority} m")
+            self.suggested_speed_label.setText(f"Suggested Speed: {suggested_speed_mph:.1f} mph")
+            self.authority_label.setText(f"Current Authority: {self.current_authority} m")
+            self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
+            
+            self.service_brake_label.setText(f"Service Brake: {'On' if self.service_brake_active else 'Off'}")
+            self.emergency_brake_label.setText(f"Emergency Brake: {'On' if self.emergency_brake_active else 'Off'}")
             
             return True
             
         except Exception as e:
             print(f"Error reading test bench: {e}")
             return False
-        
-    def read_wc_inputs(self, file_path='WC_inputs.csv'):
-        try:
-            with open(file_path, mode='r', newline='', encoding='utf-8') as file:
-                csv_reader = csv.reader(file)
-                next(csv_reader)
-                row = next(csv_reader)
-                
-                if not row:
-                    return
-
-                bit_input = row[0].strip() if row else '0000000000'
-
-                if len(bit_input) == 10 and all(bit in '01' for bit in bit_input):
-                    msb = bit_input[0]
-                    value = int(bit_input[1:], 2)
-
-                    if msb == '1':
-                        self.suggested_authority = value
-                        self.suggested_speed_kmh = 0
-                    else:
-                        self.suggested_speed_kmh = value
-                        self.suggested_authority = 0
-
-                suggested_speed_mph = self.suggested_speed_kmh * 0.621371
-                self.suggested_authority_label.setText(f"Suggested Authority: {self.suggested_authority} m")
-                self.suggested_speed_label.setText(f"Suggested Speed: {self.suggested_speed_kmh} mph")
-
-        except FileNotFoundError:
-            print(f"Error: The file {file_path} was not found")
-
         
     def update_train_states(self, data):
         train = "Train 1"
@@ -527,12 +514,45 @@ class MainWindow(QWidget):
         self.train_changed()
 
     def auto_clicked(self):
-            if self.auto_checkbox.isChecked():
-                print("Automatic Mode Enabled!")
-                self.master_timer.start(1000)
-            else:
-                print("Automatic Mode Disabled")
-                self.master_timer.stop()
+        if self.auto_checkbox.isChecked():
+            print("Automatic Mode Enabled!")
+            self.master_timer.start(1000)
+            
+            # Disable controls in automatic mode
+            self.ext_light_on.setEnabled(False)
+            self.ext_light_off.setEnabled(False)
+            self.cabin_light_on.setEnabled(False)
+            self.cabin_light_off.setEnabled(False)
+            
+            self.open_left.setEnabled(False)
+            self.close_left.setEnabled(False)
+            self.open_right.setEnabled(False)
+            self.close_right.setEnabled(False)
+            
+            self.kp_input.setEnabled(False)
+            self.ki_input.setEnabled(False)
+            self.set_constants_button.setEnabled(False)
+        else:
+            print("Automatic Mode Disabled")
+            self.master_timer.stop()
+            
+            # Re-enable controls in manual mode
+            train = self.get_selected_train()
+            state = self.train_states[train]
+            
+            self.ext_light_on.setEnabled(not state["outside_lights"])
+            self.ext_light_off.setEnabled(state["outside_lights"])
+            self.cabin_light_on.setEnabled(not state["cabin_lights"])
+            self.cabin_light_off.setEnabled(state["cabin_lights"])
+            
+            self.open_left.setEnabled(not state["left_door"])
+            self.close_left.setEnabled(state["left_door"])
+            self.open_right.setEnabled(not state["right_door"])
+            self.close_right.setEnabled(state["right_door"])
+            
+            self.kp_input.setEnabled(True)
+            self.ki_input.setEnabled(True)
+            self.set_constants_button.setEnabled(True)
 
     def sb_clicked(self):
         if not self.emergency_brake_active:
@@ -605,35 +625,35 @@ class MainWindow(QWidget):
     def calculate_power(self):
         try:
             train = self.get_selected_train()
-            P_target = float(self.p_target_input.text())
-            current_velocity = self.current_speed_mps
 
             if self.auto_checkbox.isChecked():
                 self.power_control.set_direct_power_mode(False)
-                Kp, Ki = self.power_control.auto_tune_gains(P_target, current_velocity)
+                target_speed_mps = self.suggested_speed_kmh * 0.277778
+                Kp, Ki = self.power_control.auto_tune_gains(target_speed_mps, self.current_speed_mps)
+
                 self.kp_input.setText(f"{Kp:.2f}")
-                self.kp_input.setText(f"{Ki:.2f}")
-                print(f"Auto-tuned gains: Kp = {Kp:.2f}, Ki = {Ki:.2f}")
+                self.ki_input.setText(f"{Ki:.2f}")
             else:
                 self.power_control.set_direct_power_mode(True)
                 Kp = float(self.kp_input.text())
                 Ki = float(self.ki_input.text())
 
             self.power_control.update_gains(Kp, Ki)
-            P_cmd = self.power_control.computer_Pcmd(P_target, current_velocity)
+            target_speed_mps = self.suggested_speed_kmh * 0.277778
+            P_cmd = self.power_control.compute_Pcmd(target_speed_mps, self.current_speed_mps)
 
-            self.p_cmd_display.setText(f"{P_cmd:.2f}")
+            self.p_cmd_display.setText(f"{P_cmd:.2f} kW")
             self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
+
+            self.write_commanded_power(P_cmd)
 
             self.train_states[train]["Kp"] = Kp
             self.train_states[train]["Ki"] = Ki
-            self.train_states[train]["P_target"] = P_target
-            self.train_states[train]["P_actual"] = current_velocity
 
-            print(f"Commanded Power: {P_cmd:.2f} kW (Kp={Kp:.2f}, Ki={Ki:.2f})")
-            
+            print(f"Commanded Power: {P_cmd:.2f} kW")
+
         except ValueError:
-            print("Please enter valid numerical values for Kp, Ki, and Target Power")
+            print("Please enter valid numerical values for Kp and Ki")
 
     def accelerate_train(self):
 
@@ -658,11 +678,10 @@ class MainWindow(QWidget):
             self.current_speed_mps
         )
         self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
+        self.write_commanded_power(P_cmd)
 
     def update_from_files(self):
-        self.read_tb()
-        self.read_wc_inputs()
-
+        self.read_train_outputs()
         self.update_power_display()
 
         suggested_speed_mps = self.suggested_speed_kmh * 0.277778
@@ -674,6 +693,14 @@ class MainWindow(QWidget):
                 self.acceleration_timer.start(100)
         else:
             self.acceleration_timer.stop()
+
+    def write_commanded_power(self, power):
+        try:
+            with open('TC_outputs.txt', 'w') as f:
+                f.write(f"Commanded Power: {power:.2f}\n")
+        except Exception as e:
+            print(f"Error writing commanded power to file: {e}")
+
 
     
 #######################################################################
