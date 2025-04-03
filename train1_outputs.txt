@@ -1,8 +1,8 @@
 Passengers: 0
-Station_Status: 0
-Actual_Speed: 20
-Actual_Authority: 706.6660000000002
-Delta_Position: 0.10601586289283751
+Station_Status: 1
+Actual_Speed: 20.0
+Actual_Authority: 0
+Delta_Position: 33.89629758442352
 Emergency_Brake: 0
 Brake_Fail: 0
 Signal_Fail: 0

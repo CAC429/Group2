@@ -1,4 +1,4 @@
-Commanded Power: 0.00
+Commanded Power: 1.37
 Suggested Speed: 20.0
 Suggested Authority: 2.0
 Emergency Brake: 0
