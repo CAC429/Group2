@@ -304,7 +304,7 @@ class Train_Model:
             beacon_info = self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon)
             
             data_entries = {
-                "Passengers": str(self.Passenger_Number),
+                "Passengers": str(int(self.Passenger_Number)),
                 "Station_Status": str(self.station_status),
                 "Actual_Speed": str(self.Get_Actual_Speed()),
                 "Actual_Authority": str(self.Get_Actual_Authority()),
