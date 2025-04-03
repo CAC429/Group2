@@ -186,7 +186,7 @@ class GridWindow(QWidget):
     def update_blocks(self):
         """Check train positions, update block occupancy, and log ticket sales with speed authority."""
         # Get train instance and baud rates
-        train_instance, baud_rates = self.read_train_creation_status()
+        self.train_creations, baud_rates = self.read_train_creation_status()
         
         # Track if we need to initialize file writing for new trains
         new_train_created = False
@@ -311,14 +311,48 @@ class GridWindow(QWidget):
             except Exception as e:
                 print(f"Error processing train {train_number}: {str(e)}")
                 continue
-
+        self.update_plc_inputs(global_occupancy)
         new_train_created = False
 
         # Update UI
         for box in self.boxes.values():
             box.set_state(1 if box.index in global_occupancy else 0)
         self.train_list_display.setText("\n".join(train_statuses) if train_statuses else "No trains are active.")
-        
+    
+    def update_plc_inputs(self, occupancy_dict):
+        """Update the Occupancy line in PLC_INPUTS.txt while preserving other lines."""
+        try:
+            # Read existing file
+            with open("PLC_INPUTS.txt", "r") as file:
+                lines = file.readlines()
+
+            # Generate new occupancy line (150 blocks, 0=unoccupied, 1=occupied)
+            occupancy_values = []
+            for block_num in range(1, 151):
+                occupancy_values.append("1" if block_num in occupancy_dict else "0")
+            new_occupancy_line = f"Occupancy={','.join(occupancy_values)}\n"
+
+            # Update the occupancy line while keeping others unchanged
+            new_lines = []
+            occupancy_updated = False
+            for line in lines:
+                if line.startswith("Occupancy="):
+                    new_lines.append(new_occupancy_line)
+                    occupancy_updated = True
+                else:
+                    new_lines.append(line)
+
+            # If occupancy line wasn't found, add it at the end
+            if not occupancy_updated:
+                new_lines.append(new_occupancy_line)
+
+            # Write back to file
+            with open("PLC_INPUTS.txt", "w") as file:
+                file.writelines(new_lines)
+
+        except Exception as e:
+            print(f"Error updating PLC_INPUTS.txt: {e}")
+    
     def create_next_train(self):
         """Create a new train instance if there is no active train or block 63 is vacant."""
         grid_data = load_csv("data2.csv")
