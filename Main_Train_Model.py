@@ -58,7 +58,7 @@ class Train_Model:
             f.write("Passengers: \n")
             f.write("Station_Status: \n")
             f.write("Actual_Speed: \n")
-            f.write("Delta_Position: \n")
+            f.write("Delta_Position: \n")  # Will be in meters
             f.write("Emergency_Brake: \n")
             f.write("Brake_Fail: \n")
             f.write("Signal_Fail: \n")
@@ -68,12 +68,15 @@ class Train_Model:
 
     def write_outputs_to_file(self):
         try:
+            # Convert delta position from feet to meters (1 foot = 0.3048 meters)
+            delta_pos_meters = self.Get_Delta_Pos() * 0.3048
+            
             data_entries = {
                 "Passengers": str(self.Passenger_Number),
                 "Station_Status": str(self.station_status),
                 "Actual_Speed": str(self.Get_Actual_Speed()),
                 "Actual_Authority": str(self.Get_Actual_Authority()),
-                "Delta_Position": str(self.Get_Delta_Pos()),
+                "Delta_Position": str(delta_pos_meters),  # Converted to meters
                 "Emergency_Brake": str(int(self.Get_Emergency_Brake_Status())),
                 "Brake_Fail": str(int(self.Get_Brake_Fail_Status())),
                 "Signal_Fail": str(int(self.Get_Signal_Pickup_Fail_Status())),
@@ -87,6 +90,9 @@ class Train_Model:
                     f.write(f"{key}: {value}\n")
         except Exception as e:
             print(f"Error writing to log file: {e}")
+
+    # [Rest of the class methods remain exactly the same as in your original code]
+    # Only the write_outputs_to_file() method was modified to convert feet to meters
 
     @property
     def Cabin_Temp(self):
