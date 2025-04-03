@@ -161,7 +161,8 @@ class Train_Model:
         self.service_brake = service_brake
         self.station_status = 0
         self.Train_Number = Train_Number
-        self.cumulative_distance = 0
+        self.cumulative_distance = 0  # Initialize to 0
+        self.last_update_time = time.time()  # Track last update time
         
         # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.txt"
@@ -277,6 +278,9 @@ class Train_Model:
                                 print(f"Could not parse train number from: {key}")
 
                 self.Passenger_Number = float(data.get('Total count', 0))
+                
+                # Reset delta position calculation when new data arrives
+                self.last_update_time = time.time()
                 return True
             
         except Exception as e:
@@ -311,18 +315,11 @@ class Train_Model:
                 "Brake_Fail": str(int(self.Get_Brake_Fail_Status())),
                 "Signal_Fail": str(int(self.Get_Signal_Pickup_Fail_Status())),
                 "Engine_Fail": str(int(self.Get_Train_Engine_Fail_Status())),
-                "Beacon": beacon_info,  # Use the string version
+                "Beacon": beacon_info,
                 "Suggested_Speed_Authority": str(self.Get_Suggested_Speed_Authority()),
             }
             
-            # Write to file in append mode to preserve previous data
-            with open(self.log_file, 'a') as f:
-                for key, value in data_entries.items():
-                    f.write(f"{key}: {value}\n")
-                f.write("\n")  # Add separator between updates
-        except Exception as e:
-            print(f"Error writing to log file: {e}")
-            
+            # Write to file in write mode to overwrite previous content
             with open(self.log_file, 'w') as f:
                 for key, value in data_entries.items():
                     f.write(f"{key}: {value}\n")
@@ -460,6 +457,9 @@ class Train_Model:
         try:
             # Read from TC_outputs.txt
             self.read_tc_outputs()
+            
+            # Read from occupancy_data.txt - this will reset the delta position timer
+            self.read_track_model_outputs()
 
             # Update door status displays
             right_door = "CLOSED" if self.Right_Door else "OPEN"
@@ -656,10 +656,15 @@ class Train_Model:
             return self.station_status
         
     def Get_Delta_Pos(self):
-        current_speed_mph = self.Train_Ca.Actual_Speed
-        current_speed_fps = current_speed_mph * 1.46667
-        delta = current_speed_fps * self.Train_Ca.Dt
-        self.cumulative_distance += max(0, delta)
+        # Only update position if we've received new data from occupancy_data.txt
+        if hasattr(self, 'last_update_time'):
+            current_time = time.time()
+            time_elapsed = current_time - self.last_update_time
+            current_speed_mph = self.Train_Ca.Actual_Speed
+            current_speed_fps = current_speed_mph * 1.46667
+            delta = current_speed_fps * time_elapsed
+            self.cumulative_distance += max(0, delta)
+            self.last_update_time = current_time
         return self.cumulative_distance
     
     def Get_Actual_Speed(self):
