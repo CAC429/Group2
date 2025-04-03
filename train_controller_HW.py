@@ -105,7 +105,7 @@ class train_controller_ui(tk.Tk):
         self.geometry("400x700")
 
         # Initialize variables first
-        self.output_file = 'TC_outputs.txt'
+        self.output_file = 'TC1_outputs.txt'
         self.last_modified_time = None
         self.failure_states = {
             'Brake_Fail': False,
@@ -146,7 +146,7 @@ class train_controller_ui(tk.Tk):
         self.update_power()
         self.after(1000, self.check_file_updates)
 
-    def read_train_outputs(self, file_path='TestBench.txt'):
+    def read_train_outputs(self, file_path='train1_outputs.txt'):
             try:
                 with open(file_path, 'r') as file:
                     data = {}
@@ -274,7 +274,7 @@ class train_controller_ui(tk.Tk):
         mode = "Direct" if self.direct_mode_var.get() else "PI"
         messagebox.showinfo("Info", f"Switched to {mode} Power Mode")
 
-    def read_train_outputs(self, file_path='TestBench.txt'):
+    def read_train_outputs(self, file_path='train1_outputs.txt'):
         try:
             with open(file_path, 'r') as file:
                 data = {}
@@ -533,5 +533,5 @@ def setup_oled():
 if __name__ == "__main__":
     oled = setup_oled()
     controller = PowerControl(P_max=120)
-    app = train_controller_ui(controller, oled, 'TestBench.txt')
+    app = train_controller_ui(controller, oled, 'train1_outputs.txt')
     app.mainloop()
