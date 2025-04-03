@@ -1,9 +1,11 @@
-1110
-service_brakes: off
-emergency_brakes: off
-left_door: off
-right_door: off
-outside_lights: off
-cabin_lights: off
-ac: off
-failure: off
+Passengers: 150
+Station_Status: 0
+Actual_Speed: 20
+Actual_Authority: 591
+Delta Position: 816
+Emergency_Brake: 0
+Brake_Fail: 0
+Signal_Fail: 0
+Engine_Fail: 0
+Beacon: 0
+Suggested_Speed_Authority: 010101010
