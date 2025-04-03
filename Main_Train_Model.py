@@ -241,9 +241,9 @@ class Train_Model:
                     self.Right_Door = False
                     
                 try:
-                    self.Suggested_Speed = bool(int(float(data.get('Suggested Speed', 0))))
+                    self.Suggested_Speed = float(data.get('Suggested Speed', 0))
                 except (ValueError, TypeError):
-                    self.Suggested_Speed = False
+                    self.Suggested_Speed = 0
                     
                 try:
                     self.Suggested_Authority = bool(int(float(data.get('Suggested Authority', 0))))
@@ -260,31 +260,29 @@ class Train_Model:
             with open(file_path, mode='r') as file:
                 lines = file.readlines()
 
-                data = {}
-                for line in lines:
-                    if ':' in line:
-                        key, value = line.strip().split(':')
-                        key = key.strip()
-                        value = value.strip()
-                        data[key] = value
-                    
-                        # Extract train instance number if line starts with "Train"
-                        if key.startswith('Train'):
-                            # Extract the number after "Train" and before ":"
-                            train_instance = key.split('Train')[1].split(':')[0].strip()
-                            try:
-                                self.Train_Number = int(train_instance)
-                            except ValueError:
-                                print(f"Could not parse train number from: {key}")
+            data = {}
+            for line in lines:
+                if ':' in line:
+                    # Split only on the first ':' to avoid unpacking errors
+                    key, sep, value = line.strip().partition(':')
+                    key = key.strip()
+                    value = value.strip()
+                    data[key] = value
 
-                self.Passenger_Number = float(data.get('Total count', 0))
-                
-                # Reset delta position calculation when new data arrives
-                self.last_update_time = time.time()
-                return True
+                    # Extract train instance number if line starts with "Train"
+                    if key.startswith('Train'):
+                        train_instance = key.split('Train')[1].split(':')[0].strip()
+                        try:
+                            self.Train_Number = int(train_instance)
+                        except ValueError:
+                            print(f"Could not parse train number from: {key}")
+
+            self.Passenger_Number = float(data.get('Total count', 0))
+            self.last_update_time = time.time()  # Reset delta position timer
+            return True
             
         except Exception as e:
-            print(f"Error in file append: {e}")
+            print(f"Error reading track model outputs: {e}")
             return False
 
     def initialize_log_file(self):
@@ -477,34 +475,15 @@ class Train_Model:
                 not self.service_brake_active and 
                 not self.Train_F.Engine_Fail):
 
-                # Safely handle suggested speed/authority
-                try:
-                    if isinstance(self.Suggested_Speed_Authority, str):
-                        # Try to extract numeric value from string
-                        suggested_speed = float(self.Suggested_Speed_Authority.split()[0])
-                    else:
-                        suggested_speed = float(self.Suggested_Speed_Authority)
-                except (ValueError, TypeError, AttributeError):
-                    suggested_speed = 0
-
                 current_speed = self.Train_Ca.Actual_Speed
-                current_authority = self.Train_Ca.Actual_Authority
-
-                # 0.5 m/s^2 to mph/s
-                target_acceleration = 1.11847
-                self.Suggested_Speed = 20  # Default value if not set
-
-                if current_speed < suggested_speed:
-                    new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
-                    if new_speed > suggested_speed:
-                        new_speed = suggested_speed
-                else:
-                    new_speed = suggested_speed
-                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
-
-                new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
                 
-                self.Train_Ca.Actual_Speed = max(0, new_speed)
+                # If suggested speed is higher than current speed, set current speed to suggested speed
+                if self.Suggested_Speed > current_speed:
+                    self.Train_Ca.Actual_Speed = self.Suggested_Speed
+                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Speed matched to suggestion)")
+                
+                # Update authority
+                new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
                 self.Train_Ca.Actual_Authority = max(0, new_authority)
 
             elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
@@ -671,7 +650,7 @@ class Train_Model:
         return self.Train_Ca.Actual_Speed
     
     def Get_Actual_Authority(self):
-        return self.Train_Ca.Actual_Authority
+        return 10
     
     def Get_Current_Passengers(self):
         return self.Passenger_Number

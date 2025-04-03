@@ -1,7 +1,7 @@
-Commanded Power: 0.00
-Suggested Speed: 0.0
+Commanded Power: 1.40
+Suggested Speed: 5.0
 Suggested Authority: 0.0
-Emergency Brake: 0
+Emergency Brake: 1
 Service Brake: 0
 Left Door: 0
 Right Door: 0

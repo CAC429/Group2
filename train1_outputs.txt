@@ -1,11 +1,11 @@
 Passengers: 0
 Station_Status: 0
-Actual_Speed: 111.71454000000013
-Actual_Authority: 0
-Delta_Position: 2.108289359562797
-Emergency_Brake: 0
+Actual_Speed: 0
+Actual_Authority: 10
+Delta_Position: 14.492469165973462
+Emergency_Brake: 1
 Brake_Fail: 0
 Signal_Fail: 0
 Engine_Fail: 0
-Beacon: No beacon info
-Suggested_Speed_Authority: 111001000
+Beacon: Side: left, Arriving: LESUNSHINE STATION, Next: WHITED, Distance: 16042.6m
+Suggested_Speed_Authority: 0101
