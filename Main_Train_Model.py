@@ -53,6 +53,22 @@ class Train_Model:
         elif self.service_brake == 1:
             self.activate_service_brake()
 
+    def read_tc_outputs(self, file_path='TC_outputs.txt'):
+        try: 
+            with open(file_path, mode='r') as file:
+                lines = file.readlines()
+
+                data = {}
+                for line in lines:
+                    if ':' in line:
+                        key, value = line.strip().split(':')
+                        data[key.strip()] = value.strip()
+
+                self.Power = float(data.get('Commanded Power', 0))
+        except Exception as e:
+            print(f"Error in file append: {e}")
+            return False
+
     def initialize_log_file(self):
         with open(self.log_file, 'w') as f:
             f.write("Passengers: \n")
@@ -257,7 +273,7 @@ class Train_Model:
         self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon} bits\nSuggested Speed and Authority: {self.Suggested_Speed_Authority} bits")
         
         self.write_outputs_to_file()
-        self.root.after(100, self.update_all_displays)
+        self.root.after(1000, self.update_all_displays)
 
     def activate_service_brake(self):
         """Slows down the train at 1.2 m/s² (converted to mph/s)"""
