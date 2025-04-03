@@ -292,6 +292,8 @@ class Train_Model:
             #0.5 m/s^2 to mph/s
             target_acceleration = 1.11847
             suggested_speed = 20
+            #COMEMEMNTNTENTK
+
             
             #acceleration = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
 
@@ -307,7 +309,7 @@ class Train_Model:
             
             self.Train_Ca.Actual_Speed = max(0, new_speed)
             self.Train_Ca.Actual_Authority = max(0, new_authority)
-            
+
         elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
             self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
         
