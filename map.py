@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QGridLayout, QPushButton, QMessageBox, QVBoxLayout, QLabel
 from PyQt5.QtCore import QTimer
-from greenlineoccup import GreenLineOccupancy, load_csv, write_to_file, append_new_train_data, update_train_data
+from greenlineoccup import GreenLineOccupancy, load_csv, write_to_file, append_new_train_data, update_train_data, pass_count
 import global_variables  # Ensure this module contains a `current_time` attribute
 
 class ClickableBox(QPushButton):
@@ -109,7 +109,7 @@ class GridWindow(QWidget):
             print(f"Error reading PLC_OUTPUTS_Baud_Train_Instance.txt: {e}")
 
     def read_train_output(self, train_number):
-        """Reads Delta_Position and Station_Status from the specific train's output file."""
+        """Reads Delta_Position, Station_Status, and Passengers from the specific train's output file."""
         try:
             file_path = f"train{train_number}_outputs.txt"
             with open(file_path, "r") as file:
@@ -117,18 +117,21 @@ class GridWindow(QWidget):
 
             delta_position = None
             station_status = None
-            
+            passengers = None  # Add passengers variable
+
             for line in data:
                 if line.startswith("Delta_Position:"):
                     delta_position = float(line.split(":")[1].strip())
                 elif line.startswith("Station_Status:"):
                     station_status = int(line.split(":")[1].strip())
+                elif line.startswith("Passengers:"):  # Read passengers count
+                    passengers = int(line.split(":")[1].strip())
 
-            return delta_position, station_status
+            return delta_position, station_status, passengers
 
         except Exception as e:
-            #print(f"Error reading {file_path}: {e}")
-            return None, None  # Return None if any error occurs
+            print(f"Error reading {file_path}: {e}")
+            return None, None, None  # Return None for all if an error occurs
 
     def update_blocks(self):
         """Check train positions, update block occupancy, and log ticket sales."""
@@ -150,10 +153,10 @@ class GridWindow(QWidget):
                 print(f"Skipping train {train_number} as it has no recorded position.")
                 continue  # Avoid index errors
 
-            # Read the Delta_Position and Station_Status for the current train
-            delta_position, station_status = self.read_train_output(train_number)
+            # Read Delta_Position, Station_Status, and Passengers
+            delta_position, station_status, passengers = self.read_train_output(train_number)
 
-            if delta_position is None or station_status is None:
+            if delta_position is None or station_status is None or passengers is None:
                 print(f"Error reading train {train_number}'s data.")
                 continue
 
@@ -166,13 +169,16 @@ class GridWindow(QWidget):
             
             train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
-            # **NEW: Call passengers() if Station_Status is 1**
-            #if station_status == 1:
-             #   print(f"Train {train_number} is at a station. Calling passengers function...")
-              #  passengers, new_passengers, leaving_pass, starting_pass = green_line.passengers(station_status)
+            # **NEW: Call pass_count() if Station_Status is 1**
+            if station_status == 1:
+                print(f"Train {train_number} is at a station. Calling pass_count function...")
 
-                # Log or use the results as needed
-               # print(f"Train {train_number} - Passengers Onboard: {passengers}, New: {new_passengers}, Leaving: {leaving_pass}, Initial: {starting_pass}")
+                passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
+
+                # Update the train's stored passenger count
+                green_line.passengers_count = passengers
+
+                print(f"Train {train_number} - Passengers Onboard: {passengers}, New: {new_passengers}, Initial: {starting_pass}")
 
         # Update UI
         for box in self.boxes.values():

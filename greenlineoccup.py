@@ -50,8 +50,21 @@ def update_train_data(train_number, overlapping_blocks, ticket_data, new_passeng
     except Exception as e:
         print(f"Error updating train data: {e}")
 
+def pass_count(passengers, station_status):
+    """Calculates the number of passengers getting on and updates count."""
+    if station_status == 1:
+        starting_pass = passengers  # Store the initial passenger count
+        total_passengers = max(0, passengers)  # Ensure passenger count is non-negative
+        new_passengers = random.randint(0, 222)  # Generate new passengers boarding
+        passengers = min(222, total_passengers + new_passengers)  # Ensure max capacity of 222
+
+        print(f"New passengers: {new_passengers}, Updated total: {passengers}")
+        return passengers, new_passengers, starting_pass
+
+      # If not at a station, no change
 
 def load_csv(csv_file):
+    
     """Load a CSV file into a list of dictionaries."""
     data = []
     try:
@@ -205,20 +218,6 @@ class GreenLineOccupancy:
                 continue  # Skip rows with errors
 
         return overlapping_blocks
-
-
-    def pass_count(self, station_status):
-        """Calculates the number of passengers getting on and leaving."""
-        if station_status == 1:
-            leaving_pass = random.randint(0, self.passengers)
-            starting_pass = self.passengers
-
-            self.passengers = max(0, self.passengers - leaving_pass)
-            self.new_passengers = random.randint(0, 222)
-            self.passengers = min(222, self.passengers + self.new_passengers)
-            print(f"{new_passengers}, {self.passengers}")
-
-        return self.passengers, self.new_passengers, leaving_pass, starting_pass
 
     def getTickets_sold(self):
         """Return the number of new passengers who bought tickets."""
