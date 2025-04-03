@@ -96,12 +96,11 @@ class PowerControl:
         return self.Kp, self.Ki
 
 class train_controller_ui(tk.Tk):
-    def __init__(self, controller, oled, text_file):
+    def __init__(self, controller, oled):
         super().__init__()
         self.controller = controller
         self.oled = oled
-        self.text_file = text_file
-        self.title("Train Controller UI")
+        self.title("Train 1 Controller UI")
         self.geometry("400x700")
         
         # Constants
@@ -119,7 +118,8 @@ class train_controller_ui(tk.Tk):
         self.approaching_station = False
         
         # Initialize variables
-        self.output_file = 'TC1_outputs.txt'
+        self.output_file = 'TC_outputs.txt'
+        self.input_file = 'train1_outputs.txt'
         self.last_modified_time = None
         self.failure_states = {
             'Brake_Fail': False,
@@ -152,7 +152,7 @@ class train_controller_ui(tk.Tk):
         
         # Initialize file monitoring
         try:
-            self.last_modified_time = os.path.getmtime(self.text_file)
+            self.last_modified_time = os.path.getmtime(self.input_file)
             self.read_train_outputs()
         except Exception as e:
             print(f"Initial file read error: {e}")
@@ -269,9 +269,9 @@ class train_controller_ui(tk.Tk):
         self.update_status(f"Switched to {mode} Mode")
         self.update_ui()
 
-    def read_train_outputs(self, file_path='train1_outputs.txt'):
+    def read_train_outputs(self):
         try:
-            with open(file_path, 'r') as file:
+            with open(self.input_file, 'r') as file:
                 data = {}
                 for line in file:
                     line = line.strip()
@@ -284,40 +284,41 @@ class train_controller_ui(tk.Tk):
             self.current_authority = float(data.get('Actual_Authority', 0))
             self.delta_position = float(data.get('Delta_Position', 0))
 
-            # Process beacon data - handle dictionary string format
-            beacon_str = data.get('Beacon', '{}').strip()
+            # Process beacon data - specific to your format
+            beacon_str = data.get('Beacon', '').strip()
             self.beacon_data = {}
             self.station_distance = float('inf')
             
             try:
-                # Remove curly braces if present
-                if beacon_str.startswith('{') and beacon_str.endswith('}'):
-                    beacon_str = beacon_str[1:-1]
-                
-                # Split into key-value pairs
-                pairs = [pair.strip() for pair in beacon_str.split(',') if pair.strip()]
-                
-                # Process each pair
-                for pair in pairs:
-                    if ':' in pair:
-                        key, value = pair.split(':', 1)
-                        key = key.strip().strip("'\"")
-                        value = value.strip().strip("'\"")
-                        self.beacon_data[key] = value
-                
-                # Extract specific beacon information
-                if 'station_distance' in self.beacon_data:
-                    try:
-                        self.station_distance = float(self.beacon_data['station_distance'])
-                    except ValueError:
-                        self.station_distance = float('inf')
-                
-                self.arriving_station = self.beacon_data.get('arriving_station', 'Unknown')
-                self.station_side = self.beacon_data.get('station_side', 'unknown').lower()
+                # Parse beacon components
+                beacon_parts = [part.strip() for part in beacon_str.split(',')]
+                for part in beacon_parts:
+                    if ':' in part:
+                        key, value = part.split(':', 1)
+                        key = key.strip().lower()
+                        value = value.strip()
+                        
+                        if key == 'side':
+                            self.station_side = value.lower()
+                            self.beacon_data['station_side'] = value
+                        elif key == 'arriving':
+                            self.arriving_station = value
+                            self.beacon_data['arriving_station'] = value
+                        elif key == 'next':
+                            self.beacon_data['next_station'] = value
+                        elif key == 'distance':
+                            # Remove 'm' from distance value
+                            if value.endswith('m'):
+                                value = value[:-1]
+                            self.station_distance = float(value)
+                            self.beacon_data['station_distance'] = self.station_distance
                 
                 # Update beacon display
-                beacon_text = f"Next Station: {self.arriving_station} ({self.station_distance:.1f}m, {self.station_side} side)"
-                self.beacon_label.config(text=beacon_text)
+                if self.arriving_station and self.station_distance != float('inf'):
+                    beacon_text = f"Next Station: {self.arriving_station} ({self.station_distance:.1f}m, {self.station_side} side)"
+                    self.beacon_label.config(text=beacon_text)
+                else:
+                    self.beacon_label.config(text="Next Station: -- (-- m)")
                 
                 # Station approach sequence
                 if not self.station_approach_active:
@@ -354,15 +355,13 @@ class train_controller_ui(tk.Tk):
                     self.leds['emergency_brake'].off()
 
             # Process suggested speed/authority
-            speed_auth = data.get('Suggested_Speed_Authority', '0000000000')
-            if len(speed_auth) == 10 and all(bit in '01' for bit in speed_auth):
-                msb = speed_auth[0]
-                value = int(speed_auth[1:], 2)
-                
-                if msb == '0':
-                    self.suggested_speed = value * 0.0625
+            speed_auth = data.get('Suggested_Speed_Authority', '0000')
+            if len(speed_auth) >= 4 and all(bit in '01' for bit in speed_auth):
+                # First bit determines if it's speed (0) or authority (1)
+                if speed_auth[0] == '0':
+                    self.suggested_speed = int(speed_auth[1:], 2) * 0.0625
                 else:
-                    self.suggested_authority = value
+                    self.suggested_authority = int(speed_auth[1:], 2)
 
             self.update_ui()
             return True
@@ -371,14 +370,22 @@ class train_controller_ui(tk.Tk):
             print(f"Error reading train outputs: {e}")
             return False
 
+
+
     def start_station_approach(self):
-        """Begin the station approach sequence"""
-        self.station_approach_active = True
-        self.leds['service_brake'].on()
-        self.update_status(f"Approaching {self.arriving_station} - service brake activated")
-        
-        # Check every 100ms if we've stopped
-        self.after(100, self.check_stopped_at_station)
+            """Begin the station approach sequence"""
+            if not self.arriving_station or self.station_distance == float('inf'):
+                return
+                
+            self.station_approach_active = True
+            self.leds['service_brake'].on()
+            self.update_status(f"Approaching {self.arriving_station} - service brake activated")
+            
+            # Update UI to show approaching station
+            self.beacon_label.config(text=f"APPROACHING: {self.arriving_station}", fg="red")
+            
+            # Check every 100ms if we've stopped
+            self.after(100, self.check_stopped_at_station)
 
     def check_stopped_at_station(self):
         """Check if train has stopped to begin door sequence"""
@@ -389,6 +396,10 @@ class train_controller_ui(tk.Tk):
 
     def handle_stopped_at_station(self):
         """Handle the door opening/closing sequence"""
+        if not self.station_side:
+            self.update_status("Error: No station side information", is_error=True)
+            return
+            
         # Open the correct door
         if self.station_side == 'left':
             self.leds['left_door'].on()
@@ -398,11 +409,12 @@ class train_controller_ui(tk.Tk):
             door_led = 'right_door'
         
         self.update_status(f"Stopped at {self.arriving_station} - {self.station_side} door opening")
+        self.beacon_label.config(text=f"AT STATION: {self.arriving_station}", fg="green")
         
-        # Close door after 10 seconds
+        # Close door after 30 seconds
         if self.door_open_timer:
             self.after_cancel(self.door_open_timer)
-        self.door_open_timer = self.after(10000, self.close_doors_and_depart)
+        self.door_open_timer = self.after(30000, self.close_doors_and_depart)
 
     def close_doors_and_depart(self):
         """Close doors and prepare for departure"""
@@ -431,7 +443,7 @@ class train_controller_ui(tk.Tk):
 
     def check_file_updates(self):
         try:
-            current_modified_time = os.path.getmtime(self.text_file)
+            current_modified_time = os.path.getmtime(self.input_file)
             if current_modified_time != self.last_modified_time:
                 self.last_modified_time = current_modified_time
                 if self.read_train_outputs():
@@ -550,7 +562,7 @@ class train_controller_ui(tk.Tk):
 
     def apply_automatic_mode(self):
         try:
-            with open(self.text_file, "r") as file:
+            with open(self.input_file, "r") as file:
                 lines = file.readlines()
 
             for line in lines:
@@ -616,5 +628,5 @@ def setup_oled():
 if __name__ == "__main__":
     oled = setup_oled()
     controller = PowerControl(P_max=120)
-    app = train_controller_ui(controller, oled, 'train1_outputs.txt')
+    app = train_controller_ui(controller, oled)
     app.mainloop()

@@ -1,11 +1,11 @@
-Passengers: 150
+Passengers: 0.0
 Station_Status: 0
-Actual_Speed: 20.176751124165367
-Actual_Authority: 890.9731694743863
-Delta_Position: 66.46275588841381
+Actual_Speed: 62.50186000000004
+Actual_Authority: 0
+Delta_Position: 2.0813926455520115
 Emergency_Brake: 0
 Brake_Fail: 0
 Signal_Fail: 0
 Engine_Fail: 0
-Beacon: 0
-Suggested_Speed_Authority: 1010101000
+Beacon: Side: right, Arriving: Lesunshine station, Next: edgebrook, Distance: 999.6m
+Suggested_Speed_Authority: 1010
