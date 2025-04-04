@@ -1,0 +1,32 @@
+{
+    "train_1": [
+        {
+            "position": 16002.6, 
+            "overlapping_blocks": [15, 16], 
+            "new_passengers": 0, 
+            "total_passengers": 0,
+            "ticket_sales_history": [[6, "16:41"], [7, "16:56"]],
+            "beacon_info": {
+                "station_side": "left",
+                "arriving_station": "LESUNSHINE STATION",
+                "new_station": "WHITED",
+                "station_distance": 16042.6
+            }
+        }
+    ],
+    "train_2": [
+        {
+            "position": 16002.6, 
+            "overlapping_blocks": [15, 16], 
+            "new_passengers": 0, 
+            "total_passengers": 0,
+            "ticket_sales_history": [[9, "16:45"], [12, "13:56"]],
+            "beacon_info": {
+                "station_side": "left",
+                "arriving_station": "LESUNSHINE STATION",
+                "new_station": "WHITED",
+                "station_distance": 16042.6
+            }
+        }
+    ]
+}
