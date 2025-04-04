@@ -1,9 +1,9 @@
-Commanded_Power: 22.81
-Current_Speed: 40.13
+Commanded_Power: 0.00
+Current_Speed: 165.40
 Suggested_Speed: 0.00
-Current_Authority: 221.01356158030015
-Suggested_Authority: 2
+Current_Authority: 0.0
+Suggested_Authority: 200
 Service_Brake: 0
 Emergency_Brake: 0
-Beacon: {'station_side': 'right', 'arriving_station': 'Lesunshine station', 'next_station': 'edgebrook', 'station_distance': 999.6}
-Delta_Position: 0.16509191554951122
+Beacon: {'station_side': 'right', 'arriving_station': 'asdf', 'next_station': 'edgebrook', 'station_distance': 12345.0}
+Delta_Position: 5585.573821133433
