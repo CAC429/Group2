@@ -1,0 +1,11 @@
+Passengers: 0
+Station_Status: 0
+Actual_Speed: 0
+Actual_Authority: 10
+Delta_Position: 500
+Emergency_Brake: 0
+Brake_Fail: 0
+Signal_Fail: 0
+Engine_Fail: 0
+Beacon: Side: left, Arriving: LESUNSHINE STATION, Next: WHITED, Distance: 16042.6m
+Suggested_Speed_Authority: 0101

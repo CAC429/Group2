@@ -392,7 +392,7 @@ class GridWindow(QWidget):
                             green_line.passengers_count = passengers
                             green_line.new_passengers = new_passengers
 
-                            if not hasattr(green_line, 'ticket_array'):
+                            if not hasattr('ticket_array'):
                                 green_line.ticket_array = []
                             
                             green_line.ticket_array.append([new_passengers, current_time])

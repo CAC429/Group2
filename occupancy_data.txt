@@ -1,6 +1,6 @@
 Train 1:
-Overlapping Blocks at position 19790.6m: [57]
-Suggested_Speed_Authority: [1, 0, 1, 0]
+Overlapping Blocks at position 500.0m: [66]
+Suggested_Speed_Authority: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 New passengers getting on: 0
 Total count: 0
 Ticket Sales History: []
@@ -8,7 +8,15 @@ Beacon Info: None
 
 Train 2:
 Overlapping Blocks at position 0.0m: [63]
-Suggested_Speed_Authority: [1, 0, 1, 0]
+Suggested_Speed_Authority: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+New passengers getting on: 0
+Total count: 0
+Ticket Sales History: []
+Beacon Info: None
+
+Train 2:
+Overlapping Blocks at position 0.0m: [63]
+Suggested_Speed_Authority: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 New passengers getting on: 0
 Total count: 0
 Ticket Sales History: []
