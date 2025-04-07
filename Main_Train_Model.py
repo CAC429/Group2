@@ -5,8 +5,9 @@ from Reference_Object import Reference_Objects
 import tkinter as tk
 import random
 import time
-import ast
+import json
 from tkinter import messagebox
+import os
 
 class MainTrainModel:
     def __init__(self):
@@ -15,51 +16,61 @@ class MainTrainModel:
         self.train_models = []
         self.load_trains_from_file()
         
-    def load_trains_from_file(self, file_path='occupancy_data.txt'):
+    def load_trains_from_file(self, file_path='occupancy_data.json'):
         try:
+            # First check if file exists and is not empty
+            if not os.path.exists(file_path):
+                messagebox.showerror("Error", f"File not found: {file_path}")
+                self.root.destroy()
+                return
+                
+            if os.path.getsize(file_path) == 0:
+                messagebox.showerror("Error", f"File is empty: {file_path}")
+                self.root.destroy()
+                return
+
             with open(file_path, 'r') as file:
-                content = file.read()
-            
-            train_sections = content.split('Train ')[1:]  # Skip the first empty split
-        
-            for section in train_sections:
                 try:
-                    # Extract train number (first part before colon)
-                    train_number_str = section.split(':', 1)[0].strip()
-                    train_number = int(train_number_str)
+                    data = json.load(file)
+                    print("Loaded occupancy data:", data)  # Debug print
+                except json.JSONDecodeError as e:
+                    messagebox.showerror("JSON Error", f"Invalid JSON format in {file_path}:\n{str(e)}")
+                    self.root.destroy()
+                    return
+            
+            if not data:
+                messagebox.showwarning("No Data", "The JSON file contains no data")
+                self.root.destroy()
+                return
+                
+            if not isinstance(data, list):
+                data = [data]  # Convert single train to list for consistency
+            
+            for train_data in data:
+                try:
+                    # Get required values with defaults
+                    train_number = train_data.get('Train_Number', 1)
+                    passenger_count = train_data.get('Total_Passenger_Count', 0)
                     
-                    # Get the rest of the section
-                    train_data_str = section.split(':', 1)[1] if ':' in section else ""
+                    # Process beacon info (handle string format)
+                    beacon_info = train_data.get('Beacon_Info', "No beacon info")
+                    print(f"Train {train_number} beacon info:", beacon_info)  # Debug print
                     
-                    # Parse the train data
-                    train_data = self.parse_train_data(train_data_str)
-                    
-                    # Safely get passenger count with default 0
-                    passenger_count = 0
-                    if 'Total count' in train_data:
-                        try:
-                            # First try to convert to float, then to int
-                            passenger_count = int(float(train_data['Total count']))
-                        except (ValueError, TypeError):
-                            passenger_count = 0
-                    
-                    # Create a new window for each train
+                    # Create train window and model
                     train_window = tk.Toplevel()
                     train_window.title(f"Train {train_number} Controls")
                     
-                    # Create a new Train_Model instance
                     train_model = Train_Model(
                         root=train_window,
                         Train_Number=train_number,
                         Passenger_Number=passenger_count,
-                        Suggested_Speed_Authority=self.process_speed_authority(
-                            train_data.get('Suggested_Speed_Authority', [])),
-                        Beacon=self.process_beacon_info(train_data.get('Beacon Info', None)))
-                    
+                        Suggested_Speed_Authority=train_data.get('Suggested_Speed_Authority', "0"),
+                        Beacon=beacon_info
+                    )
                     self.train_models.append(train_model)
                     
                 except Exception as e:
-                    print(f"Error processing train {train_number_str}: {e}")
+                    print(f"Error processing train {train_number}: {e}")
                     continue
                     
             if not self.train_models:
@@ -70,80 +81,6 @@ class MainTrainModel:
             messagebox.showerror("Error", f"Failed to load train data: {str(e)}")
             self.root.destroy()
             
-    def parse_train_data(self, data_str):
-        data = {}
-        current_key = None
-        current_value = []
-        
-        for line in data_str.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-                
-            if ':' in line:
-                # Store previous key-value pair if exists
-                if current_key is not None:
-                    data[current_key] = '\n'.join(current_value).strip()
-                
-                # Start new key-value pair
-                key, value = line.split(':', 1)
-                current_key = key.strip()
-                current_value = [value.strip()]
-            else:
-                current_value.append(line)
-                
-        # Add the last key-value pair
-        if current_key is not None:
-            data[current_key] = '\n'.join(current_value).strip()
-            
-        # Convert some values from strings to Python objects
-        for key in ['Suggested_Speed_Authority', 'Beacon Info']:
-            if key in data and data[key] and data[key].strip().lower() not in ['none', 'null', '']:
-                try:
-                    # Handle list-like strings safely
-                    if key == 'Suggested_Speed_Authority' and data[key].startswith('['):
-                        data[key] = ast.literal_eval(data[key])
-                    elif key == 'Beacon Info' and data[key].startswith('{'):
-                        data[key] = ast.literal_eval(data[key])
-                except (ValueError, SyntaxError):
-                    pass
-                    
-        return data
-
-        
-    def process_speed_authority(self, speed_auth_list):
-        if not speed_auth_list:
-            return "0"
-        # Convert list to a binary string representation
-        return ''.join(str(int(x)) for x in speed_auth_list)
-        
-    def process_beacon_info(self, beacon_info):
-        """Convert beacon info to a human-readable string"""
-        # Handle None/empty cases
-        if not beacon_info or str(beacon_info).strip().lower() in ['none', 'null', '']:
-            return "No beacon info"
-        
-        # Handle dictionary format
-        if isinstance(beacon_info, dict):
-            parts = []
-            if 'station_side' in beacon_info:
-                parts.append(f"Side: {beacon_info['station_side']}")
-            if 'arriving_station' in beacon_info:
-                parts.append(f"Arriving: {beacon_info['arriving_station']}")
-            if 'new_station' in beacon_info:
-                parts.append(f"Next: {beacon_info['new_station']}")
-            if 'station_distance' in beacon_info:
-                try:
-                    distance = float(beacon_info['station_distance'])
-                    parts.append(f"Distance: {distance}m")
-                except (ValueError, TypeError):
-                    pass  # Skip invalid distance values
-            
-            return ', '.join(parts) if parts else "No valid beacon info"
-        
-        # Handle any other format by converting to string
-        return str(beacon_info)
-        
     def run(self):
         if self.train_models:  # Only run if we have trains to display
             self.root.mainloop()
@@ -165,7 +102,7 @@ class Train_Model:
         self.last_update_time = time.time()  # Track last update time
         
         # Initialize logging file
-        self.log_file = f"train{Train_Number}_outputs.txt"
+        self.log_file = f"train{Train_Number}_outputs.json"
         
         # Initialize parameters
         self.Power = Power
@@ -180,7 +117,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(1, 40900, 20, 1000, 0)
+        self.Train_Ca = Train_Calc(1, 40900, 1, 1000, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
@@ -195,103 +132,73 @@ class Train_Model:
         elif self.service_brake == 1:
             self.activate_service_brake()
 
-    def read_tc_outputs(self, file_path='TC_outputs.txt'):
+    def read_tc_outputs(self, file_path='TC_outputs.json'):
         try: 
-            with open(file_path, mode='r') as file:
-                lines = file.readlines()
-
-                data = {}
-                for line in lines:
-                    if ':' in line:
-                        key, value = line.strip().split(':')
-                        data[key.strip()] = value.strip()
-
-                # Safely convert values with error handling
-                try:
-                    self.Power = float(data.get('Commanded Power', 0))
-                except (ValueError, TypeError):
-                    self.Power = 0
-                    
-                try:
-                    new_emergency_brake = float(data.get('Emergency Brake', 0))
-                    if new_emergency_brake == 0 and self.emergency_brake_active:
-                        self.emergency_brake_active = False
-                        self.emergency_brake = 0
-                        if not self.service_brake_active:
-                            accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
-                            self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
-                except (ValueError, TypeError):
-                    new_emergency_brake = 0
-
-                self.emergency_brake = new_emergency_brake
+            print(f"Reading TC outputs from {file_path}...")  # Debug print
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+                print("TC outputs data:", data)  # Debug print
                 
-                try:
-                    self.service_brake = int(float(data.get('Service Brake', 0)))
-                except (ValueError, TypeError):
-                    self.service_brake = 0
-                    
-                try:
-                    self.Left_Door = bool(int(float(data.get('Left Door', 0))))
-                except (ValueError, TypeError):
-                    self.Left_Door = False
-                    
-                try:
-                    self.Right_Door = bool(int(float(data.get('Right Door', 0))))
-                except (ValueError, TypeError):
-                    self.Right_Door = False
-                    
-                try:
-                    self.Suggested_Speed = bool(int(float(data.get('Suggested Speed', 0))))
-                except (ValueError, TypeError):
-                    self.Suggested_Speed = False
-                    
-                try:
-                    self.Suggested_Authority = bool(int(float(data.get('Suggested Authority', 0))))
-                except (ValueError, TypeError):
-                    self.Suggested_Authority = False
+            # Note: Keys match exactly what's in your JSON including spaces
+            self.Power = float(data.get('Commanded Power', 0))
+            new_emergency_brake = int(float(data.get('Emergency Brake', 0)))
+            
+            if new_emergency_brake == 0 and self.emergency_brake_active:
+                self.emergency_brake_active = False
+                self.emergency_brake = 0
+                if not self.service_brake_active:
+                    accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                    self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
 
-                return True
+            self.emergency_brake = new_emergency_brake
+            self.service_brake = int(float(data.get('Service Brake', 0)))
+            self.Left_Door = bool(int(float(data.get('Left Door', 0))))
+            self.Right_Door = bool(int(float(data.get('Right Door', 0))))
+            
+            # Handle suggested speed/authority
+            self.Suggested_Speed = float(data.get('Suggested Speed', 0))
+            self.Suggested_Authority = float(data.get('Suggested Authority', 0))
+
+            return True
         except Exception as e:
-            print(f"Error in file append: {e}")
+            print(f"Error reading TC outputs: {e}")
             return False
         
-    def read_track_model_outputs(self, file_path='occupancy_data.txt'):
+    def read_track_model_outputs(self, file_path='occupancy_data.json'):
         try: 
-            with open(file_path, mode='r') as file:
-                lines = file.readlines()
-
-            data = {}
-            for line in lines:
-                if ':' in line:
-                    # Split only on the first ':' to avoid unpacking errors
-                    key, sep, value = line.strip().partition(':')
-                    key = key.strip()
-                    value = value.strip()
-                    data[key] = value
-
-                    # Extract train instance number if line starts with "Train"
-                    if key.startswith('Train'):
-                        train_instance = key.split('Train')[1].split(':')[0].strip()
-                        try:
-                            self.Train_Number = int(train_instance)
-                        except ValueError:
-                            print(f"Could not parse train number from: {key}")
-
-            self.Passenger_Number = float(data.get('Total count', 0))
-            self.last_update_time = time.time()  # Reset delta position timer
-            return True
+            print(f"Reading track model from {file_path}...")  # Debug print
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+                print("Track model data:", data)  # Debug print
+                
+            # Find data for this specific train
+            train_data = None
+            if isinstance(data, list):
+                for train in data:
+                    if train.get('Train_Number') == self.Train_Number:
+                        train_data = train
+                        break
+            elif data.get('Train_Number') == self.Train_Number:
+                train_data = data
+                
+            if train_data:
+                self.Passenger_Number = float(train_data.get('Total_Passenger_Count', 0))
+                beacon_info = train_data.get('Beacon_Info', "No beacon info")
+                if beacon_info != "No beacon info":
+                    self.Beacon = beacon_info
+                self.last_update_time = time.time()
+                return True
+            return False
             
         except Exception as e:
             print(f"Error reading track model outputs: {e}")
             return False
 
     def initialize_log_file(self):
-        """Initialize the log file by clearing any existing content"""
+        """Initialize the log file with empty JSON structure"""
         try:
-            # Open in write mode to clear the file
             with open(self.log_file, 'w') as f:
-                # Don't write headers here - we'll write them with each update
-                pass
+                json.dump({}, f)  # Initialize with empty JSON object
         except Exception as e:
             print(f"Error initializing log file: {e}")
 
@@ -300,27 +207,23 @@ class Train_Model:
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
-            # Get beacon info - use the string representation we already have
-            beacon_info = self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon)
-            
-            data_entries = {
-                "Passengers": str(int(self.Passenger_Number)),
-                "Station_Status": str(self.station_status),
-                "Actual_Speed": str(self.Get_Actual_Speed()),
-                "Actual_Authority": str(self.Get_Actual_Authority()),
-                "Delta_Position": str(delta_pos_meters),
-                "Emergency_Brake": str(int(self.Get_Emergency_Brake_Status())),
-                "Brake_Fail": str(int(self.Get_Brake_Fail_Status())),
-                "Signal_Fail": str(int(self.Get_Signal_Pickup_Fail_Status())),
-                "Engine_Fail": str(int(self.Get_Train_Engine_Fail_Status())),
-                "Beacon": beacon_info,
+            output_data = {
+                "Passengers": int(self.Passenger_Number),
+                "Station_Status": self.station_status,
+                "Actual_Speed": self.Train_Ca.Actual_Speed,  # This should now be updating properly
+                "Actual_Authority": self.Train_Ca.Actual_Authority,
+                "Delta_Position": delta_pos_meters,
+                "Emergency_Brake": int(self.Get_Emergency_Brake_Status()),
+                "Brake_Fail": int(self.Get_Brake_Fail_Status()),
+                "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
+                "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
+                "Beacon": self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon),
                 "Suggested_Speed_Authority": str(self.Get_Suggested_Speed_Authority()),
             }
             
-            # Write to file in write mode to overwrite previous content
+            # Write to file in JSON format
             with open(self.log_file, 'w') as f:
-                for key, value in data_entries.items():
-                    f.write(f"{key}: {value}\n")
+                json.dump(output_data, f, indent=4)
         except Exception as e:
             print(f"Error writing to log file: {e}")
 
@@ -453,91 +356,77 @@ class Train_Model:
     def update_all_displays(self):
         """Update all UI elements and write to log file"""
         try:
-            # Read from TC_outputs.txt
+            # Read inputs first
             self.read_tc_outputs()
-            
-            # Read from occupancy_data.txt - this will reset the delta position timer
             self.read_track_model_outputs()
 
-            # Update door status displays
-            right_door = "CLOSED" if self.Right_Door else "OPEN"
-            left_door = "CLOSED" if self.Left_Door else "OPEN"
-            self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
-
-            # Check brake status
-            if self.emergency_brake == 1 and not self.emergency_brake_active:
-                self.activate_emergency_brake()
-            elif self.service_brake == 1 and not self.service_brake_active:
-                self.activate_service_brake()
+            # Calculate movement parameters if not braking
+            if not self.emergency_brake_active and not self.service_brake_active:
+                if not self.Train_F.Engine_Fail:
+                    # Calculate acceleration
+                    accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                    
+                    # Update speed based on acceleration and time step
+                    time_step = 1.0  # seconds
+                    new_speed = self.Train_Ca.Actual_Speed + (accel * time_step)
+                    
+                    # Limit speed to suggested speed if available
+                    if hasattr(self, 'Suggested_Speed'):
+                        # If we're at or above suggested speed, set acceleration to 0
+                        if self.Train_Ca.Actual_Speed >= self.Suggested_Speed:
+                            accel = 0
+                            new_speed = self.Suggested_Speed
+                        new_speed = min(new_speed, self.Suggested_Speed)
+                    
+                    # Don't allow negative speed
+                    self.Train_Ca.Actual_Speed = max(0, new_speed)
+                    
+                    # Update authority - prevent negative values
+                    try:
+                        authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
+                        self.Train_Ca.Actual_Authority = max(0, authority)  # Ensure authority never goes negative
+                    except Exception as e:
+                        print(f"Error calculating authority: {e}")
+                        self.Train_Ca.Actual_Authority = 0  # Default to 0 if error occurs
                 
-            # Update speed and authority if not in brake mode and no engine failure
-            if (not self.emergency_brake_active and 
-                not self.service_brake_active and 
-                not self.Train_F.Engine_Fail):
+                # Update position
+                self.Get_Delta_Pos()
 
-                # Safely handle suggested speed/authority
-                try:
-                    if isinstance(self.Suggested_Speed_Authority, str):
-                        # Try to extract numeric value from string
-                        suggested_speed = float(self.Suggested_Speed_Authority.split()[0])
-                    else:
-                        suggested_speed = float(self.Suggested_Speed_Authority)
-                except (ValueError, TypeError, AttributeError):
-                    suggested_speed = 0
+            # Update display values
+            current_accel = 0
+            if not (self.emergency_brake_active or self.service_brake_active) and not self.Train_F.Engine_Fail:
+                current_accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                # If at suggested speed, show 0 acceleration
+                if hasattr(self, 'Suggested_Speed') and self.Train_Ca.Actual_Speed >= self.Suggested_Speed:
+                    current_accel = 0
 
-                current_speed = self.Train_Ca.Actual_Speed
-                current_authority = self.Train_Ca.Actual_Authority
-
-                # 0.5 m/s^2 to mph/s
-                target_acceleration = 1.11847
-                self.Suggested_Speed = 20  # Default value if not set
-
-                if current_speed < suggested_speed:
-                    new_speed = current_speed + target_acceleration * self.Train_Ca.Dt
-                    if new_speed > suggested_speed:
-                        new_speed = suggested_speed
-                else:
-                    new_speed = suggested_speed
-                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
-
-                new_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
-                
-                self.Train_Ca.Actual_Speed = max(0, new_speed)
-                self.Train_Ca.Actual_Authority = max(0, new_authority)
-
-            elif self.Train_F.Engine_Fail and not self.emergency_brake_active:
-                self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s (Engine Failed)")
-            
-            # Update position
-            self.Get_Delta_Pos()
-            
-            # Update speed and authority displays
             self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
             self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
+            self.Acceleration_Label.config(text=f"Acceleration: {current_accel:.2f} mph/s")
             
-            # Update other displays
-            if not self.Train_F.Engine_Fail and not self.service_brake_active:
-                self.Acceleration_Label.config(text=f"Acceleration: {self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number):.2f} mph/s")
+            # Rest of your display updates...
+            self.Power_Label.config(text=f"Power: {self.Power:.2f} W")
+            self.Passenger_Label.config(text=f"Passengers: {int(self.Passenger_Number)}")
             
+            # Calculate and display elevation and grade
             elevation = self.Train_Ca.Get_Elevation()
             grade = self.Train_Ca.Grade_Calc(self.Power, self.Passenger_Number)
             self.Elevation_Label.config(text=f"Elevation: {elevation:.2f} ft")
             self.Grade_Label.config(text=f"Grade: {grade:.2f}%")
-            self.Power_Label.config(text=f"Power: {self.Power:.2f} W")
-            self.Passenger_Label.config(text=f"Number of Passengers: {self.Passenger_Number} Passengers")
             
-            # Update temperature
-            self.adjust_temperature()
+            # Update other displays
+            self.update_temp_display()
             
-            # Update lights status
+            right_door = "CLOSED" if self.Right_Door else "OPEN"
+            left_door = "CLOSED" if self.Left_Door else "OPEN"
+            self.Door_Status_Label.config(text=f"Right Door: {right_door}, Left Door: {left_door}")
+            
             ext_lights = "ON" if self.Exterior_Lights else "OFF"
             int_lights = "ON" if self.Interior_Lights else "OFF"
             self.Lights_Status_Label.config(text=f"Exterior Lights: {ext_lights}, Interior Lights: {int_lights}")
             
-            # Update beacon display
             self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon}")
             
-            # Write to output file
             self.write_outputs_to_file()
             
         except Exception as e:
@@ -545,6 +434,25 @@ class Train_Model:
         
         # Schedule next update
         self.root.after(1000, self.update_all_displays)
+
+    def Get_Delta_Pos(self):
+        """Calculate distance traveled since last update"""
+        current_time = time.time()
+        if not hasattr(self, 'last_update_time'):
+            self.last_update_time = current_time
+            return 0
+        
+        time_elapsed = current_time - self.last_update_time
+        
+        # Convert speed from mph to feet per second (1 mph = 1.46667 fps)
+        speed_fps = self.Train_Ca.Actual_Speed * 1.46667
+        
+        # Calculate distance traveled (feet)
+        delta = speed_fps * time_elapsed
+        self.cumulative_distance += max(0, delta)
+        self.last_update_time = current_time
+        
+        return self.cumulative_distance
 
     def activate_service_brake(self):
         """Slows down the train at 1.2 m/s² (converted to mph/s)"""
@@ -695,5 +603,3 @@ class Train_Model:
 if __name__ == "__main__":
     main_model = MainTrainModel()
     main_model.run()
-
-    #comment
