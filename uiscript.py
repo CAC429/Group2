@@ -3,127 +3,67 @@
 #Train Controller SW UI
 #2/19/2025
 
+import json
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QTimer
 from PyQt5.QtCore import QFileSystemWatcher
 
-#################################################################################################
-
-class PowerControl:
-    def __init__(self, P_max = 120, T=0.1, Kp=1, Ki=0.2):
-        self.Kp = Kp
-        self.Ki = Ki
-        self.P_max = P_max
-        self.T = T
-        self.u_k_1 = 0
-        self.e_k_1 = 0
-        self.P_k_1 = 0
-        self.direct_power_mode = False
-
-    def update_gains(self, Kp, Ki):
-        self.Kp = Kp
-        self.Ki = Ki
-        self.u_k_1 = 0
-        self.e_k_1 = 0
-        self.P_k_1 = 0
-
-    def set_direct_power_mode(self,enable):
-        self.direct_power_mode = enable
-        if enable:
-            self.u_k_1 = 0
-            self.e_k_1 = 0
-
-    def compute_Pcmd(self, suggested_speed, current_speed_mps):
-        if self.direct_power_mode:
-            P_cmd = min(suggested_speed, self.P_max)
-            self.u_k_1 = 0
-            self.e_k_1 = 0
-
-        else:
-            error = suggested_speed - current_speed_mps
-            u_k = self.u_k_1 + (self.T/2) * (error + self.e_k_1)
-            P_cmd = self.Kp * error + self.Ki * u_k
-
-            if P_cmd >= self.P_max:
-                P_cmd = self.P_max
-                u_k = self.u_k_1
-            elif P_cmd <= 0:
-                P_cmd = 0
-                u_k = self.u_k_1
-
-            self.u_k_1 = u_k
-            self.e_k_1 = error
-        
-        self.P_k_1 = P_cmd
-        return P_cmd
-
-    def auto_tune_gains(self, target_velocity, current_velocity):
-        error = target_velocity - current_velocity
-
-        if current_velocity == 0 and target_velocity > 0:
-            self.Kp = 1.5
-            self.Ki = 0.2
-        else:
-            error_percent = abs(error) / self.P_max
-
-            if error_percent < 0.1:
-                self.Kp = 0.8
-                self.Ki = 0.05
-            elif error_percent < 0.3:
-                self.Kp = 1.2
-                self.Ki = 0.1
-            else:
-                self.Kp = 2.0
-                self.Ki = 0.2
-
-        return self.Kp, self.Ki
-    
 ##########################################################################################3
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.MPH_TO_MPS = 0.44704
-        self.MPS_TO_MPH = 2.23694
-        self.KMH_TO_MPS = 0.277778
-        self.MPS_TO_KMH = 3.6
-        self.KMH_TO_MPH = 0.621371
-
-        self.suggested_authority = 0
-        self.suggested_speed_mps = 20 * self.MPH_TO_MPS
-        self.suggested_speed_kmh = 0
-        self.write_outputs(suggested_speed=20, suggested_authority=0)
-
         #MASTER TIMER
         self.master_timer = QTimer(self)
         self.master_timer.timeout.connect(self.update_from_files)
         self.master_timer.start(1000) # 1 second interval
 
+        self.acceleration = 0.5
+        self.acceleration_timer = QTimer(self)
+        self.acceleration_timer.timeout.connect(self.update_speed)
+        self.acceleration_timer.start(100)
+
+        self.MPH_TO_MPS = 0.44704
+        self.MPS_TO_MPH = 2.23694
+        self.KMH_TO_MPS = 0.277778
+        self.MPS_TO_KMH = 3.6
+        self.KMH_TO_MPH = 0.621371
+        self.suggested_authority = 0
+        self.suggested_speed_mps = 20 * self.MPH_TO_MPS
+        self.suggested_speed_kmh = 0
+        self.write_outputs(suggested_speed=20, suggested_authority=0)
         self.eb_status = 0
         self.sb_status = 0
-        self.power_control = PowerControl()
         self.current_authority = 0
         self.current_speed_mps = 0
-        #self.acceleration_rate = 0.5
         self.target_temp = None
-        #self.service_brake_decel = 1.2
-        #self.emergency_brake_decel = 2.73
         self.service_brake_active = False
         self.emergency_brake_active = False
+        self.P_cmd = 0.0
+        self.P_max = 120000
+        self.uk = 0.0
+        self.uk1 = 0.0
+        self.ek = 0.0
+        self.ek1 = 0.0
+        self.manual_kp = 0.0
+        self.manual_ki = 0.0
+        self.manual_setpoint = 0.0
+        self.T = 0.2
+        self.P_k_1 = 0.0
+        self.prev_current_speed = 0.0
+        self.auto_kp = 10000
+        self.auto_ki = 500
 
         self.manual_eb_engaged = False
-
-        #self.brake_timer = QTimer(self)
-        #self.brake_timer.timeout.connect(self.apply_braking)
 
         self.train_states = {
             "Train 1": {
                 "left_door": False,
                 "right_door": False,
-                "outside_lights": False,
-                "cabin_lights": False,
+                "outside_lights": True,
+                "cabin_lights": True,
                 "cabin_temp": 70,
                 "service_brakes": False,
                 "emergency_brakes": False,
@@ -149,7 +89,7 @@ class MainWindow(QWidget):
         self.temp_timer.timeout.connect(self.update_temp)
 
         self.file_watcher = QFileSystemWatcher()
-        self.file_watcher.addPath('train1_outputs.txt')
+        self.file_watcher.addPath('train1_outputs.json')
         self.file_watcher.fileChanged.connect(self.update_from_files)
 
         self.init_ui()
@@ -294,14 +234,19 @@ class MainWindow(QWidget):
         # Power control
         power_group = QGroupBox("Power Control")
         power_layout = QVBoxLayout()
+
+        form_layout = QFormLayout()
+
+        self.setpoint_input = QLineEdit("0")
+        form_layout.addRow("Setpoint Speed (mph):", self.setpoint_input)
         
         self.kp_input = QLineEdit("0")
-        self.ki_input = QLineEdit("0")
-        self.p_cmd_display = QLabel("0 kW")
-        
-        form_layout = QFormLayout()
         form_layout.addRow("Kp Value:", self.kp_input)
+
+        self.ki_input = QLineEdit("0")
         form_layout.addRow("Ki Value:", self.ki_input)
+        
+        self.p_cmd_display = QLabel("0 kW")
         form_layout.addRow("Commanded Power:", self.p_cmd_display)
         
         self.set_constants_button = QPushButton("Update Power")
@@ -310,6 +255,13 @@ class MainWindow(QWidget):
         power_layout.addWidget(self.set_constants_button)
         power_group.setLayout(power_layout)
         status_layout.addWidget(power_group)
+
+        self.kp_input.setText("0")
+        self.ki_input.setText("0")
+        self.setpoint_input.setText("0")
+        self.kp_input.setEnabled(False)
+        self.ki_input.setEnabled(False)
+        self.setpoint_input.setEnabled(False)
         
         # Brake controls
         brake_group = QGroupBox("Brake Controls")
@@ -458,28 +410,24 @@ class MainWindow(QWidget):
         if self.train_states[train]["cabin_temp"] == self.target_temp:
             self.temp_timer.stop()
 
-    def read_train_outputs(self, file_path='train1_outputs.txt'):
+    def read_train_outputs(self, file_path='train1_outputs.json'):
         try:
             with open(file_path, mode='r') as file:
-                lines = file.readlines()
+                data = json.load(file)
 
-            data = {}
-            for line in lines:
-                if ':' in line:
-                    parts = line.strip().split(':', 1)
-                    if len(parts) == 2:
-                        key, value = parts
-                        data[key.strip()] = value.strip()
+            #speed_mph = float(data.get('Actual_Speed', 0))
+            #self.current_speed_mps = speed_mph * self.MPH_TO_MPS
 
-            
-            speed_mph = float(data.get('Actual_Speed', 0))
-            self.current_speed_mps = speed_mph * self.MPH_TO_MPS
+           # if self.service_brake_active or self.emergency_brake_active:
+           #     self.current_speed_mps = max(0, self.current_speed_mps - (self.acceleration * 0.1))
 
-            if self.current_speed_mps > self.suggested_speed_mps:
-                self.current_speed_mps = self.suggested_speed_mps
+           # if self.current_speed_mps > self.suggested_speed_mps:
+            #    self.current_speed_mps = self.suggested_speed_mps
 
             suggested_speed_auth = data.get('Suggested_Speed_Authority', '')
             if suggested_speed_auth and all(bit in '01' for bit in suggested_speed_auth):
+                if len(suggested_speed_auth) < 10:
+                    suggested_speed_auth = suggested_speed_auth.ljust(10, '0')
                 msb = suggested_speed_auth[0]  # First bit determines speed (0) or authority (1)
                 remaining_bits = suggested_speed_auth[1:] if len(suggested_speed_auth) > 1 else '0'
             
@@ -506,21 +454,23 @@ class MainWindow(QWidget):
             self.current_authority = float(data.get('Actual_Authority', 0))
             delta_position = float(data.get('Delta_Position', 0))
 
-            beacon_str = data.get('Beacon', '{}')
-            try:
-                beacon_data = eval(beacon_str)
-                station_distance = float(beacon_data.get('station_distance', float('inf')))
+            beacon_data = data.get('Beacon', '{}')
+            if isinstance(beacon_data, str):
+                try:
+                    beacon_data = json.loads(beacon_data)
+                except:
+                    beacon_data = {}
+                
+            station_distance = float(beacon_data.get('station_distance', float('inf')))
 
-                if abs(station_distance - delta_position) <= 10:
-                    self.sb_clicked()
-                    print(f"Service brake activated - approaching station. Distance: {abs(station_distance - delta_position):.2f}m")
-            except:
-                pass
+            if abs(station_distance - delta_position) <= 10:
+                self.sb_clicked()
+                print(f"Service brake activated - approaching station.")
 
-            brake_fail = data.get('Brake_Fail', '0') == '1'
-            signal_fail = data.get('Signal_Fail', '0') == '1'
-            engine_fail = data.get('Engine_Fail', '0') == '1'
-            emergency_brake = data.get('Emergency_Brake', '0') == '1'
+            brake_fail = data.get('Brake_Fail', False)
+            signal_fail = data.get('Signal_Fail', False)
+            engine_fail = data.get('Engine_Fail', False)
+            emergency_brake = data.get('Emergency_Brake', False)
 
             if not self.manual_eb_engaged:
                 new_eb_status = brake_fail or signal_fail or engine_fail or emergency_brake
@@ -531,11 +481,10 @@ class MainWindow(QWidget):
                 if new_eb_status:
                     self.emergency_brake_active = True
                     self.service_brake_active = False
-                    #self.brake_timer.start(100)
                 else:
                     self.emergency_brake_active = False
 
-            service_brake = data.get('Service_Brake', '0') == '1'
+            service_brake = data.get('Service_Brake', False)
             if service_brake and not self.emergency_brake_active:
                 self.service_brake_active = True
                 self.write_outputs(service_brake=1)
@@ -584,10 +533,14 @@ class MainWindow(QWidget):
             self.close_left.setEnabled(False)
             self.open_right.setEnabled(False)
             self.close_right.setEnabled(False)
-            
+
+            self.setpoint_input.setEnabled(False)
             self.kp_input.setEnabled(False)
             self.ki_input.setEnabled(False)
             self.set_constants_button.setEnabled(False)
+
+            self.kp = self.auto_kp
+            self.ki = self.auto_ki
         else:
             print("Automatic Mode Disabled")
             self.master_timer.stop()
@@ -606,32 +559,39 @@ class MainWindow(QWidget):
             self.open_right.setEnabled(not state["right_door"])
             self.close_right.setEnabled(state["right_door"])
             
+            self.setpoint_input.setEnabled(True)
             self.kp_input.setEnabled(True)
             self.ki_input.setEnabled(True)
             self.set_constants_button.setEnabled(True)
+
+            try:
+                self.kp = float(self.kp_input.text())
+                self.ki = float(self.ki_input.text())
+            except ValueError:
+                print("Invalid gain values - using deaults")
+                self.kp = 0
+                self.ki = 0
 
     def sb_clicked(self):
         if not self.emergency_brake_active:
             self.service_brake_active = True
             self.emergency_brake_active = False
             self.write_outputs(service_brake=1)
-            #self.acceleration_timer.stop()
-            #self.brake_timer.start(100)
             print("Service Brake Engaged")
             self.open_appropriate_doors()
 
     def open_appropriate_doors(self):
         try:
-            with open('train1_outputs.txt', mode='r') as file:
-                lines = file.readlines()
+            with open('train1_outputs.json', mode='r') as file:
+                data = json.load(file)
 
-            beacon_str = '{}'
-            for line in lines:
-                if line.startswith('Beacon:'):
-                    beacon_str = line.split(':', 1)[1].strip()
-                    break
+            beacon_data = data.get('Beacon', {})
+            if isinstance(beacon_data, str):
+                try:
+                    beacon_data = json.loads(beacon_data)
+                except:
+                    beacon_data = {}
 
-            beacon_data = eval(beacon_str)
             station_side = beacon_data.get('station_side', 'right').lower()
 
             self.train_states["Train 1"]["left_door"] = False
@@ -639,18 +599,18 @@ class MainWindow(QWidget):
 
             if station_side == 'left':
                 self.train_states["Train 1"]["left_door"] = True
-                self.write_outputs(left_door=1, right_door=0)
+                self.write_outputs(left_door=0, right_door=1)
                 print("Opening LEFT doors")
             else:  # default to right
                 self.train_states["Train 1"]["right_door"] = True
-                self.write_outputs(left_door=0, right_door=1)
+                self.write_outputs(left_door=1, right_door=0)
                 print("Opening RIGHT doors")
                 
             # Update UI
             self.update_ui_from_state()
             
-            # Start timer to close doors after 10 seconds
-            self.door_timer.start(10000)  # 10,000 ms = 10 seconds
+            # Start timer to close doors after 30 seconds
+            self.door_timer.start(30000)  # 30,000 ms = 30 seconds
             
         except Exception as e:
             print(f"Error opening doors: {e}")
@@ -659,7 +619,7 @@ class MainWindow(QWidget):
         self.door_timer.stop()
         self.train_states["Train 1"]["left_door"] = False
         self.train_states["Train 1"]["right_door"] = False
-        self.write_outputs(left_door=0, right_door=0)
+        self.write_outputs(left_door=1, right_door=1)
         self.update_ui_from_state()
         print("Doors closed after delay")
 
@@ -668,198 +628,152 @@ class MainWindow(QWidget):
                     left_door=None, right_door=None):
         try:
             try:
-                with open('TC_outputs.txt', 'r') as f:
-                    lines = f.readlines()
-            except FileNotFoundError:
-                lines = []
+                with open('TC_outputs.json', 'r') as f:
+                    data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                data = {}
 
-            updates = {
-                "Commanded Power": None if power is None else f"{power:.2f}",
-                "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
-                "Service Brake": None if service_brake is None else str(service_brake),
-                "Suggested Speed": None if suggested_speed is None else f"{suggested_speed:.1f}",
-                "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}",
-                "Left Door": None if left_door is None else str(left_door),
-                "Right Door": None if right_door is None else str(right_door)
-            }
+            if power is not None:
+                data['Commanded_Power'] = round(power, 2)
+            if emergency_brake is not None:
+                data['Emergency_Brake'] = bool(emergency_brake)
+            if service_brake is not None:
+                data['Service_Brake'] = bool(service_brake)
+            if suggested_speed is not None:
+                data['Suggested_Speed'] = round(suggested_speed, 1)
+            if suggested_authority is not None:
+                data['Suggested_Authority'] = round(suggested_authority, 1)
+            if left_door is not None:
+                data['Left_Door'] = bool(left_door)
+            if right_door is not None:
+                data['Right_Door'] = bool(right_door)
 
-            updated = False
-            found_keys = set()
-            for i, line in enumerate(lines):
-                if ':' in line:
-                    key = line.split(':')[0].strip()
-                    if key in updates and updates[key] is not None:
-                        lines[i] = f"{key}: {updates[key]}\n"
-                        updates[key] = None
-                        updated = True
-
-            for key in updates:
-                if updates[key] is not None:
-                    lines.append(f"{key}: {updates[key]}\n")
-                    updated = True
-
-            if updated:
-                with open('TC_outputs.txt', 'w') as f:
-                    f.writelines(lines)
+            with open('TC_outputs.json', 'w') as f:
+                json.dump(data, f, indent=4)
+            
         except Exception as e:
-            print(f"Error writing to TC_outputs.txt: {e}")
-
-    def apply_service_brake(self):
-        if self.current_speed_mps > 0:
-            self.current_speed_mps -= self.deceleration_rate * 0.1
-            if self.current_speed_mps < 0:
-                self.current_speed_mps = 0
-
-            current_speed_mph = self.current_speed_mps / self.MPH_TO_MPS
-            self.speed_label.setText(f"Current Speed: {self.current_speed_mph:.2f} mph")
-        else:
-            self.timer.stop()
+            print(f"Error writing to TC_outputs.json: {e}")
 
     def eb_clicked(self, checked=False):
         self.emergency_brake_active = True
         self.manual_eb_engaged = True
         self.service_brake_active = False
         self.write_outputs(emergency_brake=1)
-        #self.acceleration_timer.stop()
         print("Emergency Brake Engaged")            
 
     def update_tb(self):
-        if self.train_states.get("service_brakes", False):
-            self.service_brake_label.setText("Service Brake: On")
-        else:
-            self.service_brake_label.setText("Service Brake: Off")
+        train = self.get_selected_train()
+        state = self.train_states[train]
 
-        if self.train_states.get("emergency_brakes", False):
-            self.emergency_brake_label.setText("Emergency Brake: On")
-        else:
-            self.emergency_brake_label.setText("Emergency Brake: Off")
+        state["service_brakes"] = self.service_brake_active
+        state["emergency_brakes"] = self.emergency_brake_active
+
+        self.service_brake_label.setText(f"Service Brake: {'On' if state ['service_brakes'] else 'Off'}")
+        self.emergency_brake_label.setText(f"Emergency Brake: {'On' if state['emergency_brakes'] else 'Off'}")
+
+        if state["service_brakes"] != self.eb_status:
+            self.write_outputs(service_brake=1 if state["service_brakes"] else 0)
+            self.sb_status = state["service_brakes"]
+
+        if state["emergency_brakes"] != self.eb_status:
+            self.write_outputs(emergency_brake=1 if state["emergency_brakes"] else 0)
+            self.eb_status = state["emergency_brakes"]
+
 
     def clear_brakes(self):
         self.service_brake_active = False
         self.emergency_brake_active = False
         self.manual_eb_engaged = False
         self.write_outputs(emergency_brake=0, service_brake=0)
-
-        #suggested_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS
-        #if self.current_speed_mps < suggested_speed_mps:
-        #    self.acceleration_timer.start(100)
-
         print("Brakes Released")
         self.service_brake_label.setText("Service Brake: Off")
         self.emergency_brake_label.setText("Emergency Brake: Off")
 
+        if self.current_speed_mps < self.suggested_speed_mps:
+            self.acceleration_timer.start(100)
+
 
     def calculate_power(self):
         try:
-            train = self.get_selected_train()
 
-            if self.auto_checkbox.isChecked():
-                self.power_control.set_direct_power_mode(False)
-                Kp, Ki = self.power_control.auto_tune_gains(self.suggested_speed_mps, self.current_speed_mps)
+            if self.auto_checkbox.isChecked(): #Automatic Mode
+                self.kp = self.auto_kp
+                self.ki = self.auto_ki
+                target_speed = self.suggested_speed_mps
+            else: #Manual Mode
+                self.kp = float(self.kp_input.text())
+                self.ki = float(self.ki_input.text())
+                target_speed = float(self.setpoint_input.text()) * self.MPH_TO_MPS
 
-                self.kp_input.setText(f"{Kp:.2f}")
-                self.ki_input.setText(f"{Ki:.2f}")
+            velocity_error = target_speed - self.current_speed_mps
+            self.ek = velocity_error
+
+            if abs(self.P_cmd) < self.P_max:
+                self.uk = self.uk1 + (self.T/2) * (self.ek + self.ek1)
             else:
-                self.power_control.set_direct_power_mode(True)
-                Kp = float(self.kp_input.text())
-                Ki = float(self.ki_input.text())
+                self.uk = self.uk1
 
-            self.power_control.update_gains(Kp, Ki)
-            P_cmd = self.power_control.compute_Pcmd(self.suggested_speed_mps, self.current_speed_mps)
+            self.P_k_1 = self.P_cmd
 
-            self.p_cmd_display.setText(f"{P_cmd:.2f} kW")
-            self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
+            if self.service_brake_active == True or self.emergency_brake_active == True:
+                print("Brakes active - setting power to 0")
+                self.P_cmd = 0
+                self.uk = 0
+                self.ek = 0
+            else:
+                P_term = self.kp * self.ek
+                I_term = self.ki * self.uk
+                self.P_cmd = P_term + I_term
 
-            self.write_outputs(power=P_cmd)
+                if(self.P_cmd > self.P_max):
+                    self.P_cmd = self.P_max
+                elif(self.P_cmd < -self.P_max):
+                    self.P_cmd = -self.P_max
 
-            self.train_states[train]["Kp"] = Kp
-            self.train_states[train]["Ki"] = Ki
 
-            print(f"Commanded Power: {P_cmd:.2f} kW")
+            self.uk1 = self.uk
+            self.ek1 = self.ek
+
+            power_kw = self.P_cmd / 1000
+            self.p_cmd_display.setText(f"{power_kw:.2f} kW")
+            self.p_cmd_label.setText(f"Commanded Power: {power_kw:.2f} kW")
+            self.write_outputs(power=self.P_cmd)
 
         except ValueError:
             print("Please enter valid numerical values for Kp and Ki")
 
-    #def accelerate_train(self):
-    #    if not (self.service_brake_active or self.emergency_brake_active):
-    #        suggested_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS #Convert km/h to mps
-
-    #        if self.current_speed_mps < suggested_speed_mps:
-    #            #self.current_speed_mps += self.acceleration_rate * 0.1
-    #            self.current_speed_mps = min(self.current_speed_mps, suggested_speed_mps)
-
-    #            current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
-    #            self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
-
-    #            self.update_power_display()
-    #        else:
-    #            self.acceleration_timer.stop()
-
     def update_power_display(self):
-        P_cmd = self.power_control.compute_Pcmd(
-            self.suggested_speed_mps,
-            self.current_speed_mps
-        )
-        self.p_cmd_label.setText(f"Commanded Power: {P_cmd:.2f} kW")
-        self.write_outputs(power=P_cmd)
+        self.calculate_power()
 
     def update_from_files(self):
         self.read_train_outputs()
         self.update_power_display()
 
-        if self.current_speed_mps > self.suggested_speed_mps:
-            self.current_speed_mps = self.suggested_speed_mps
+        #if self.current_speed_mps > self.suggested_speed_mps:
+        #    self.current_speed_mps = self.suggested_speed_mps
+        #    current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
+        #    self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
+
+    def update_speed(self): #Delete when connected to Train Model
+        time_interval = self.acceleration_timer.interval() / 1000.0
+
+        if not (self.service_brake_active or self.emergency_brake_active):
+            if self.current_speed_mps < self.suggested_speed_mps:
+                speed_increase = self.acceleration * time_interval
+                self.current_speed_mps = min(self.current_speed_mps + speed_increase, self.suggested_speed_mps)
+            elif self.current_speed_mps > self.suggested_speed_mps:
+                speed_decrease = self.acceleration * time_interval
+                self.current_speed_mps = max(self.current_speed_mps - speed_decrease, self.suggested_speed_mps)
+
             current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
             self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
-
-        #suggested_speed_mps = self.suggested_speed_kmh * self.KMH_TO_MPS
-
-        #if (self.current_speed_mps < suggested_speed_mps and
-        #    not self.service_brake_active and
-        #    not self.emergency_brake_active):
-        #    if not self.acceleration_timer.isActive():
-        #        self.acceleration_timer.start(100)
-        #else:
-        #    self.acceleration_timer.stop()
-
-    #def write_outputs(self, power=None, emergency_brake=None, service_brake=None, suggested_speed=None, suggested_authority=None):
-    #    try:
-    #        try:
-    #            with open('TC_outputs.txt', 'r') as f:
-    #               lines = f.readlines()
-    #        except FileNotFoundError:
-    #            lines = []
-
-    #        updates = {
-    #            "Commanded Power": None if power is None else f"{power:.2f}",
-    #            "Emergency Brake": None if emergency_brake is None else str(emergency_brake),
-    #            "Service Brake": None if service_brake is None else str(service_brake),
-    #            "Suggested Speed": None if suggested_speed is None else f"{suggested_speed * self.KMH_TO_MPH:.1f}",
-    #            "Suggested Authority": None if suggested_authority is None else f"{suggested_authority:.1f}"
-    #        }
-
-     #       updated = False
-      #      found_keys = set()
-     #       for i, line in enumerate(lines):
-     #         if ':' in line:
-    #                key = line.split(':')[0].strip()
-      #              if key in updates and updates[key] is not None:
-       #                 lines[i] = f"{key}: {updates[key]}\n"
-        #                updates[key] = None
-         #               updated = True
-#
- #           for key in updates:
-  #              if updates[key] is not None:
-   #                 lines.append(f"{key}: {updates[key]}\n")
-    #                updated = True
-#
- #           if updated:
-  #              with open('TC_outputs.txt', 'w') as f:
-   #                 f.writelines(lines)
-    #    except Exception as e:
-     #       print(f"Error writing to TC_outputs.txt: {e}")
-
-
+            
+            self.calculate_power()
+        else:
+            self.P_cmd = 0
+            self.p_cmd_display.setText("0.00 kW")
+            self.p_cmd_label.setText("Commanded Power: 0.00 kW")
+        
     
 #######################################################################
 

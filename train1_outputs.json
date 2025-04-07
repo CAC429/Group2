@@ -1,0 +1,16 @@
+{
+    "Passengers": 0,
+    "Station_Status": 0,
+    "Actual_Speed": 0,
+    "Actual_Authority": 300,
+    "Delta_Position": 0.6344282210538481,
+    "Emergency_Brake": false,
+    "Brake_Fail": false,
+    "Signal_Fail": false,
+    "Engine_Fail": false,
+    "Beacon": {
+        "station_distance": 15.5,
+        "station_side": "right"
+    },
+    "Suggested_Speed_Authority": "1010"
+}
