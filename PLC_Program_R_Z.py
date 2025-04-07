@@ -1,25 +1,35 @@
-import os
+import json
+
 # Open and read the Input file
 Occupancy_In = [0] * 150
 Default_Switch_In = [0] * 6
-with open("PLC_INPUTS.txt", "r") as file:
-    for line in file:
-        if line.startswith("Occupancy="):
-            # Extract values, split, and convert to integers
-            Occupancy_In = list(map(int, line.strip().split("=")[1].split(",")))
+# Read PLC_INPUTS.json
+try:
+    with open("PLC_INPUTS.json", "r") as file:
+        inputs = json.load(file)
+        Occupancy_In = inputs.get("Occupancy", [])
+        Default_Switch_In = inputs.get("Default_Switch_Position", [])
+except FileNotFoundError:
+    print("Error: PLC_INPUTS.json not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected error in input file: {e}")
 
 Occupancy_Out = [0] * 150
 Track_Failure_Out = [0] * 150
 Actual_Switch_Position_Out = [0] * 6
-# Open and read the Output file
-with open("PLC_OUTPUTS.txt", "r") as file:
-    for line in file:
-        if line.startswith("Occupancy="):
-            # Extract values, split, and convert to integers
-            Occupancy_Out = list(map(int, line.strip().split("=")[1].split(",")))
-        if line.startswith("Track_Failure="):
-            # Extract values, split, and convert to integers
-            Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
+
+# Read PLC_OUTPUTS.json
+try:
+    with open("PLC_OUTPUTS.json", "r") as file:
+        outputs = json.load(file)
+        Occupancy_Out = outputs.get("Occupancy", [])
+        Track_Failure_Out = outputs.get("Track_Failure", [])
+        Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
+except FileNotFoundError:
+    print("Error: PLC_OUTPUTS.json not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected error in output file: {e}")
+
 
 #Initialize variables
 Light_Control = [0] * 12
@@ -153,63 +163,55 @@ if Track_Failure[147] == 1:
     Suggested_Speed[146] = "1010"
     Suggested_Speed[145] = "1111"
 
-# Read the file
-with open("PLC_OUTPUTS.txt", "r") as file:
-    lines = file.readlines()  # Read all lines into a list
+try:
+    with open("PLC_OUTPUTS.json", "r") as file:
+        outputs = json.load(file)
+        Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
+        Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
+        Track_Failure_Out = outputs.get("Track_Failure", [])
+        Light_Control_Out = outputs.get("Light_Control", [])
+        Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
+        Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
 
-# Parse the data
-for line in lines:
-    if line.startswith("Suggested_Speed="):
-        Suggested_Speed_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Suggested_Authority="):
-        Suggested_Authority_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Track_Failure="):
-        Track_Failure_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Light_Control="):
-        Light_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Actual_Switch_Position="):
-        Actual_Switch_Position_Out = list(map(int, line.strip().split("=")[1].split(",")))
-    elif line.startswith("Cross_Bar_Control="):
-        Cross_Bar_Control_Out = list(map(int, line.strip().split("=")[1].split(",")))
+    Find_Occupancy = 0
+    for i in range(100,150):
+        if Occupancy_In[i] == 1:
+            Find_Occupancy = 1
+    if Find_Occupancy > 0:
+        Suggested_Speed[99] = "0"
+        Suggested_Speed[98] = "1010"
+        Suggested_Speed[97] = "1111"
+        Suggested_Authority[99] = "0"
 
-Find_Occupancy = 0
-for i in range(100,150):
-    if Occupancy_In[i] == 1:
-        Find_Occupancy = 1
-if Find_Occupancy > 0:
-    Suggested_Speed[99] = "0"
-    Suggested_Speed[98] = "1010"
-    Suggested_Speed[97] = "1111"
-    Suggested_Authority[99] = "0"
+    for i in range(150):
+        if i == 0:
+            Cross_Bar_Control[i] = Cross_Bar_Control_Out[i]
+        if i < 97:
+            Suggested_Speed[i] = Suggested_Speed_Out[i]
+            Suggested_Authority[i] = Suggested_Authority_Out[i]
+            Track_Failure[i] = Track_Failure_Out[i]
+        if i >= 97:
+            if Suggested_Speed[i] != 100:
+                Suggested_Speed_Out[i] = Suggested_Speed[i]
+            if Suggested_Authority[i] != 100:
+                Suggested_Authority_Out[i] = Suggested_Authority[i]
 
-for i in range(150):
-    if i == 0:
-        Cross_Bar_Control[i] = Cross_Bar_Control_Out[i]
-    if i < 97:
-        Suggested_Speed[i] = Suggested_Speed_Out[i]
-        Suggested_Authority[i] = Suggested_Authority_Out[i]
-        Track_Failure[i] = Track_Failure_Out[i]
-    if i >= 97:
-        if Suggested_Speed[i] != 100:
-            Suggested_Speed_Out[i] = Suggested_Speed[i]
-        if Suggested_Authority[i] != 100:
-            Suggested_Authority_Out[i] = Suggested_Authority[i]
+    outputs["Suggested_Speed"] = Suggested_Speed_Out
+    outputs["Suggested_Authority"] = Suggested_Authority_Out
+    outputs["Track_Failure"] = Track_Failure
+    outputs["Light_Control"] = Light_Control
+    outputs["Occupancy"] = Occupancy_In
+    outputs["Cross_Bar_Control"] = Cross_Bar_Control_Out
+except FileNotFoundError:
+    print("Error: File not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected Error: {e}")
 
-# Modify the lines
-for i, line in enumerate(lines):
-    if line.startswith("Suggested_Speed="):
-        lines[i] = f"Suggested_Speed={','.join(map(str, Suggested_Speed_Out))}\n"
-    elif line.startswith("Suggested_Authority="):
-        lines[i] = f"Suggested_Authority={','.join(map(str, Suggested_Authority_Out))}\n"
-    elif line.startswith("Occupancy="):
-        lines[i] = f"Occupancy={','.join(map(str, Occupancy_In))}\n"
-    elif line.startswith("Track_Failure="):
-        lines[i] = f"Track_Failure={','.join(map(str, Track_Failure))}\n"
-    elif line.startswith("Cross_Bar_Control="):
-        lines[i] = f"Cross_Bar_Control={','.join(map(str, Cross_Bar_Control))}\n"
-
-# Write the modified lines back to the file
-with open("PLC_OUTPUTS.txt", "w") as file:
-    file.writelines(lines)  # Writes the updated content back to the file
-    file.flush()  # Ensure data is written
-    os.fsync(file.fileno())  # Finalize writing
+# Write to PLC_OUTPUTS.json
+try:
+    with open("PLC_OUTPUTS.json", "w") as file:
+        json.dump(outputs, file, indent=2)
+except FileNotFoundError:
+    print("Error: PLC_OUTPUTS.json not found! Please check the file path.")
+except Exception as e:
+    print(f"Unexpected error while writing to output file: {e}")
