@@ -20,11 +20,6 @@ class MainWindow(QWidget):
         self.master_timer.timeout.connect(self.update_from_files)
         self.master_timer.start(1000) # 1 second interval
 
-        self.acceleration = 0.5
-        self.acceleration_timer = QTimer(self)
-        self.acceleration_timer.timeout.connect(self.update_speed)
-        self.acceleration_timer.start(100)
-
         self.MPH_TO_MPS = 0.44704
         self.MPS_TO_MPH = 2.23694
         self.KMH_TO_MPS = 0.277778
@@ -60,8 +55,8 @@ class MainWindow(QWidget):
 
         self.train_states = {
             "Train 1": {
-                "left_door": False,
-                "right_door": False,
+                "left_door": True,
+                "right_door": True,
                 "outside_lights": True,
                 "cabin_lights": True,
                 "cabin_temp": 70,
@@ -78,12 +73,9 @@ class MainWindow(QWidget):
         self.door_timer = QTimer(self)
         self.door_timer.timeout.connect(self.close_doors_after_delay)
 
-        self.train_states["Train 1"]["left_door"] = False
-        self.train_states["Train 1"]["right_door"] = False
-        self.write_outputs(left_door=0, right_door=0)
-
-        #self.acceleration_timer = QTimer(self)
-        #self.acceleration_timer.timeout.connect(self.accelerate_train)
+        self.train_states["Train 1"]["left_door"] = True
+        self.train_states["Train 1"]["right_door"] = True
+        self.write_outputs(left_door=1, right_door=1)
         
         self.temp_timer = QTimer(self)
         self.temp_timer.timeout.connect(self.update_temp)
@@ -94,7 +86,6 @@ class MainWindow(QWidget):
 
         self.init_ui()
         self.read_train_outputs()
-        #self.acceleration_timer.start(100)
 
     def init_ui(self):
         self.setWindowTitle("B Team Train Control")
@@ -299,10 +290,10 @@ class MainWindow(QWidget):
         self.cabin_light_off.clicked.connect(lambda: self.set_light_state("cabin_lights", False))
         self.cabin_light_on.clicked.connect(lambda: self.set_light_state("cabin_lights", True))
         
-        self.open_left.clicked.connect(lambda: self.set_door_state("left_door", True))
-        self.close_left.clicked.connect(lambda: self.set_door_state("left_door", False))
-        self.open_right.clicked.connect(lambda: self.set_door_state("right_door", True))
-        self.close_right.clicked.connect(lambda: self.set_door_state("right_door", False))
+        self.open_left.clicked.connect(lambda: self.set_door_state("left_door", False))
+        self.close_left.clicked.connect(lambda: self.set_door_state("left_door", True))
+        self.open_right.clicked.connect(lambda: self.set_door_state("right_door", False))
+        self.close_right.clicked.connect(lambda: self.set_door_state("right_door", True))
         
         self.temp_slider.valueChanged.connect(self.update_temp_label)
         self.set_temp_btn.clicked.connect(self.set_temp_clicked)
@@ -341,6 +332,7 @@ class MainWindow(QWidget):
         train = self.get_selected_train()
         self.train_states[train][door_type] = state
         self.update_ui_from_state()
+        self.write_outputs(**{f"{door_type.split('_')[0]}_door": int(not state)})
         self.update_tb()
 
     def update_ui_from_state(self):
@@ -352,14 +344,14 @@ class MainWindow(QWidget):
         self.cabin_light_on.setEnabled(not state["cabin_lights"])
         self.cabin_light_off.setEnabled(state["cabin_lights"])
         
-        self.open_left.setEnabled(not state["left_door"])
-        self.close_left.setEnabled(state["left_door"])
-        self.open_right.setEnabled(not state["right_door"])
-        self.close_right.setEnabled(state["right_door"])
+        self.open_left.setEnabled(state["left_door"])
+        self.close_left.setEnabled(not state["left_door"])
+        self.open_right.setEnabled(state["right_door"])
+        self.close_right.setEnabled(not state["right_door"])
         
         # Update labels
-        self.left_door_label.setText(f"Left Door: {'Open' if state['left_door'] else 'Closed'}")
-        self.right_door_label.setText(f"Right Door: {'Open' if state['right_door'] else 'Closed'}")
+        self.left_door_label.setText(f"Left Door: {'Closed' if state['left_door'] else 'Open'}")
+        self.right_door_label.setText(f"Right Door: {'Closed' if state['right_door'] else 'Open'}")
         self.cabin_lights_label.setText(f"Cabin Lights: {'On' if state['cabin_lights'] else 'Off'}")
         self.outside_lights_label.setText(f"Outside Lights: {'On' if state['outside_lights'] else 'Off'}")
         self.temperature_label.setText(f"Cabin Temp: {state['cabin_temp']} °F")
@@ -415,14 +407,8 @@ class MainWindow(QWidget):
             with open(file_path, mode='r') as file:
                 data = json.load(file)
 
-            #speed_mph = float(data.get('Actual_Speed', 0))
-            #self.current_speed_mps = speed_mph * self.MPH_TO_MPS
-
-           # if self.service_brake_active or self.emergency_brake_active:
-           #     self.current_speed_mps = max(0, self.current_speed_mps - (self.acceleration * 0.1))
-
-           # if self.current_speed_mps > self.suggested_speed_mps:
-            #    self.current_speed_mps = self.suggested_speed_mps
+            speed_mph = float(data.get('Actual_Speed', 0))
+            self.current_speed_mps = speed_mph * self.MPH_TO_MPS
 
             suggested_speed_auth = data.get('Suggested_Speed_Authority', '')
             if suggested_speed_auth and all(bit in '01' for bit in suggested_speed_auth):
@@ -578,7 +564,9 @@ class MainWindow(QWidget):
             self.emergency_brake_active = False
             self.write_outputs(service_brake=1)
             print("Service Brake Engaged")
-            self.open_appropriate_doors()
+            
+            if self.current_speed_mps == 0:
+                self.open_appropriate_doors()
 
     def open_appropriate_doors(self):
         try:
@@ -617,8 +605,8 @@ class MainWindow(QWidget):
 
     def close_doors_after_delay(self):
         self.door_timer.stop()
-        self.train_states["Train 1"]["left_door"] = False
-        self.train_states["Train 1"]["right_door"] = False
+        self.train_states["Train 1"]["left_door"] = True
+        self.train_states["Train 1"]["right_door"] = True
         self.write_outputs(left_door=1, right_door=1)
         self.update_ui_from_state()
         print("Doors closed after delay")
@@ -747,33 +735,7 @@ class MainWindow(QWidget):
 
     def update_from_files(self):
         self.read_train_outputs()
-        self.update_power_display()
-
-        #if self.current_speed_mps > self.suggested_speed_mps:
-        #    self.current_speed_mps = self.suggested_speed_mps
-        #    current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
-        #    self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
-
-    def update_speed(self): #Delete when connected to Train Model
-        time_interval = self.acceleration_timer.interval() / 1000.0
-
-        if not (self.service_brake_active or self.emergency_brake_active):
-            if self.current_speed_mps < self.suggested_speed_mps:
-                speed_increase = self.acceleration * time_interval
-                self.current_speed_mps = min(self.current_speed_mps + speed_increase, self.suggested_speed_mps)
-            elif self.current_speed_mps > self.suggested_speed_mps:
-                speed_decrease = self.acceleration * time_interval
-                self.current_speed_mps = max(self.current_speed_mps - speed_decrease, self.suggested_speed_mps)
-
-            current_speed_mph = self.current_speed_mps * self.MPS_TO_MPH
-            self.speed_label.setText(f"Current Speed: {current_speed_mph:.1f} mph")
-            
-            self.calculate_power()
-        else:
-            self.P_cmd = 0
-            self.p_cmd_display.setText("0.00 kW")
-            self.p_cmd_label.setText("Commanded Power: 0.00 kW")
-        
+        self.update_power_display()    
     
 #######################################################################
 

@@ -1,9 +1,9 @@
 {
-    "Commanded_Power": 93862.42,
+    "Commanded_Power": 99689.92,
     "Suggested_Speed": 20,
     "Suggested_Authority": 128,
     "Emergency_Brake": false,
     "Service_Brake": false,
-    "Left_Door": false,
-    "Right_Door": false
+    "Left_Door": true,
+    "Right_Door": true
 }
