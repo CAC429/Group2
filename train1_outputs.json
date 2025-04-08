@@ -8,9 +8,6 @@
     "Brake_Fail": false,
     "Signal_Fail": false,
     "Engine_Fail": false,
-    "Beacon": {
-        "station_distance": 10.5,
-        "station_side": "right"
-    },
+    "Beacon": "station_side: right, arriving_station: LESUNSHINE STATION, new_station: EDGEBROOK, station_distance: 13792.6",
     "Suggested_Speed_Authority": "1010"
 }

@@ -433,15 +433,26 @@ class MainWindow(QWidget):
             self.current_authority = float(data.get('Actual_Authority', 0))
             delta_position = float(data.get('Delta_Position', 0))
 
-            beacon_data = data.get('Beacon', '{}')
-            if isinstance(beacon_data, str):
-                try:
-                    beacon_data = json.loads(beacon_data)
-                except:
-                    beacon_data = {}
-                
-            station_distance = float(beacon_data.get('station_distance', float('inf')))
-            station_side = beacon_data.get('station_side', 'right').lower()
+            beacon_data = data.get('Beacon', '')
+            station_distance = float('inf')
+            station_side = 'right'
+
+            if beacon_data:
+                beacon_parts = beacon_data.split(', ')
+                beacon_dict = {}
+                for part in beacon_parts:
+                    if ':' in part:
+                        key, value = part.split(':', 1)
+                        beacon_dict[key.strip()] = value.strip()
+
+                if 'station_distance' in beacon_dict:
+                    try:
+                        station_distance = float(beacon_dict['station_distance'])
+                    except ValueError:
+                        station_distance = float('inf')
+
+                if 'station_side' in beacon_dict:
+                    station_side = beacon_dict['station_side'].lower()
 
             if abs(station_distance - delta_position) <= 10 and not self.service_brake_active:
                 self.service_brake_active = True
@@ -464,7 +475,6 @@ class MainWindow(QWidget):
                     print("Opening RIGHT doors at station")
 
                 self.update_ui_from_state()
-
                 self.door_timer.start(10000)
 
             brake_fail = data.get('Brake_Fail', False)
