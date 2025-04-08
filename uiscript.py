@@ -62,19 +62,12 @@ class MainWindow(QWidget):
                 "cabin_temp": 70,
                 "service_brakes": False,
                 "emergency_brakes": False,
-                "problem": False,
-                "Kp": 0.5,
-                "Ki": 0.1,
-                "P_target": 80,
-                "P_actual": 50
             }
         }
 
         self.door_timer = QTimer(self)
         self.door_timer.timeout.connect(self.close_doors_after_delay)
 
-        self.train_states["Train 1"]["left_door"] = True
-        self.train_states["Train 1"]["right_door"] = True
         self.write_outputs(left_door=1, right_door=1)
         
         self.temp_timer = QTimer(self)
@@ -448,10 +441,31 @@ class MainWindow(QWidget):
                     beacon_data = {}
                 
             station_distance = float(beacon_data.get('station_distance', float('inf')))
+            station_side = beacon_data.get('station_side', 'right').lower()
 
-            if abs(station_distance - delta_position) <= 10:
-                self.sb_clicked()
+            if abs(station_distance - delta_position) <= 10 and not self.service_brake_active:
+                self.service_brake_active = True
+                self.write_outputs(service_brake=1)
                 print(f"Service brake activated - approaching station.")
+
+            if(self.current_speed_mps < 0.1 and
+               self.service_brake_active and
+               abs(station_distance - delta_position) <= 5 and
+               not self.door_timer.isActive() and
+               (self.train_states["Train 1"]["left_door"] or self.train_states["Train 1"]["right_door"])):
+                
+                if station_side == 'left':
+                    self.train_states["Train 1"]["left_door"] = False
+                    self.write_outputs(left_door=0, right_door=1)
+                    print("Opening LEFT doors at station")
+                else:
+                    self.train_states["Train 1"]["right_door"] = False
+                    self.write_outputs(left_door=1, right_door=0)
+                    print("Opening RIGHT doors at station")
+
+                self.update_ui_from_state()
+
+                self.door_timer.start(10000)
 
             brake_fail = data.get('Brake_Fail', False)
             signal_fail = data.get('Signal_Fail', False)
@@ -561,47 +575,8 @@ class MainWindow(QWidget):
     def sb_clicked(self):
         if not self.emergency_brake_active:
             self.service_brake_active = True
-            self.emergency_brake_active = False
             self.write_outputs(service_brake=1)
             print("Service Brake Engaged")
-            
-            if self.current_speed_mps == 0:
-                self.open_appropriate_doors()
-
-    def open_appropriate_doors(self):
-        try:
-            with open('train1_outputs.json', mode='r') as file:
-                data = json.load(file)
-
-            beacon_data = data.get('Beacon', {})
-            if isinstance(beacon_data, str):
-                try:
-                    beacon_data = json.loads(beacon_data)
-                except:
-                    beacon_data = {}
-
-            station_side = beacon_data.get('station_side', 'right').lower()
-
-            self.train_states["Train 1"]["left_door"] = False
-            self.train_states["Train 1"]["right_door"] = False
-
-            if station_side == 'left':
-                self.train_states["Train 1"]["left_door"] = True
-                self.write_outputs(left_door=0, right_door=1)
-                print("Opening LEFT doors")
-            else:  # default to right
-                self.train_states["Train 1"]["right_door"] = True
-                self.write_outputs(left_door=1, right_door=0)
-                print("Opening RIGHT doors")
-                
-            # Update UI
-            self.update_ui_from_state()
-            
-            # Start timer to close doors after 30 seconds
-            self.door_timer.start(30000)  # 30,000 ms = 30 seconds
-            
-        except Exception as e:
-            print(f"Error opening doors: {e}")
 
     def close_doors_after_delay(self):
         self.door_timer.stop()
@@ -683,7 +658,6 @@ class MainWindow(QWidget):
 
     def calculate_power(self):
         try:
-
             if self.auto_checkbox.isChecked(): #Automatic Mode
                 self.kp = self.auto_kp
                 self.ki = self.auto_ki
@@ -704,7 +678,7 @@ class MainWindow(QWidget):
             self.P_k_1 = self.P_cmd
 
             if self.service_brake_active == True or self.emergency_brake_active == True:
-                print("Brakes active - setting power to 0")
+                #print("Brakes active - setting power to 0")
                 self.P_cmd = 0
                 self.uk = 0
                 self.ek = 0

@@ -9,7 +9,7 @@
     "Signal_Fail": false,
     "Engine_Fail": false,
     "Beacon": {
-        "station_distance": 15.5,
+        "station_distance": 10.5,
         "station_side": "right"
     },
     "Suggested_Speed_Authority": "1010"
