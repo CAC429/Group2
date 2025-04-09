@@ -511,6 +511,9 @@ class DataGridUI:
         Self.Tree.tag_configure("Green", foreground="green")  # Default green text
         Self.Tree.tag_configure("Orange", foreground="orange")  # Default orange text
         Self.Tree.tag_configure("Red", foreground="red")  # Default red text
+        Self.Tree.tag_configure("Brown", foreground="brown")  # Default green text
+        Self.Tree.tag_configure("Blue", foreground="blue")  # Default orange text
+        Self.Tree.tag_configure("Purple", foreground="purple")  # Default red text
 
         # Update UI values
         Self.occupancy_data = New_Occupancy
@@ -583,7 +586,14 @@ class DataGridUI:
         # Insert rows with color tags
         for i in range(len(New_Occupancy)):
             Block_ID = i + 1  # Block IDs are 1-based
-            Row_Tag = "Green"  # Default green text
+            if i >= 0 and i <= 27:
+                Row_Tag = "Green"  # Default green text
+            elif i >= 28 and i <= 75:
+                Row_Tag = "Brown"
+            elif i >= 76 and i <= 99:
+                Row_Tag = "Blue"
+            elif i >= 100 and i <= 149:
+                Row_Tag = "Purple"
             if New_Occupancy[i] == 1:
                 Row_Tag = "Orange"
             if Self.Failure[i] == 1:
