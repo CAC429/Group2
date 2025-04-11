@@ -363,6 +363,25 @@ class Train_Model:
         
     def update_temp_display(self):
         self.Cabin_Temp_Display.config(text=f"Cabin Temperature: {self._cabin_temp:.1f} °F")
+
+    def check_brake_status(self):
+        """Check if brake status has changed and trigger appropriate action"""
+        if self.emergency_brake == 1 and not self.emergency_brake_active:
+            self.activate_emergency_brake()
+        elif self.service_brake == 1 and not self.service_brake_active:
+            self.activate_service_brake()
+        elif self.emergency_brake == 0 and self.emergency_brake_active:
+            self.emergency_brake_active = False
+            # Reset acceleration display if no brakes are active
+            if self.service_brake == 0:
+                accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
+        elif self.service_brake == 0 and self.service_brake_active:
+            self.service_brake_active = False
+            # Reset acceleration display if no brakes are active
+            if self.emergency_brake == 0:
+                accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
     
     def update_all_displays(self):
         """Update all UI elements and write to log file"""
@@ -370,6 +389,9 @@ class Train_Model:
             # Read inputs first
             self.read_tc_outputs()
             self.read_track_model_outputs()
+
+            # Check if brake status has changed
+            self.check_brake_status()
 
 
             # Calculate movement parameters if not braking
@@ -484,7 +506,7 @@ class Train_Model:
                 self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
                 self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s (Service Brake)")
                 
-                if current_speed > 0:
+                if current_speed > 0 and self.service_brake_active:  # Check if still active
                     self.root.after(50, update_braking)
                 else:
                     self.service_brake_active = False
@@ -547,7 +569,7 @@ class Train_Model:
             self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s")
             self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
             
-            if current_speed > 0:
+            if current_speed > 0 and self.emergency_brake_active:  # Check if still active
                 self.root.after(50, update_braking)
             else:
                 self.emergency_brake_active = True
