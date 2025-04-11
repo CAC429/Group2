@@ -1,7 +1,8 @@
 #Philip Sherman
 #Trains Group 2
 #Train Controller SW UI
-#2/19/2025
+#Created: 2/19/2025
+#Last Updated: 4/11/2025
 
 import json
 from PyQt5.QtWidgets import *
@@ -673,25 +674,25 @@ class TrainControllerUI(QWidget):
                 data = {}
 
             if power is not None:
-                data['Commanded_Power'] = round(power, 2)
+                data['Commanded Power'] = round(power, 2)
             if emergency_brake is not None:
-                data['Emergency_Brake'] = bool(emergency_brake)
+                data['Emergency Brake'] = bool(emergency_brake)
             if service_brake is not None:
-                data['Service_Brake'] = bool(service_brake)
+                data['Service Brake'] = bool(service_brake)
             if suggested_speed is not None:
-                data['Suggested_Speed'] = round(suggested_speed, 1)
+                data['Suggested Speed'] = round(suggested_speed, 1)
             if suggested_authority is not None:
-                data['Suggested_Authority'] = round(suggested_authority, 1)
+                data['Suggested Authority'] = round(suggested_authority, 1)
             if left_door is not None:
-                data['Left_Door'] = bool(left_door)
+                data['Left Door'] = bool(left_door)
             if right_door is not None:
-                data['Right_Door'] = bool(right_door)
+                data['Right Door'] = bool(right_door)
             if cabin_lights is not None:
-                data['Cabin_Lights'] = bool(cabin_lights)
+                data['Cabin Lights'] = bool(cabin_lights)
             if exterior_lights is not None:
-                data['Exterior_Lights'] = bool(exterior_lights)
+                data['Exterior Lights'] = bool(exterior_lights)
             if cabin_temp is not None:
-                data['Cabin_Temp'] = int(cabin_temp)
+                data['Cabin Temp'] = int(cabin_temp)
 
             with open('TC_outputs.json', 'w') as f:
                 json.dump(data, f, indent=4)

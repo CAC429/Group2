@@ -1,12 +1,12 @@
 {
-    "Commanded_Power": 104160.32,
-    "Suggested_Speed": 20,
-    "Suggested_Authority": 128,
-    "Emergency_Brake": false,
-    "Service_Brake": false,
-    "Left_Door": true,
-    "Right_Door": true,
-    "Cabin_Lights": true,
-    "Exterior_Lights": true,
-    "Cabin_Temp": 70
+    "Commanded Power": 0.0,
+    "Suggested Speed": 20,
+    "Suggested Authority": 0,
+    "Emergency Brake": false,
+    "Service Brake": true,
+    "Left Door": true,
+    "Right Door": true,
+    "Cabin Lights": true,
+    "Exterior Lights": true,
+    "Cabin Temp": 70
 }

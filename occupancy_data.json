@@ -1,0 +1,10 @@
+{
+        "Train_Number": 1,
+        "Overlapping_Blocks": [17],
+        "Position": 13752.6,
+        "Suggested_Speed_Authority": [1, 0],
+        "New_Passengers": 0,
+        "Total_Passenger_Count": 50,
+        "Ticket_Sales_History": [],
+        "Beacon_Info": "station_side: right, arriving_station: LESUNSHINE STATION, new_station: EDGEBROOK, station_distance: 13792.6"
+    }
