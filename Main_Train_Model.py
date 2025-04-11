@@ -156,11 +156,11 @@ class Train_Model:
             self.Right_Door = bool(int(float(data.get('Right Door', 0))))
             
             # Handle new light controls
-            self.Interior_Lights = bool(int(float(data.get('Cabin_Lights', True))))
-            self.Exterior_Lights = bool(int(float(data.get('Exterior_Lights', True))))
+            self.Interior_Lights = bool(int(float(data.get('Cabin Lights', True))))
+            self.Exterior_Lights = bool(int(float(data.get('Exterior Lights', True))))
             
             # Handle temperature control
-            new_temp = float(data.get('Cabin_Temp', 70))
+            new_temp = float(data.get('Cabin Temp', 70))
             if 60 <= new_temp <= 85:  # Validate temperature range
                 self.Cabin_Temp = new_temp
             
@@ -317,7 +317,7 @@ class Train_Model:
         self.Grade_Label = tk.Label(self.Calc_Frame, text="Grade: N/A")
         self.Grade_Label.grid(row=6, column=0, columnspan=2, sticky="w")
 
-        self.Power_Label = tk.Label(self.Calc_Frame, text="Power: N/A")
+        self.Power_Label = tk.Label(self.Calc_Frame, text="Commanded Power: N/A")
         self.Power_Label.grid(row=3, column=0, columnspan=2, sticky="w")
 
         self.Passenger_Label = tk.Label(self.Calc_Frame, text="Number of Passengers: N/A")
@@ -417,7 +417,7 @@ class Train_Model:
             self.Acceleration_Label.config(text=f"Acceleration: {current_accel:.2f} mph/s")
             
             # Rest of your display updates...
-            self.Power_Label.config(text=f"Power: {self.Power:.2f} W")
+            self.Power_Label.config(text=f"Commanded Power: {self.Power:.2f} W")
             self.Passenger_Label.config(text=f"Passengers: {int(self.Passenger_Number)}")
             
             # Calculate and display elevation and grade
