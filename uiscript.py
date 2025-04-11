@@ -165,7 +165,7 @@ class TrainControllerUI(QWidget):
         self.init_ui()
         self.init_timers()
         self.init_file_watcher()
-        self.write_outputs(suggested_speed=20, suggested_authority=0)
+        self.write_outputs(suggested_speed=20, suggested_authority=0, cabin_lights=True, exterior_lights=True, cabin_temp=70)
 
     def init_ui(self):
         self.setWindowTitle("B Team Train Control")
@@ -427,6 +427,10 @@ class TrainControllerUI(QWidget):
     def set_light_state(self, light_type, state):
         setattr(self.train_state, light_type, state)
         self.update_ui_from_state()
+        if light_type == "cabin_lights":
+            self.write_outputs(cabin_lights=state)
+        elif light_type == "outside_lights":
+            self.write_outputs(exterior_lights=state)
         self.update_tb()
 
     def set_door_state(self, door_type, state):
@@ -476,6 +480,7 @@ class TrainControllerUI(QWidget):
         self.temp_controller.update_temp()
         self.current_temp_label.setText(f"Current Temp: {self.temp_controller.current_temp} °F")
         self.temperature_label.setText(f"Cabin Temp: {self.temp_controller.current_temp} °F")
+        self.write_outputs(cabin_temp=self.temp_controller.current_temp)
 
     def read_train_outputs(self, file_path='train1_outputs.json'):
         try:
@@ -659,7 +664,7 @@ class TrainControllerUI(QWidget):
 
     def write_outputs(self, power=None, emergency_brake=None, service_brake=None, 
                     suggested_speed=None, suggested_authority=None,
-                    left_door=None, right_door=None):
+                    left_door=None, right_door=None, cabin_lights=None, exterior_lights=None, cabin_temp=None):
         try:
             try:
                 with open('TC_outputs.json', 'r') as f:
@@ -681,6 +686,12 @@ class TrainControllerUI(QWidget):
                 data['Left_Door'] = bool(left_door)
             if right_door is not None:
                 data['Right_Door'] = bool(right_door)
+            if cabin_lights is not None:
+                data['Cabin_Lights'] = bool(cabin_lights)
+            if exterior_lights is not None:
+                data['Exterior_Lights'] = bool(exterior_lights)
+            if cabin_temp is not None:
+                data['Cabin_Temp'] = int(cabin_temp)
 
             with open('TC_outputs.json', 'w') as f:
                 json.dump(data, f, indent=4)
