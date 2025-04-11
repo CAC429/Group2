@@ -216,9 +216,13 @@ class Train_Model:
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
-            # Convert speed and authority to strings
-            suggested_speed_str = str(int(round(self.Suggested_Speed))) if hasattr(self, 'Suggested_Speed') else "0"
-            suggested_auth_str = str(int(round(self.Suggested_Authority))) if hasattr(self, 'Suggested_Authority') else "0"
+            # Handle Suggested_Speed_Authority conversion
+            if isinstance(self.Suggested_Speed_Authority, (list, tuple)):
+                # Convert list of binary digits to string (e.g., [1,0] -> "10")
+                suggested_speed_auth = ''.join(map(str, self.Suggested_Speed_Authority))
+            else:
+                # If it's already a string or number, convert to string directly
+                suggested_speed_auth = str(self.Suggested_Speed_Authority)
             
             output_data = {
                 "Passengers": int(self.Passenger_Number),
@@ -231,11 +235,7 @@ class Train_Model:
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
                 "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
                 "Beacon": self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon),
-                "Suggested_Speed": suggested_speed_str,
-                "Suggested_Authority": suggested_auth_str,
-                "Cabin_Temp": str(int(round(self._cabin_temp))),
-                "Interior_Lights": str(int(self.Interior_Lights)),
-                "Exterior_Lights": str(int(self.Exterior_Lights)),
+                "Suggested_Speed_Authority": suggested_speed_auth,
             }
             
             # Write to file in JSON format
