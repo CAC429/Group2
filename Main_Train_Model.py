@@ -86,7 +86,7 @@ class MainTrainModel:
             self.root.mainloop()
 
 class Train_Model:
-    def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=73, 
+    def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=70, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
                  emergency_brake=0, service_brake=0):
@@ -117,7 +117,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(1, 40900, 1, 1000, 0)
+        self.Train_Ca = Train_Calc(1, 40900, 20, 1000, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
@@ -154,6 +154,15 @@ class Train_Model:
             self.service_brake = int(float(data.get('Service Brake', 0)))
             self.Left_Door = bool(int(float(data.get('Left Door', 0))))
             self.Right_Door = bool(int(float(data.get('Right Door', 0))))
+            
+            # Handle new light controls
+            self.Interior_Lights = bool(int(float(data.get('Cabin_Lights', True))))
+            self.Exterior_Lights = bool(int(float(data.get('Exterior_Lights', True))))
+            
+            # Handle temperature control
+            new_temp = float(data.get('Cabin_Temp', 70))
+            if 60 <= new_temp <= 85:  # Validate temperature range
+                self.Cabin_Temp = new_temp
             
             # Handle suggested speed/authority
             self.Suggested_Speed = float(data.get('Suggested Speed', 0))
@@ -207,12 +216,9 @@ class Train_Model:
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
-            suggested_speed_auth = self.Get_Suggested_Speed_Authority()
-            if isinstance(suggested_speed_auth, (list, tuple)):
-                # Convert all elements to strings and join them, then convert to integer
-                formatted_speed_auth = int(''.join(map(str, suggested_speed_auth)))
-            else:
-                formatted_speed_auth = suggested_speed_auth  # Leave as-is if not a list
+            # Convert speed and authority to strings
+            suggested_speed_str = str(int(round(self.Suggested_Speed))) if hasattr(self, 'Suggested_Speed') else "0"
+            suggested_auth_str = str(int(round(self.Suggested_Authority))) if hasattr(self, 'Suggested_Authority') else "0"
             
             output_data = {
                 "Passengers": int(self.Passenger_Number),
@@ -225,7 +231,11 @@ class Train_Model:
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
                 "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
                 "Beacon": self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon),
-                "Suggested_Speed_Authority": formatted_speed_auth,  # Now handles any length list
+                "Suggested_Speed": suggested_speed_str,
+                "Suggested_Authority": suggested_auth_str,
+                "Cabin_Temp": str(int(round(self._cabin_temp))),
+                "Interior_Lights": str(int(self.Interior_Lights)),
+                "Exterior_Lights": str(int(self.Exterior_Lights)),
             }
             
             # Write to file in JSON format
@@ -241,7 +251,8 @@ class Train_Model:
     @Cabin_Temp.setter
     def Cabin_Temp(self, value):
         if 60 <= value <= 85:
-            self.target_temp = value
+            self._cabin_temp = value  # Set directly without gradual change
+            self.Train_C.Set_Cabin_Temp(self._cabin_temp)
             self.update_temp_display()
         
     def initialize_ui(self):
@@ -353,19 +364,13 @@ class Train_Model:
     def update_temp_display(self):
         self.Cabin_Temp_Display.config(text=f"Cabin Temperature: {self._cabin_temp:.1f} °F")
     
-    def adjust_temperature(self):
-        if abs(self._cabin_temp - self.target_temp) > 0.05:
-            change = 0.1 if self.target_temp > self._cabin_temp else -0.1
-            self._cabin_temp += change
-            self.Train_C.Set_Cabin_Temp(self._cabin_temp)
-            self.update_temp_display()
-        
     def update_all_displays(self):
         """Update all UI elements and write to log file"""
         try:
             # Read inputs first
             self.read_tc_outputs()
             self.read_track_model_outputs()
+
 
             # Calculate movement parameters if not braking
             if not self.emergency_brake_active and not self.service_brake_active:
