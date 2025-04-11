@@ -86,6 +86,7 @@ class MainTrainModel:
             self.root.mainloop()
 
 class Train_Model:
+    NORMAL_ACCELERATION = 0.5 * 2.23694  # Convert 0.5 m/s² to mph/s
     def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=70, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
@@ -374,14 +375,21 @@ class Train_Model:
             self.emergency_brake_active = False
             # Reset acceleration display if no brakes are active
             if self.service_brake == 0:
-                accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
-                self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
+                self.update_acceleration_display()
         elif self.service_brake == 0 and self.service_brake_active:
             self.service_brake_active = False
             # Reset acceleration display if no brakes are active
             if self.emergency_brake == 0:
+                self.update_acceleration_display()
+
+    def update_acceleration_display(self):
+        """Update the acceleration display based on current state"""
+        if not self.Train_F.Engine_Fail:
+            if hasattr(self, 'Suggested_Speed') and self.Train_Ca.Actual_Speed < self.Suggested_Speed:
+                accel = self.NORMAL_ACCELERATION
+            else:
                 accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
-                self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
+            self.Acceleration_Label.config(text=f"Acceleration: {accel:.2f} mph/s")
     
     def update_all_displays(self):
         """Update all UI elements and write to log file"""
@@ -393,35 +401,29 @@ class Train_Model:
             # Check if brake status has changed
             self.check_brake_status()
 
-
             # Calculate movement parameters if not braking
             if not self.emergency_brake_active and not self.service_brake_active:
                 if not self.Train_F.Engine_Fail:
-                    # Calculate acceleration
-                    accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                    # If we have a suggested speed and we're below it, accelerate
+                    if hasattr(self, 'Suggested_Speed') and self.Train_Ca.Actual_Speed < self.Suggested_Speed:
+                        # Use normal acceleration rate
+                        accel = self.NORMAL_ACCELERATION
+                        # Update speed based on acceleration and time step
+                        time_step = 1.0  # seconds
+                        new_speed = min(self.Train_Ca.Actual_Speed + (accel * time_step), 
+                                    self.Suggested_Speed)
+                        self.Train_Ca.Actual_Speed = max(0, new_speed)
+                    else:
+                        # Calculate acceleration normally
+                        accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
                     
-                    # Update speed based on acceleration and time step
-                    time_step = 1.0  # seconds
-                    new_speed = self.Train_Ca.Actual_Speed + (accel * time_step)
-                    
-                    # Limit speed to suggested speed if available
-                    if hasattr(self, 'Suggested_Speed'):
-                        # If we're at or above suggested speed, set acceleration to 0
-                        if self.Train_Ca.Actual_Speed >= self.Suggested_Speed:
-                            accel = 0
-                            new_speed = self.Suggested_Speed
-                        new_speed = min(new_speed, self.Suggested_Speed)
-                    
-                    # Don't allow negative speed
-                    self.Train_Ca.Actual_Speed = max(0, new_speed)
-                    
-                    # Update authority - prevent negative values
+                    # Update authority
                     try:
                         authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
-                        self.Train_Ca.Actual_Authority = max(0, authority)  # Ensure authority never goes negative
+                        self.Train_Ca.Actual_Authority = max(0, authority)
                     except Exception as e:
                         print(f"Error calculating authority: {e}")
-                        self.Train_Ca.Actual_Authority = 0  # Default to 0 if error occurs
+                        self.Train_Ca.Actual_Authority = 0
                 
                 # Update position
                 self.Get_Delta_Pos()
@@ -429,7 +431,10 @@ class Train_Model:
             # Update display values
             current_accel = 0
             if not (self.emergency_brake_active or self.service_brake_active) and not self.Train_F.Engine_Fail:
-                current_accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
+                if hasattr(self, 'Suggested_Speed') and self.Train_Ca.Actual_Speed < self.Suggested_Speed:
+                    current_accel = self.NORMAL_ACCELERATION
+                else:
+                    current_accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
                 # If at suggested speed, show 0 acceleration
                 if hasattr(self, 'Suggested_Speed') and self.Train_Ca.Actual_Speed >= self.Suggested_Speed:
                     current_accel = 0
