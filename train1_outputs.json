@@ -1,17 +1,13 @@
 {
     "Passengers": 50,
-    "Station_Status": 0,
+    "Station_Status": 1,
     "Actual_Speed": 20.0,
     "Actual_Authority": 0,
-    "Delta_Position": 1.232481835512543,
+    "Delta_Position": 32.88505864958235,
     "Emergency_Brake": 0,
     "Brake_Fail": 0,
     "Signal_Fail": 0,
     "Engine_Fail": 0,
     "Beacon": "station_side: right, arriving_station: LESUNSHINE STATION, new_station: EDGEBROOK, station_distance: 13792.6",
-    "Suggested_Speed": "20",
-    "Suggested_Authority": "0",
-    "Cabin_Temp": "70",
-    "Interior_Lights": "1",
-    "Exterior_Lights": "1"
+    "Suggested_Speed_Authority": "10"
 }

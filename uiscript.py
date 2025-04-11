@@ -47,8 +47,10 @@ class PowerController:
         self.auto_ki = 500
 
     def calculate_power(self, current_speed, target_speed, auto_mode=True, brakes_active=False):
+        print(f"Calculating power - Current: {current_speed:.2f} m/s, Target: {target_speed:.2f} m/s")
         velocity_error = target_speed - current_speed
         self.ek = velocity_error
+        print(f"Velocity error: {velocity_error:.2f} m/s")
         
         if abs(self.P_cmd) < self.P_max:
             self.uk = self.uk1 + (self.T/2) * (self.ek + self.ek1)
@@ -58,16 +60,19 @@ class PowerController:
         self.P_k_1 = self.P_cmd
 
         if brakes_active:
+            print("Brakes active - returning 0 power")
             self.P_cmd = 0
             self.uk = 0
             self.ek = 0
         else:
             kp = self.auto_kp if auto_mode else self.manual_kp
             ki = self.auto_ki if auto_mode else self.manual_ki
+            print(f"Using kp={kp}, ki={ki}")
 
             P_term = kp * self.ek
             I_term = ki * self.uk
             self.P_cmd = P_term + I_term
+            print(f"P_term: {P_term:.2f}, I_term: {I_term:.2f}")
 
             if self.P_cmd > self.P_max:
                 self.P_cmd = self.P_max
@@ -77,6 +82,7 @@ class PowerController:
         self.uk1 = self.uk
         self.ek1 = self.ek
 
+        print(f"Final power command: {self.P_cmd:.2f} W")
         return self.P_cmd
     
 ##########################################################################################
@@ -88,16 +94,19 @@ class BrakeController:
         self.manual_eb_engaged = False
 
     def activate_service_brake(self):
+        print("Service brake activated")
         self.service_brake_active = True
         self.emergency_brake_active = False
 
     def activate_emergency_brake(self, manual=False):
+        print("Emergency brake activated")
         self.emergency_brake_active = True
         self.service_brake_active = False
         if manual:
             self.manual_eb_engaged = True
 
     def release_brakes(self):
+        print("Brakes released")
         self.service_brake_active = False
         self.emergency_brake_active = False
         self.manual_eb_engaged = False
@@ -487,8 +496,10 @@ class TrainControllerUI(QWidget):
         try:
             with open(file_path, mode='r') as file:
                 data = json.load(file)
+                print("Raw data from file:", data)
 
             speed_mph = float(data.get('Actual_Speed', 0))
+            print(f"Read speed: {speed_mph} mph")
             self.current_speed_mps = speed_mph * self.constants.MPH_TO_MPS
             self.current_authority = float(data.get('Actual_Authority', 0))
             delta_position = float(data.get('Delta_Position', 0))
@@ -726,26 +737,53 @@ class TrainControllerUI(QWidget):
             auto_mode = self.auto_checkbox.isChecked()
             
             if auto_mode:
+                print("Auto mode - using suggested speed")
                 target_speed = self.suggested_speed_mps
+                current_speed = self.current_speed_mps
             else:
-                self.power_controller.manual_kp = float(self.kp_input.text())
-                self.power_controller.manual_ki = float(self.ki_input.text())
-                target_speed = float(self.setpoint_input.text()) * self.constants.MPH_TO_MPS
+                print("Manual mode - using user inputs")
+                try:
+                    # Get and validate manual inputs
+                    setpoint_text = self.setpoint_input.text().strip()
+                    kp_text = self.kp_input.text().strip()
+                    ki_text = self.ki_input.text().strip()
+                    
+                    if not all([setpoint_text, kp_text, ki_text]):
+                        raise ValueError("All fields must be filled")
+                        
+                    self.power_controller.manual_kp = float(kp_text)
+                    self.power_controller.manual_ki = float(ki_text)
+                    target_speed = float(setpoint_text) * self.constants.MPH_TO_MPS
+                    current_speed = self.current_speed_mps
+                    
+                    print(f"Manual inputs - Setpoint: {setpoint_text} mph, Kp: {kp_text}, Ki: {ki_text}")
+                except ValueError as e:
+                    print(f"Invalid input: {e}")
+                    QMessageBox.warning(self, "Input Error", "Please enter valid numbers for all fields")
+                    return
 
+            # Debug prints
+            print(f"Current speed: {current_speed:.2f} m/s, Target speed: {target_speed:.2f} m/s")
+            print(f"Brake states - Service: {self.brake_controller.service_brake_active}, Emergency: {self.brake_controller.emergency_brake_active}")
+
+            brakes_active = self.brake_controller.service_brake_active or self.brake_controller.emergency_brake_active
+            
             power = self.power_controller.calculate_power(
-                self.current_speed_mps,
+                current_speed,
                 target_speed,
                 auto_mode,
-                self.brake_controller.service_brake_active or self.brake_controller.emergency_brake_active
+                brakes_active
             )
 
             power_kw = power / 1000
             self.p_cmd_display.setText(f"{power_kw:.2f} kW")
             self.p_cmd_label.setText(f"Commanded Power: {power_kw:.2f} kW")
             self.write_outputs(power=power)
+            print(f"Calculated power: {power_kw:.2f} kW")
 
-        except ValueError:
-            print("Please enter valid numerical values for Kp and Ki")
+        except Exception as e:
+            print(f"Error in power calculation: {e}")
+            QMessageBox.warning(self, "Calculation Error", f"Power calculation failed: {str(e)}")
 
     def update_power_display(self):
         self.calculate_power()
