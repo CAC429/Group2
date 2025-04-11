@@ -207,10 +207,17 @@ class Train_Model:
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
+            suggested_speed_auth = self.Get_Suggested_Speed_Authority()
+            if isinstance(suggested_speed_auth, (list, tuple)):
+                # Convert all elements to strings and join them, then convert to integer
+                formatted_speed_auth = int(''.join(map(str, suggested_speed_auth)))
+            else:
+                formatted_speed_auth = suggested_speed_auth  # Leave as-is if not a list
+            
             output_data = {
                 "Passengers": int(self.Passenger_Number),
                 "Station_Status": self.station_status,
-                "Actual_Speed": self.Train_Ca.Actual_Speed,  # This should now be updating properly
+                "Actual_Speed": self.Train_Ca.Actual_Speed,
                 "Actual_Authority": self.Train_Ca.Actual_Authority,
                 "Delta_Position": delta_pos_meters,
                 "Emergency_Brake": int(self.Get_Emergency_Brake_Status()),
@@ -218,7 +225,7 @@ class Train_Model:
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
                 "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
                 "Beacon": self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon),
-                "Suggested_Speed_Authority": str(self.Get_Suggested_Speed_Authority()),
+                "Suggested_Speed_Authority": formatted_speed_auth,  # Now handles any length list
             }
             
             # Write to file in JSON format
