@@ -3,88 +3,169 @@ import csv
 import random
 import copy
 import global_variables
-from beacons import beacons
+import json
+import os
+from beacons import beacons, BEACON_BLOCKS
 
-BEACON_BLOCKS = {
-    64: "beacon 1",
-    72: "beacon 2",
-    74: "beacon 3",
-    87: "beacon 4",
-    95: "beacon 5",
-    # Beacon 6 has special condition (block 78 and position > 7500)
-    104: "beacon 7",
-    113: "beacon 8",
-    122: "beacon 9",
-    131: "beacon 10",
-    140: "beacon 11",
-    23: "beacon 12",
-    17: "beacon 13",
-    10: "beacon 14",
-    3: "beacon 15",
-    # Beacon 16 has special condition (block 15 and position > 15700)
-    # Beacon 17 has special condition (block 21 and position > 15700)
-    30: "beacon 18",
-    38: "beacon 19",
-    47: "beacon 20",
-    56: "beacon 21",
-    58: "beacon 22"
-}
-
-# Update the write_to_file function to include beacon info
 def write_to_file(content, mode="w"):
-    """Write content to the file with speed authority and beacon information."""
+    """Write content to JSON file without creating placeholder entries"""
     try:
-        with open("occupancy_data.txt", mode) as file:
-            file.write(content)
+        data = {"trains": []}
+        if mode == "a":
+            try:
+                with open("occupancy_data.json", "r") as file:
+                    data = json.load(file)
+                    # Remove any entries with number=0 or missing number
+                    data["trains"] = [t for t in data["trains"] 
+                                    if isinstance(t, dict) and t.get("number", 0) != 0]
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
+        
+        # Parse and validate the train data
+        train_data = {}
+        lines = content.split('\n')
+        for line in lines:
+            if ":" in line:
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+                if key == "Train":
+                    train_number = int(value[:-1])
+                    if train_number > 0:  # Only process valid train numbers
+                        train_data["number"] = train_number
+                elif key == "Position" and "number" in train_data:
+                    train_data["position"] = float(value.split()[0].replace('m', ''))
+                elif key == "Occupied Blocks" and "number" in train_data:
+                    train_data["blocks"] = eval(value)
+                elif key == "Suggested_Speed_Authority" and "number" in train_data:
+                    train_data["speed_authority"] = value
+                elif key == "New passengers getting on" and "number" in train_data:
+                    train_data["new_passengers"] = int(value)
+                elif key == "Total count" and "number" in train_data:
+                    train_data["total_passengers"] = int(value)
+                elif key == "Ticket Sales History" and "number" in train_data:
+                    train_data["ticket_sales"] = eval(value)
+                elif key == "Beacon Info" and value != "None" and "number" in train_data:
+                    train_data["beacon_info"] = eval(value)
+        
+        # Only add if we have a valid train number
+        if train_data.get("number", 0) > 0:
+            existing_index = next(
+                (i for i, t in enumerate(data["trains"]) 
+                if isinstance(t, dict) and t.get("number") == train_data["number"]), 
+                None
+            )
+            if existing_index is not None:
+                data["trains"][existing_index] = train_data
+            else:
+                data["trains"].append(train_data)
+        
+        with open("occupancy_data.json", "w") as file:
+            json.dump(data, file, indent=4)
+            
     except Exception as e:
-        print(f"Error writing to file: {e}")
+        print(f"Error writing to JSON file: {e}")
 
-# Update append_new_train_data to include beacon info
-def append_new_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority="", beacon_info=None):
-    """Append new train data with speed authority and beacon info."""
-    beacon_text = f"Beacon Info: {beacon_info}\n" if beacon_info else "Beacon Info: None\n"
-    content = (
-        f"Train {train_number}:\n"
-        f"Overlapping Blocks at position {position}m: {blocks}\n"
-        f"Suggested_Speed_Authority: {speed_authority}\n"
-        f"New passengers getting on: {new_passengers}\n"
-        f"Total count: {total_count}\n"
-        f"Ticket Sales History: {ticket_data}\n"
-        f"{beacon_text}\n"
-    )
-    write_to_file(content, mode="a")
-
-# Update update_train_data to include beacon info
-def update_train_data(train_number, blocks, ticket_data, new_passengers, total_count, position, speed_authority="", beacon_info=None):
-    """Update train data with speed authority and beacon info."""
+def append_new_train_data(
+    train_number,
+    occupied_blocks,
+    ticket_data,
+    new_passengers,
+    total_passengers,
+    delta_position,
+    speed_auth,
+    beacon_info
+):
+    """Append new train data only for valid train numbers"""
+    if train_number <= 0:  # Skip invalid train numbers
+        return
+        
+    train_data = {
+        "number": int(train_number),
+        "position": float(delta_position),
+        "blocks": [int(b) for b in occupied_blocks],
+        "speed_authority": str(speed_auth),
+        "new_passengers": int(new_passengers),
+        "total_passengers": int(total_passengers),
+        "ticket_sales": list(ticket_data),
+        "beacon_info": beacon_info
+    }
+    
     try:
-        with open("occupancy_data.txt", "r") as file:
-            lines = file.readlines()
+        data = {"trains": []}
+        try:
+            with open("occupancy_data.json", "r") as file:
+                data = json.load(file)
+                # Clean existing data
+                data["trains"] = [t for t in data["trains"] 
+                                if isinstance(t, dict) and t.get("number", 0) > 0]
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        
+        # Only append if train number is valid
+        if train_number > 0:
+            data["trains"].append(train_data)
+            with open("occupancy_data.json", "w") as file:
+                json.dump(data, file, indent=4)
+            
+    except Exception as e:
+        print(f"Error appending train data: {e}")
 
-        train_start_index = None
-        for i, line in enumerate(lines):
-            if line.strip().startswith(f"Train {train_number}:"):
-                train_start_index = i
+def update_train_data(
+    train_number,
+    occupied_blocks,
+    ticket_data,
+    new_passengers,
+    total_passengers,
+    delta_position,
+    speed_auth,
+    beacon_info
+):
+    """Update train data while preventing number=0 entries"""
+    if train_number <= 0:  # Skip invalid train numbers
+        return
+        
+    try:
+        data = {"trains": []}
+        try:
+            with open("occupancy_data.json", "r") as file:
+                data = json.load(file)
+                # Clean existing data
+                data["trains"] = [t for t in data["trains"] 
+                                if isinstance(t, dict) and t.get("number", 0) > 0]
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        
+        updated_train = {
+            "number": int(train_number),
+            "position": float(delta_position),
+            "blocks": [int(b) for b in occupied_blocks],
+            "speed_authority": str(speed_auth),
+            "new_passengers": int(new_passengers),
+            "total_passengers": int(total_passengers),
+            "ticket_sales": list(ticket_data),
+            "beacon_info": beacon_info
+        }
+        
+        # Find and update existing train
+        found = False
+        for i, train in enumerate(data["trains"]):
+            if isinstance(train, dict) and train.get("number") == train_number:
+                data["trains"][i] = updated_train
+                found = True
                 break
-
-        if train_start_index is not None:
-            beacon_text = f"Beacon Info: {beacon_info}\n" if beacon_info else "Beacon Info: None\n"
-            lines[train_start_index] = f"Train {train_number}:\n"
-            lines[train_start_index + 1] = f"Overlapping Blocks at position {position}m: {blocks}\n"
-            lines[train_start_index + 2] = f"Suggested_Speed_Authority: {speed_authority}\n"
-            lines[train_start_index + 3] = f"New passengers getting on: {new_passengers}\n"
-            lines[train_start_index + 4] = f"Total count: {total_count}\n"
-            lines[train_start_index + 5] = f"Ticket Sales History: {ticket_data}\n"
-            lines[train_start_index + 6] = beacon_text
-
-            with open("occupancy_data.txt", "w") as file:
-                file.writelines(lines)
+        
+        if not found and train_number > 0:
+            data["trains"].append(updated_train)
+        
+        with open("occupancy_data.json", "w") as file:
+            json.dump(data, file, indent=4)
+        
     except Exception as e:
         print(f"Error updating train data: {e}")
 
-# Add this new function to check for beacon blocks
 def check_beacon_blocks(blocks, position):
-    """Check if any of the occupied blocks is a beacon block and return the beacon info."""
+    """Check occupied blocks against beacon locations"""
     beacon_info = None
     
     for block in blocks:

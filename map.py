@@ -7,6 +7,7 @@ import global_variables
 from switch_window import SwitchWindow
 from beacons import beacons
 import sys
+import json
 
 class ClickableBox(QPushButton):
     def __init__(self, index, grid_data, block_info_data):
@@ -222,66 +223,55 @@ class GridWindow(QWidget):
             print(f"Error creating train: {e}")
 
     def read_train_creation_status(self):
-        """Read train instance and baud rates from PLC file"""
+        """Read train instance and baud rates from PLC JSON file"""
         baud_dict = {
-            'Baud1': [], 'Baud2': [], 'Baud3': [], 'Baud4': []
+            'Baud1': '0', 
+            'Baud2': '0',
+            'Baud3': '0',
+            'Baud4': '0'
         }
         train_instance = 0
 
         try:
-            with open("PLC_OUTPUTS_Baud_Train_Instance.txt", "r") as file:
-                for line in file:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    
-                    if line.startswith("Train_Instance="):
-                        train_instance = int(line.split("=")[1])
-                    
-                    elif "-Baud" in line:
-                        try:
-                            baud_parts = line.split("=")
-                            baud_name = baud_parts[0].split("-")[-1]
-                            baud_values = [int(x) for x in baud_parts[1].split(",") if x.strip()]
-                            
-                            if baud_name in baud_dict:
-                                baud_dict[baud_name] = baud_values
-                        except (IndexError, ValueError) as e:
-                            print(f"Error parsing baud line: {e}")
-                            continue
-
-            self.train_creations = train_instance
-            self.train_bauds = baud_dict
-            return train_instance, baud_dict
+            with open("PLC_OUTPUTS_Baud_Train_Instance.json", "r") as file:
+                data = json.load(file)
+                train_instance = data.get("Train_Instance", 0)
+                
+                # Extract baud values from Train_Bauds dictionary
+                train_bauds = data.get("Train_Bauds", {})
+                for key, value in train_bauds.items():
+                    if 'Baud1' in key:
+                        baud_dict['Baud1'] = value
+                    elif 'Baud2' in key:
+                        baud_dict['Baud2'] = value
+                    elif 'Baud3' in key:
+                        baud_dict['Baud3'] = value
+                    elif 'Baud4' in key:
+                        baud_dict['Baud4'] = value
 
         except Exception as e:
             print(f"Error reading PLC outputs: {e}")
-            return 0, {k: [] for k in baud_dict}
+        
+        self.train_creations = train_instance
+        self.train_bauds = baud_dict
+        return train_instance, baud_dict
 
     def read_train_output(self, train_number):
-        """Read train position and status from its output file"""
+        """Read train position and status from its JSON output file"""
         try:
-            file_path = f"train{train_number}_outputs.txt"
+            file_path = f"train{train_number}_outputs.json"
             with open(file_path, "r") as file:
-                data = file.readlines()
-
-            delta_position = None
-            station_status = None
-            passengers = None
-
-            for line in data:
-                if line.startswith("Delta_Position:"):
-                    delta_position = float(line.split(":")[1].strip())
-                elif line.startswith("Station_Status:"):
-                    station_status = int(line.split(":")[1].strip())
-                elif line.startswith("Passengers:"):
-                    passengers = int(line.split(":")[1].strip())
-
-            return delta_position, station_status, passengers
-
+                data = json.load(file)
+                return (
+                    data.get("Delta_Position"),
+                    data.get("Station_Status"),
+                    data.get("Passengers")
+                )
+        except (FileNotFoundError, json.JSONDecodeError):
+            print(f"Train {train_number} outputs JSON file not found or invalid")
         except Exception as e:
             print(f"Error reading train {train_number} outputs: {e}")
-            return None, None, None
+        return None, None, None
 
     def update_blocks(self):
         """Main update loop handling train movements, failures, and data recording"""
@@ -343,17 +333,20 @@ class GridWindow(QWidget):
                         current_time = "--:--"
 
                     # Determine speed authority
-                    speed_auth = "N/A"
                     if occupied_blocks:
                         block_num = occupied_blocks[0]
                         if 1 <= block_num <= 28:
-                            speed_auth = f"{baud_rates['Baud1']}"
+                            speed_auth = self.train_bauds['Baud1']
                         elif 29 <= block_num <= 76:
-                            speed_auth = f"{baud_rates['Baud2']}"
+                            speed_auth = self.train_bauds['Baud2']
                         elif 77 <= block_num <= 100:
-                            speed_auth = f"{baud_rates['Baud3']}"
+                            speed_auth = self.train_bauds['Baud3']
                         elif 101 <= block_num <= 150:
-                            speed_auth = f"{baud_rates['Baud4']}"
+                            speed_auth = self.train_bauds['Baud4']
+                        else:
+                            speed_auth = "0"  # Default if block number is out of range
+                    else:
+                        speed_auth = "N/A"
 
                     # Handle new train initialization
                     new_train_created = (train_number > previous_train_count)
@@ -450,35 +443,50 @@ class GridWindow(QWidget):
             print(f"Error in update_blocks: {e}")
 
     def update_plc_inputs(self, occupancy_dict):
-        """Update PLC_INPUTS.txt with current occupancy data"""
+        """Update only the occupancy array in PLC_INPUTS.json while preserving all other data"""
         try:
-            with open("PLC_INPUTS.txt", "r") as file:
-                lines = file.readlines()
+            # First load the existing PLC inputs data
+            try:
+                with open("PLC_INPUTS.json", "r") as file:
+                    plc_data = json.load(file)
+            except FileNotFoundError:
+                # If file doesn't exist, create a new one with default structure
+                plc_data = {
+                    "suggested_speed": [20]*150,
+                    "suggested_authority": [100]*150,
+                    "occupancy": [0]*150,
+                    "default_switch_position": [0]*6,
+                    "train_instance": 0
+                }
+            except json.JSONDecodeError:
+                print("Error: PLC_INPUTS.json contains invalid JSON, creating new file")
+                plc_data = {
+                    "suggested_speed": [20]*150,
+                    "suggested_authority": [100]*150,
+                    "occupancy": [0]*150,
+                    "default_switch_position": [0]*6,
+                    "train_instance": 0
+                }
 
-            # Generate occupancy line (150 blocks)
-            occupancy_values = []
-            for block_num in range(1, 151):
-                occupancy_values.append("1" if block_num in occupancy_dict else "0")
-            new_occupancy_line = f"Occupancy={','.join(occupancy_values)}\n"
-
-            # Update file while preserving other lines
-            new_lines = []
-            occupancy_updated = False
-            for line in lines:
-                if line.startswith("Occupancy="):
-                    new_lines.append(new_occupancy_line)
-                    occupancy_updated = True
-                else:
-                    new_lines.append(line)
-
-            if not occupancy_updated:
-                new_lines.append(new_occupancy_line)
-
-            with open("PLC_INPUTS.txt", "w") as file:
-                file.writelines(new_lines)
+            # Update only the occupancy array
+            plc_data["occupancy"] = [1 if block_num in occupancy_dict else 0 
+                                    for block_num in range(1, 151)]
+            
+            # Write back the complete data (with only occupancy changed)
+            with open("PLC_INPUTS.json", "w") as file:
+                json.dump(plc_data, file, indent=4)
 
         except Exception as e:
             print(f"Error updating PLC inputs: {e}")
+            # Try to write minimal data if full update fails
+            try:
+                with open("PLC_INPUTS.json", "w") as file:
+                    json.dump({
+                        "occupancy": [1 if block_num in occupancy_dict else 0 
+                                    for block_num in range(1, 151)]
+                    }, file)
+            except Exception as e:
+                print(f"Critical error writing minimal PLC inputs: {e}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

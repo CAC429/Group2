@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap
 import sys
+import json
 
 class SwitchWindow(QWidget):
     def __init__(self):
@@ -275,8 +276,8 @@ class SwitchWindow(QWidget):
         plc_data = self.read_plc_outputs()
         self.update_display(plc_data)
     
-    def read_plc_outputs(self, file_path="PLC_OUTPUTS.txt"):
-        """Read all relevant PLC outputs from file"""
+    def read_plc_outputs(self, file_path="PLC_OUTPUTS.json"):
+        """Read all relevant PLC outputs from JSON file"""
         plc_data = {
             'switch_positions': [0, 0, 0, 0, 0, 0],
             'track_failures': [0]*150,
@@ -286,29 +287,22 @@ class SwitchWindow(QWidget):
         
         try:
             with open(file_path, 'r') as f:
-                content = f.read().strip()
+                data = json.load(f)
                 
-            for line in content.split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                    
-                if line.startswith("Actual_Switch_Position="):
-                    array_str = line.split('=')[1].strip()
-                    plc_data['switch_positions'] = eval(array_str)
-                    
-                elif line.startswith("Track_Failure="):
-                    array_str = line.split('=')[1].strip()
-                    plc_data['track_failures'] = eval(array_str)[:150]
-                    
-                elif line.startswith("Light_Control="):
-                    array_str = line.split('=')[1].strip()
-                    plc_data['light_control'] = eval(array_str)
-                    
-                elif line.startswith("Cross_Bar_Control="):
-                    array_str = line.split('=')[1].strip()
-                    plc_data['crossbar_control'] = eval(array_str)
-                    
+            # Update from JSON data
+            plc_data.update({
+                'switch_positions': data.get("Actual_Switch_Position", [0]*6),
+                'track_failures': data.get("Track_Failure", [0]*150),
+                'light_control': data.get("Light_Control", [0]*12),
+                'crossbar_control': data.get("Cross_Bar_Control", [0, 0])
+            })
+            
+        except FileNotFoundError:
+            print(f"PLC outputs JSON file not found: {file_path}")
+            return None
+        except json.JSONDecodeError:
+            print(f"Invalid JSON in PLC outputs file: {file_path}")
+            return None
         except Exception as e:
             print(f"Error reading PLC outputs: {e}")
             

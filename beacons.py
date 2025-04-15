@@ -1,3 +1,25 @@
+BEACON_BLOCKS = {
+    64: "beacon 1",
+    72: "beacon 2",
+    74: "beacon 3",
+    87: "beacon 4",
+    95: "beacon 5",
+    104: "beacon 7",
+    113: "beacon 8",
+    122: "beacon 9",
+    131: "beacon 10",
+    140: "beacon 11",
+    23: "beacon 12",
+    17: "beacon 13",
+    10: "beacon 14",
+    3: "beacon 15",
+    30: "beacon 18",
+    38: "beacon 19",
+    47: "beacon 20",
+    56: "beacon 21",
+    58: "beacon 22"
+}
+
 beacons = {
     "beacon 1": {
         "station_side": "right",
@@ -132,3 +154,4 @@ beacons = {
         "station_distance": 19830.6
     }
 }
+

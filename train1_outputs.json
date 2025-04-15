@@ -1,0 +1,13 @@
+{
+    "Passengers": 0,
+    "Station_Status": 0,
+    "Actual_Speed": 0,
+    "Actual_Authority": 0,
+    "Delta_Position": 15900,
+    "Emergency_Brake": 0,
+    "Brake_Fail": 0,
+    "Signal_Fail": 0,
+    "Engine_Fail": 0,
+    "Beacon": "station_side: right, arriving_station: LESUNSHINE STATION, new_station: EDGEBROOK, station_distance: 13792.6",
+    "Suggested_Speed_Authority": "[1, 0]"
+}
