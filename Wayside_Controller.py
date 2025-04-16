@@ -500,11 +500,6 @@ class DataGridUI:
         #Check if occupancy or user entered data has changed for user inputs or testbench(team combined code)
         New_Occupancy = [a | b for a, b in zip(Occupancy_In, Self.Test_Occupancy)] # Get updated occupancy
 
-        # Update previous occupancy record
-        Self.Prev_Occupancy = New_Occupancy[:]
-        Self.Prev_User_Speed = Self.User_Speed[:]
-        Self.Prev_User_Authority = Self.User_Authority[:]
-
         Self.Tree.delete(*Self.Tree.get_children())  # Clear existing table data
 
         # Define text colors for specific blocks
