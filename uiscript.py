@@ -2,7 +2,9 @@
 #Trains Group 2
 #Train Controller SW UI
 #Created: 2/19/2025
-#Last Updated: 4/11/2025
+#Last Updated: 4/16/2025
+
+#Need to tell kev that when I release the brakes I need him to set his emergency brake variable to off as well
 
 import json
 from PyQt5.QtWidgets import *
@@ -735,6 +737,13 @@ class TrainControllerUI(QWidget):
     def calculate_power(self):
         try:
             auto_mode = self.auto_checkbox.isChecked()
+
+            if self.brake_controller.service_brake_active or self.brake_controller.emergency_brake_active:
+                power = 0
+                self.p_cmd_display.setText("0.00 kW")
+                self.p_cmd_label.setText("Commanded Power: 0.00 kW")
+                self.write_outputs(power=0)
+                return
             
             if auto_mode:
                 print("Auto mode - using suggested speed")
@@ -790,7 +799,26 @@ class TrainControllerUI(QWidget):
 
     def update_from_files(self):
         self.read_train_outputs()
-        self.update_power_display()    
+        self.check_speed_and_brake()
+        self.update_power_display()  
+
+    def check_speed_and_brake(self):
+        if not self.auto_checkbox.isChecked():
+            return
+
+        speed_diff = self.current_speed_mps - self.suggested_speed_mps
+
+        if speed_diff > 0.1:
+            if not self.brake_controller.service_brake_active:
+                print(f"Activating service brake - current speed ({self.current_speed_mps*self.constants.MPS_TO_MPH:.1f} mph) > suggested speed ({self.suggested_speed_mps*self.constants.MPS_TO_MPH:.1f} mph)")
+                self.brake_controller.activate_service_brake()
+                self.write_outputs(service_brake=1)
+
+        elif abs(speed_diff) <= 0.1 and self.brake_controller.service_brake_active:
+            print(f"Releasing service brake - speeds matched ({self.current_speed_mps*self.constants.MPS_TO_MPH:.1f} mph)")
+            self.brake_controller.release_brakes()
+            self.write_outputs(service_brake=0)
+
     
 #######################################################################
 
