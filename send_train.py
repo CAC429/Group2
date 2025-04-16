@@ -8,9 +8,9 @@ def send_train(activate):
     
     #update train instance based on activate value
     if activate:
-        data["train_instance"] = 1
+        data["Train_Instance"] = 1
     else:
-        data["train_instance"] = 0
+        data["Train_Instance"] = 0
 
     #write back
     with open('PLC_INPUTS.json', 'w') as file:

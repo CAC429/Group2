@@ -6,8 +6,8 @@ def set_speed_authority(speed, authority):
         data = json.load(file)
 
     #update data
-    data["suggested_speed"] = speed
-    data["suggested_authority"] = authority
+    data["Suggested_Speed"] = speed
+    data["Suggested_Authority"] = authority
 
     #dump into json
     with open('PLC_INPUTS.json', 'w') as file:
