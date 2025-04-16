@@ -1,19 +1,17 @@
-import fileinput
+import json
 
 #give two seconds before changing 0 to 1
 def send_train(activate):
 
-    message = 'Train_Instance='
-    file_name = 'PLC_INPUTS.txt'
+    with open('PLC_INPUTS.json', 'r') as file:
+        data = json.load(file)
+    
+    #update train instance based on activate value
+    if activate:
+        data["train_instance"] = 1
+    else:
+        data["train_instance"] = 0
 
-    try:
-        with fileinput.input(file_name, inplace=True) as file:
-            for line in file:
-                if line.startswith('Train_Instance='):
-                    print(f'{message}{activate}')
-                else:
-                    print(line, end='')
-    except FileNotFoundError:
-        print('CTC: File not accessible')
-    except Exception as e:
-        print('CTC: File error')
+    #write back
+    with open('PLC_INPUTS.json', 'w') as file:
+        json.dump(data, file, indent=4)

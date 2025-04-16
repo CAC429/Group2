@@ -12,6 +12,7 @@ import pandas as pd
 import os
 import fileinput
 import ast
+import json
 
 class main(QWidget):
     #accept parent parameter (CTC_base)
@@ -191,17 +192,20 @@ class main(QWidget):
         ###
         #UPDATE THROUGHPUT EVERY SECOND
         ###
-        file_name = 'occupancy_data.txt'
-        tickets_hours = 0
-        tickets = []
+        with open('occupancy_data.json', 'r') as file:
+            data = json.load(file)
 
-        #read from train controller output file
-        for line in fileinput.input(file_name):
-            if line.startswith('Ticket Sales History:'):
-                tickets = line[22:]
-                tickets = ast.literal_eval(tickets)
-        for i in tickets:
-            #check if time stamps are within the last hour
-            if int(str(i[1])[:2]+str(i[1])[3:]) <= int(str(global_variables.current_time)[11:13]+str(global_variables.current_time)[14:16]) and int(str(i[1])[:2]+str(i[1])[3:]) >= int(str(global_variables.current_time)[11:13]+str(global_variables.current_time)[14:16])-100:
-                tickets_hours += i[0]
-        self.throughput_label.setText(f'{tickets_hours} tickets per hours')
+        all_sales = []
+        tickets_hours = 0
+        #grab all ticket sales
+        for train_num, train_data in data.items():
+            for entry in train_data:
+                all_sales.append(entry.get("ticket_sales_history", []))
+        print(all_sales)
+
+        #check time stamps that are within last hour
+        for i in all_sales:
+            for j in i:
+                if int(str(j[1])[:2]+str(j[1])[3:]) <= int(str(global_variables.current_time)[11:13]+str(global_variables.current_time)[14:16]) and int(str(j[1])[:2]+str(j[1])[3:]) >= int(str(global_variables.current_time)[11:13]+str(global_variables.current_time)[14:16])-100:
+                    tickets_hours += j[0]
+        self.throughput_label.setText(f'{tickets_hours} tickets per hour')
