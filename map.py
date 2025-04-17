@@ -8,7 +8,7 @@ from switch_window import SwitchWindow
 from beacons import beacons
 import sys
 import json
-
+global_tickets = []
 class ClickableBox(QPushButton):
     def __init__(self, index, grid_data, block_info_data):
         super().__init__()
@@ -366,7 +366,7 @@ class GridWindow(QWidget):
                             append_new_train_data(
                                 train_number,
                                 occupied_blocks,
-                                [],
+                                global_tickets,
                                 0,  # new_passengers
                                 0,  # total_passengers
                                 delta_position,
@@ -376,43 +376,41 @@ class GridWindow(QWidget):
 
                     # Handle station arrivals
                     if station_status == 1:
-                        if not hasattr(green_line, 'station_visited'):
-                            green_line.station_visited = False
+                        if not hasattr(green_line, 'station_cooldown'):
+                            green_line.station_cooldown = False
                         
-                        if not green_line.station_visited:
+                        if not green_line.station_cooldown:
                             print(f"Train {train_number} at station - processing passengers")
                             passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
                             green_line.passengers_count = passengers
                             green_line.new_passengers = new_passengers
-
-                            if not hasattr('ticket_array'):
-                                green_line.ticket_array = []
+                            green_line.station_cooldown = True  # Set cooldown
                             
-                            green_line.ticket_array.append([new_passengers, current_time])
+                            current_time = str(global_variables.current_time)[11:16]
+                            global_tickets.append([new_passengers, current_time])
 
                             update_train_data(
                                 train_number,
                                 occupied_blocks,
-                                green_line.ticket_array,
-                                new_passengers,
-                                passengers,
+                                global_tickets,
+                                green_line.new_passengers,
+                                green_line.passengers,
                                 delta_position,
                                 speed_auth,
                                 beacon_info
                             )
-                            green_line.station_visited = True
-                    
-                    # Reset station flag when leaving
-                    if station_status == 0 and hasattr(green_line, 'station_visited'):
-                        green_line.station_visited = False
+                        
+                    # Reset cooldown when leaving station
+                    if station_status == 0 and hasattr(green_line, 'station_cooldown'):
+                        green_line.station_cooldown = False
 
                     # Update train data (whether at station or not)
                     update_train_data(
                         train_number,
                         occupied_blocks,
-                        green_line.ticket_array if hasattr(green_line, 'ticket_array') else [],
-                        green_line.new_passengers if hasattr(green_line, 'new_passengers') else 0,
-                        green_line.passengers_count if hasattr(green_line, 'passengers_count') else 0,
+                        global_tickets,
+                        green_line.new_passengers,
+                        green_line.passengers_count,
                         delta_position,
                         speed_auth,
                         beacon_info

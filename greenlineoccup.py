@@ -44,7 +44,7 @@ def write_to_file(content, mode="w"):
                 elif key == "Total count" and "number" in train_data:
                     train_data["total_passengers"] = int(value)
                 elif key == "Ticket Sales History" and "number" in train_data:
-                    train_data["ticket_sales"] = eval(value)
+                    train_data["ticket_sales_history"] = eval(value)
                 elif key == "Beacon Info" and value != "None" and "number" in train_data:
                     train_data["beacon_info"] = eval(value)
         
@@ -87,7 +87,7 @@ def append_new_train_data(
         "speed_authority": str(speed_auth),
         "new_passengers": int(new_passengers),
         "total_passengers": int(total_passengers),
-        "ticket_sales": list(ticket_data),
+        "ticket_sales_history": list(ticket_data),
         "beacon_info": beacon_info
     }
     
@@ -143,7 +143,7 @@ def update_train_data(
             "speed_authority": str(speed_auth),
             "new_passengers": int(new_passengers),
             "total_passengers": int(total_passengers),
-            "ticket_sales": list(ticket_data),
+            "ticket_sales_history": list(ticket_data),
             "beacon_info": beacon_info
         }
         
@@ -228,6 +228,7 @@ class GreenLineOccupancy:
         self.original_data = copy.deepcopy(self.data)  # Deep copy to avoid modifying original data
         self.reverse_status = 0
         self.new_passengers = 0
+        self.station_cooldown = False
 
     def determine_section(self, position):
         """Determines the block section based on the given position."""
