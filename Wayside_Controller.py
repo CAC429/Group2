@@ -161,7 +161,7 @@ class DataGridUI:
                             Train_Bauds[0] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[0][0] == "0":  # Should only execute if the first if does not
-                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == 0:
+                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i] == "0" or Suggested_Authority_Out[i-1] == "0":
                             Train_Bauds[0] = "1" + "0"
                         else:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
@@ -180,7 +180,7 @@ class DataGridUI:
                             Train_Bauds[0] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[0][0] == "0":  # Should only execute if the first if does not
-                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0:
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
                             Train_Bauds[0] = "1" + "0"
                         elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
@@ -208,7 +208,7 @@ class DataGridUI:
                             Train_Bauds[1] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[1][0] == "0":  # Should only execute if the first if does not
-                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 1:
+                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == "0" or Suggested_Authority_Out[i+1] == "0":
                             Train_Bauds[1] = "1" + "0"
                         else:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
@@ -226,7 +226,7 @@ class DataGridUI:
                             Train_Bauds[1] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[1][0] == "0":  # Should only execute if the first if does not
-                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0:
+                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == "0" or Suggested_Authority_Out[i+1] == "0":
                             Train_Bauds[1] = "1" + "0"
                         else:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
@@ -245,7 +245,7 @@ class DataGridUI:
                             Train_Bauds[2] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[2][0] == "0":  # Should only execute if the first if does not
-                        if (Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0) and i != 76:
+                        if (Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0") and i != 76:
                             Train_Bauds[2] = "1" + "0"
                         elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
@@ -273,7 +273,7 @@ class DataGridUI:
                             Train_Bauds[2] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[2][0] == "0":  # Should only execute if the first if does not
-                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0:
+                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == "0" or Suggested_Authority_Out[i+1] == "0":
                             Train_Bauds[2] = "1" + "0"
                         else:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
@@ -291,7 +291,7 @@ class DataGridUI:
                             Train_Bauds[3] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
                         break
                     elif Train_Bauds[3][0] == "0":  # Should only execute if the first if does not
-                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0:
+                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == "0" or Suggested_Authority_Out[i+1] == "0":
                             Train_Bauds[3] = "1" + "0"
                         else:
                             if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
@@ -471,7 +471,6 @@ class DataGridUI:
             if Self.Authority_Change == True:
                 Suggested_Authority_Out[Self.Test_Block] = Self.User_Authority[Self.Test_Block]
                 Self.Speed_Change = False                
-
         except FileNotFoundError:
             print("Error: File not found! Please check the file path.")
         except Exception as e:

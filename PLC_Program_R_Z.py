@@ -199,7 +199,7 @@ try:
     outputs["Suggested_Speed"] = Suggested_Speed_Out
     outputs["Suggested_Authority"] = Suggested_Authority_Out
     outputs["Track_Failure"] = Track_Failure
-    outputs["Light_Control"] = Light_Control
+    outputs["Light_Control"] = Light_Control_Out
     outputs["Occupancy"] = Occupancy_In
     outputs["Cross_Bar_Control"] = Cross_Bar_Control_Out
 except FileNotFoundError:
