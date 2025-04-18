@@ -1,0 +1,12 @@
+{
+    "Commanded Power": 0.0,
+    "Suggested Speed": 20,
+    "Suggested Authority": 0,
+    "Emergency Brake": false,
+    "Service Brake": false,
+    "Left Door": true,
+    "Right Door": true,
+    "Cabin Lights": true,
+    "Exterior Lights": true,
+    "Cabin Temp": 70
+}

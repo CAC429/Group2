@@ -1,0 +1,30 @@
+{
+    "trains": [
+        {
+            "number": 1,
+            "position": 15900.0,
+            "blocks": [
+                15
+            ],
+            "speed_authority": "111001000",
+            "new_passengers": 65,
+            "total_passengers": 65,
+            "ticket_sales_history": [
+                [
+                    47,
+                    "19:04"
+                ],
+                [
+                    65,
+                    "19:04"
+                ]
+            ],
+            "beacon_info": {
+                "station_side": "left",
+                "arriving_station": "LESUNSHINE STATION",
+                "new_station": "WHITED",
+                "station_distance": 16042.6
+            }
+        }
+    ]
+}
