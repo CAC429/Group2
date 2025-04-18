@@ -94,11 +94,14 @@ class BrakeController:
         self.service_brake_active = False
         self.emergency_brake_active = False
         self.manual_eb_engaged = False
+        self.manual_sb_engaged = False
 
-    def activate_service_brake(self):
+    def activate_service_brake(self, manual=False):
         print("Service brake activated")
         self.service_brake_active = True
         self.emergency_brake_active = False
+        if manual:
+            self.manual_sb_engaged = True
 
     def activate_emergency_brake(self, manual=False):
         print("Emergency brake activated")
@@ -112,6 +115,7 @@ class BrakeController:
         self.service_brake_active = False
         self.emergency_brake_active = False
         self.manual_eb_engaged = False
+        self.manual_sb_engaged = False
 
 ##########################################################################################
 
@@ -664,7 +668,7 @@ class TrainControllerUI(QWidget):
 
     def sb_clicked(self):
         if not self.brake_controller.emergency_brake_active:
-            self.brake_controller.activate_service_brake()
+            self.brake_controller.activate_service_brake(manual=True)
             self.write_outputs(service_brake=1)
             print("Service Brake Engaged")
 
@@ -814,7 +818,7 @@ class TrainControllerUI(QWidget):
                 self.brake_controller.activate_service_brake()
                 self.write_outputs(service_brake=1)
 
-        elif abs(speed_diff) <= 0.1 and self.brake_controller.service_brake_active:
+        elif (abs(speed_diff) <= 0.1 and self.brake_controller.service_brake_active and not self.brake_controller.manual_sb_engaged):
             print(f"Releasing service brake - speeds matched ({self.current_speed_mps*self.constants.MPS_TO_MPH:.1f} mph)")
             self.brake_controller.release_brakes()
             self.write_outputs(service_brake=0)
