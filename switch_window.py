@@ -21,9 +21,9 @@ class SwitchWindow(QWidget):
         
         # Initialize with default values (all switches in position 0)
         self.update_display({
-            'switch_positions': [0, 0, 0, 0, 0, 0],
-            'track_failures': [0]*12,
-            'light_control': [0]*12,
+            'Switch_positions': [0, 0, 0, 0, 0, 0],
+            'Track_Failures': [0]*12,
+            'Light_Control': [0]*12,
             'crossbar_control': [0, 0]
         })
         
@@ -208,10 +208,10 @@ class SwitchWindow(QWidget):
 
     def update_display(self, plc_data):
         """Update all displays based on PLC data"""
-        self.update_switches(plc_data['switch_positions'])
-        self.update_failures(plc_data['track_failures'])
-        self.update_lights(plc_data['light_control'])
-        self.update_crossbars(plc_data['crossbar_control'])
+        self.update_switches(plc_data['Switch_Positions'])
+        self.update_failures(plc_data['Track_Failures'])
+        self.update_lights(plc_data['Light_Control'])
+        self.update_crossbars(plc_data['Crossbar_Control'])
     
     def update_failures(self, failures):
         """Update track failure indicators - only show active failures"""
@@ -279,10 +279,10 @@ class SwitchWindow(QWidget):
     def read_plc_outputs(self, file_path="PLC_OUTPUTS.json"):
         """Read all relevant PLC outputs from JSON file"""
         plc_data = {
-            'switch_positions': [0, 0, 0, 0, 0, 0],
-            'track_failures': [0]*150,
-            'light_control': [0]*12,
-            'crossbar_control': [0, 0]
+            'Switch_Positions': [0, 0, 0, 0, 0, 0],
+            'Track_Failures': [0]*150,
+            'Light_Control': [0]*12,
+            'Crossbar_Control': [0, 0]
         }
         
         try:
@@ -291,10 +291,10 @@ class SwitchWindow(QWidget):
                 
             # Update from JSON data
             plc_data.update({
-                'switch_positions': data.get("Actual_Switch_Position", [0]*6),
-                'track_failures': data.get("Track_Failure", [0]*150),
-                'light_control': data.get("Light_Control", [0]*12),
-                'crossbar_control': data.get("Cross_Bar_Control", [0, 0])
+                'Switch_positions': data.get("Actual_Switch_Position", [0]*6),
+                'Track_failures': data.get("Track_Failure", [0]*150),
+                'Light_control': data.get("Light_Control", [0]*12),
+                'Crossbar_control': data.get("Cross_Bar_Control", [0, 0])
             })
             
         except FileNotFoundError:

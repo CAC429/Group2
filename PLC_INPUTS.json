@@ -1,5 +1,5 @@
 {
-    "suggested_speed": [
+    "Suggested_Speed": [
         20,
         20,
         20,
@@ -151,7 +151,7 @@
         20,
         20
     ],
-    "suggested_authority": [
+    "Suggested_Authority": [
         100,
         100,
         100,
@@ -303,7 +303,7 @@
         100,
         100
     ],
-    "occupancy": [
+    "Occupancy": [
         0,
         0,
         0,
@@ -455,7 +455,7 @@
         0,
         0
     ],
-    "default_switch_position": [
+    "Default_Switch_Position": [
         0,
         0,
         0,
@@ -463,5 +463,5 @@
         0,
         0
     ],
-    "train_instance": 0
+    "Train_Instance": 0
 }

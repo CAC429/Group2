@@ -450,24 +450,24 @@ class GridWindow(QWidget):
             except FileNotFoundError:
                 # If file doesn't exist, create a new one with default structure
                 plc_data = {
-                    "suggested_speed": [20]*150,
-                    "suggested_authority": [100]*150,
-                    "occupancy": [0]*150,
-                    "default_switch_position": [0]*6,
-                    "train_instance": 0
+                    "Suggested_Speed": [20]*150,
+                    "Suggested_Authority": [100]*150,
+                    "Occupancy": [0]*150,
+                    "Default_Switch_Position": [0]*6,
+                    "Train_Instance": 0
                 }
             except json.JSONDecodeError:
                 print("Error: PLC_INPUTS.json contains invalid JSON, creating new file")
                 plc_data = {
-                    "suggested_speed": [20]*150,
-                    "suggested_authority": [100]*150,
-                    "occupancy": [0]*150,
-                    "default_switch_position": [0]*6,
+                    "Suggested_Speed": [20]*150,
+                    "Suggested_Authority": [100]*150,
+                    "Occupancy": [0]*150,
+                    "Default_Switch_Position": [0]*6,
                     "train_instance": 0
                 }
 
             # Update only the occupancy array
-            plc_data["occupancy"] = [1 if block_num in occupancy_dict else 0 
+            plc_data["Occupancy"] = [1 if block_num in occupancy_dict else 0 
                                     for block_num in range(1, 151)]
             
             # Write back the complete data (with only occupancy changed)
@@ -480,7 +480,7 @@ class GridWindow(QWidget):
             try:
                 with open("PLC_INPUTS.json", "w") as file:
                     json.dump({
-                        "occupancy": [1 if block_num in occupancy_dict else 0 
+                        "Occupancy": [1 if block_num in occupancy_dict else 0 
                                     for block_num in range(1, 151)]
                     }, file)
             except Exception as e:
