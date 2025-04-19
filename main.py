@@ -192,16 +192,20 @@ class main(QWidget):
         ###
         #UPDATE THROUGHPUT EVERY SECOND
         ###
-        with open('occupancy_data.json', 'r') as file:
-            data = json.load(file)
+        try:
+            with open('occupancy_data.json', 'r') as file:
+                data = json.load(file)
+                trains = data.get("trains", [])
+        except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"Failed to read occupancy+data JSON: {e}")
+            return
 
         all_sales = []
         tickets_hours = 0
         #grab all ticket sales
-        for train_num, train_data in data.items():
-            for entry in train_data:
-                all_sales.append(entry.get("ticket_sales_history", []))
-        print(all_sales)
+        for train in trains:
+            all_sales.append(train.get("ticket_sales", []))
+        #print(all_sales)
 
         #check time stamps that are within last hour
         for i in all_sales:

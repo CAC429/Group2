@@ -3,8 +3,12 @@ import json
 
 def get_block_occupancies():
     
-    with open('PLC_OUTPUTS.json', 'r') as file:
-        data = json.load(file)
+    try:
+        with open('PLC_OUTPUTS.json', 'r') as file:
+            data = json.load(file)
+    except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
+        print(f"Failed to read PLC_OUTPUTS JSON: {e}")
+        return
 
     occupancies = data["Occupancy"]
 

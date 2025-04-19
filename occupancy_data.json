@@ -9,7 +9,7 @@
             "speed_authority": "111001000",
             "new_passengers": 176,
             "total_passengers": 176,
-            "ticket_sales": [],
+            "ticket_sales": [[1, "15:00"], [2, "15:02"], [10, "14:00"]],
             "beacon_info": {
                 "station_side": "left",
                 "arriving_station": "LESUNSHINE STATION",
@@ -26,7 +26,7 @@
             "speed_authority": "11100100",
             "new_passengers": 0,
             "total_passengers": 0,
-            "ticket_sales": [],
+            "ticket_sales": [[1, "15:00"], [2, "15:02"], [10, "14:00"]],
             "beacon_info": null
         }
     ]
