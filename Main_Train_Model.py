@@ -32,7 +32,7 @@ class MainTrainModel:
             with open(file_path, 'r') as file:
                 try:
                     data = json.load(file)
-                    print("Loaded occupancy data:", data)  # Debug print
+                    #print("Loaded occupancy data:", data)  # Debug print
                 except json.JSONDecodeError as e:
                     messagebox.showerror("JSON Error", f"Invalid JSON format in {file_path}:\n{str(e)}")
                     self.root.destroy()
@@ -65,7 +65,7 @@ class MainTrainModel:
                         beacon_str += f"station_distance: {beacon_info.get('station_distance', 0)}"
                         beacon_info = beacon_str
                     
-                    print(f"Train {train_number} beacon info:", beacon_info)  # Debug print
+                    #print(f"Train {train_number} beacon info:", beacon_info)  # Debug print
                     
                     # Create train window and model
                     train_window = tk.Toplevel()
@@ -167,7 +167,7 @@ class Train_Model:
 
     def read_tc_outputs(self, file_path='TC_outputs.json'):
         try: 
-            print(f"Reading TC outputs from {file_path}...")  # Debug print
+            #print(f"Reading TC outputs from {file_path}...")  # Debug print
             with open(file_path, 'r') as file:
                 data = json.load(file)
                 print("TC outputs data:", data)  # Debug print
@@ -227,7 +227,7 @@ class Train_Model:
 
     def read_track_model_outputs(self, file_path='occupancy_data.json'):
         try: 
-            print(f"Reading track model from {file_path}...")  # Debug print
+            #print(f"Reading track model from {file_path}...")  # Debug print
             with open(file_path, 'r') as file:
                 data = json.load(file)
                 print("Track model data:", data)  # Debug print
@@ -267,7 +267,7 @@ class Train_Model:
 
     def write_outputs_to_file(self):
         try:
-            print(f"DEBUG: Writing outputs - Emergency brake active: {self.emergency_brake_active}")  # Debug line
+            #print(f"DEBUG: Writing outputs - Emergency brake active: {self.emergency_brake_active}")  # Debug line
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             

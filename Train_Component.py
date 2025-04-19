@@ -3,7 +3,7 @@ class Train_Comp:
         self.one = one
 
     def Set_Cabin_Temp(self,Cabin_Temp): #Temp variable will get from Train Control
-        print(f"Cabin temperature will be {Cabin_Temp}°F")
+        #print(f"Cabin temperature will be {Cabin_Temp}°F")
         return Cabin_Temp
     
     def Set_Exterior_Lights(self,Exterior_Lights): #Temp variable will get from Train Control
