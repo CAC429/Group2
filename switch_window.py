@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-                            QLabel, QGridLayout, QGroupBox, QScrollArea)
+                            QLabel, QGridLayout, QGroupBox, QScrollArea, QMessageBox)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap
+import global_variables
 import sys
 import json
 
@@ -15,16 +16,17 @@ class SwitchWindow(QWidget):
         self.light_widgets = []
         self.failure_widgets = []
         self.crossbar_widgets = []
-        self.active_failures = set()
+        self.active_failures = {}  # Changed to dictionary to store failure types
+        self.manual_failures = {}  # Track manual failures {block_num: failure_type}
         
         self.init_ui()
         
         # Initialize with default values (all switches in position 0)
         self.update_display({
-            'Switch_positions': [0, 0, 0, 0, 0, 0],
+            'Switch_Positions': [0, 0, 0, 0, 0, 0],
             'Track_Failures': [0]*12,
             'Light_Control': [0]*12,
-            'crossbar_control': [0, 0]
+            'Crossbar_Control': [0, 0]
         })
         
         self.timer = QTimer(self)
@@ -49,12 +51,10 @@ class SwitchWindow(QWidget):
         switch_layout = QVBoxLayout()
         
         switch_grid = QWidget()
-        # Use QGridLayout for the switches to arrange them in pairs
         switch_grid_layout = QGridLayout(switch_grid)
-        switch_grid_layout.setHorizontalSpacing(30)  # Space between columns
-        switch_grid_layout.setVerticalSpacing(20)    # Space between rows
+        switch_grid_layout.setHorizontalSpacing(30)
+        switch_grid_layout.setVerticalSpacing(20)
         
-        # Create 6 switch displays in 3 rows × 2 columns
         for switch_num in range(1, 7):
             switch_widget = QWidget()
             switch_widget.setFixedSize(200, 150)
@@ -62,7 +62,6 @@ class SwitchWindow(QWidget):
             layout = QVBoxLayout(switch_widget)
             layout.setAlignment(Qt.AlignCenter)
             
-            # Image display
             switch_image = QLabel()
             switch_image.setFixedSize(160, 130)
             switch_image.setAlignment(Qt.AlignCenter)
@@ -72,7 +71,6 @@ class SwitchWindow(QWidget):
                 border-radius: 5px;
             """)
             
-            # Label
             switch_label = QLabel(f"Switch {switch_num}")
             switch_label.setAlignment(Qt.AlignCenter)
             switch_label.setStyleSheet("font-size: 14px; font-weight: bold;")
@@ -80,9 +78,8 @@ class SwitchWindow(QWidget):
             layout.addWidget(switch_image)
             layout.addWidget(switch_label)
             
-            # Calculate row and column positions for pairing
-            row = (switch_num - 1) // 2  # 0, 0, 1, 1, 2, 2
-            col = (switch_num - 1) % 2   # 0, 1, 0, 1, 0, 1
+            row = (switch_num - 1) // 2
+            col = (switch_num - 1) % 2
             switch_grid_layout.addWidget(switch_widget, row, col)
             
             self.switch_widgets.append({
@@ -124,8 +121,25 @@ class SwitchWindow(QWidget):
         light_grid_layout.setHorizontalSpacing(10)
         light_grid_layout.setVerticalSpacing(10)
         
+        # Define the light numbering mapping and corresponding blocks
+        light_mapping = {
+            1: 1,    # Light 1 -> Block 1
+            2: 12,   # Light 2 -> Block 12
+            3: 29,   # Light 3 -> Block 29
+            4: 150, # Light 4 -> Block 150
+            5: 57,   # Light 5 -> Block 57
+            6: 58,   # Light 6 -> Block 58
+            7: 63,   # Light 7 -> Block 63
+            8: 62,   # Light 8 -> Block 62
+            9: 76,   # Light 9 -> Block 76
+            10: 101, # Light 10 -> Block 101
+            11: 100, # Light 11 -> Block 100
+            12: 86   # Light 12 -> Block 86
+        }
+        
         for light_num in range(1, 13):
-            light_widget = QLabel(f"Light {light_num}")
+            mapped_num = light_mapping[light_num]
+            light_widget = QLabel(f"Light {mapped_num}")
             light_widget.setAlignment(Qt.AlignCenter)
             light_widget.setFixedSize(70, 40)
             light_widget.setStyleSheet("""
@@ -171,7 +185,6 @@ class SwitchWindow(QWidget):
         
         main_layout.addWidget(quadrants)
 
-    # [Rest of the methods remain exactly the same as previous version...]
     def update_switches(self, switch_positions):
         """Update switch images based on positions"""
         for widget in self.switch_widgets:
@@ -214,14 +227,19 @@ class SwitchWindow(QWidget):
         self.update_crossbars(plc_data['Crossbar_Control'])
     
     def update_failures(self, failures):
-        """Update track failure indicators - only show active failures"""
-        current_failures = set()
+        """Update track failure indicators - store failure types"""
+        current_failures = {}
         
         for i, status in enumerate(failures[:150], start=1):
             if status == 1:
-                current_failures.add(i)
+                current_failures[i] = "Track Circuit Failure"  # Default failure type
         
-        for block in list(self.active_failures):
+        # Update manual failures (preserve their types)
+        for block, failure_type in self.manual_failures.items():
+            current_failures[block] = failure_type
+        
+        # Remove cleared failures
+        for block in list(self.active_failures.keys()):
             if block not in current_failures:
                 for i in reversed(range(self.failure_content_layout.count())):
                     widget = self.failure_content_layout.itemAt(i).widget()
@@ -229,9 +247,10 @@ class SwitchWindow(QWidget):
                         self.failure_content_layout.removeWidget(widget)
                         widget.deleteLater()
         
-        for block in current_failures:
+        # Add new failures
+        for block, failure_type in current_failures.items():
             if block not in self.active_failures:
-                failure_widget = QLabel(f"Track {block} FAILURE")
+                failure_widget = QLabel(f"Track {block} {failure_type.upper()}")
                 failure_widget.setProperty("block_num", block)
                 failure_widget.setAlignment(Qt.AlignCenter)
                 failure_widget.setStyleSheet("""
@@ -248,16 +267,53 @@ class SwitchWindow(QWidget):
         self.no_failures_label.setVisible(len(self.active_failures) == 0)
     
     def update_lights(self, lights):
-        """Update light control indicators"""
+        """Update light control indicators, checking global failures"""
+        # Block to light index mapping
+        block_to_light = {
+            1: 0,    # Block 1 -> Light 1 (index 0)
+            12: 1,   # Block 12 -> Light 2 (index 1)
+            29: 2,   # Block 29 -> Light 3 (index 2)
+            150: 3,  # Block 150 -> Light 4 (index 3)
+            57: 4,   # Block 57 -> Light 5 (index 4)
+            58: 5,   # Block 58 -> Light 6 (index 5)
+            63: 6,   # Block 63 -> Light 7 (index 6)
+            62: 7,   # Block 62 -> Light 8 (index 7)
+            76: 8,   # Block 76 -> Light 9 (index 8)
+            101: 9,  # Block 101 -> Light 10 (index 9)
+            100: 10, # Block 100 -> Light 11 (index 10)
+            86: 11   # Block 86 -> Light 12 (index 11)
+        }
+        
         for i, widget in enumerate(self.light_widgets):
             if i < len(lights):
-                status = lights[i]
-                color = "red" if status == 1 else "lime"
-                widget.setStyleSheet(f"""
-                    background-color: {color};
-                    border: 1px solid black;
-                    border-radius: 3px;
-                """)
+                # Find which block this light corresponds to
+                block_num = None
+                for blk, idx in block_to_light.items():
+                    if idx == i:
+                        block_num = blk
+                        break
+                
+                # Check if this block has a power failure in global failures
+                has_power_failure = False
+                if block_num in global_variables.global_failures and global_variables.global_failures[block_num].lower() == "power failure":
+                    has_power_failure = True
+                
+                if has_power_failure:
+                    # Force light off for power failure
+                    widget.setStyleSheet("""
+                        background-color: gray;
+                        border: 1px solid black;
+                        border-radius: 3px;
+                    """)
+                else:
+                    # Normal operation - follow PLC command
+                    status = lights[i]
+                    color = "red" if status == 1 else "lime"
+                    widget.setStyleSheet(f"""
+                        background-color: {color};
+                        border: 1px solid black;
+                        border-radius: 3px;
+                    """)
     
     def update_crossbars(self, crossbars):
         """Update crossbar control indicators"""
@@ -274,7 +330,8 @@ class SwitchWindow(QWidget):
     def check_plc_updates(self):
         """Check for updates in PLC outputs and update display"""
         plc_data = self.read_plc_outputs()
-        self.update_display(plc_data)
+        if plc_data:
+            self.update_display(plc_data)
     
     def read_plc_outputs(self, file_path="PLC_OUTPUTS.json"):
         """Read all relevant PLC outputs from JSON file"""
@@ -289,12 +346,11 @@ class SwitchWindow(QWidget):
             with open(file_path, 'r') as f:
                 data = json.load(f)
                 
-            # Update from JSON data
             plc_data.update({
-                'Switch_positions': data.get("Actual_Switch_Position", [0]*6),
-                'Track_failures': data.get("Track_Failure", [0]*150),
-                'Light_control': data.get("Light_Control", [0]*12),
-                'Crossbar_control': data.get("Cross_Bar_Control", [0, 0])
+                'Switch_Positions': data.get("Actual_Switch_Position", [0]*6),
+                'Track_Failures': data.get("Track_Failure", [0]*150),
+                'Light_Control': data.get("Light_Control", [0]*12),
+                'Crossbar_Control': data.get("Cross_Bar_Control", [0, 0])
             })
             
         except FileNotFoundError:
@@ -305,6 +361,7 @@ class SwitchWindow(QWidget):
             return None
         except Exception as e:
             print(f"Error reading PLC outputs: {e}")
+            return None
             
         return plc_data
 

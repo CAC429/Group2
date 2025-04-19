@@ -1,6 +1,6 @@
 from datetime import datetime
 import threading
-
+global_failures = {} 
 current_time = datetime.now()
 
 def update_time():
