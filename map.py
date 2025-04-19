@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import (QApplication, QWidget, QGridLayout, QPushButton, 
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QGridLayout, QPushButton, 
                             QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, 
                             QLineEdit, QComboBox)
 from PyQt5.QtCore import QTimer
@@ -10,6 +10,26 @@ import sys
 import json
 global_tickets = []
  # Format: {block_num: failure_type}
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        
+        # Create central widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+        
+        # Create your two "windows" as widgets
+        self.grid_window = GridWindow()  # Your existing GridWindow class
+        self.switch_window = SwitchWindow()  # Your existing SwitchWindow class
+        
+        # Add them to the layout
+        layout.addWidget(self.grid_window)
+        layout.addWidget(self.switch_window)
+        
+        self.setWindowTitle("Track Layout and Peripherals")
+        self.setGeometry(100, 100,500, 500)
 
 class ClickableBox(QPushButton):
     def __init__(self, index, grid_data, block_info_data):
@@ -83,7 +103,7 @@ class GridWindow(QWidget):
         self.ticket_array = []
         self.manual_failures = {}  # Track manual failures {block_num: failure_type}
         
-        self.switch_window = None
+        
         self.init_ui()
         
         self.timer = QTimer(self)
@@ -145,9 +165,9 @@ class GridWindow(QWidget):
         control_layout = QHBoxLayout(control_panel)
         
         # Switch Positions button
-        switch_btn = QPushButton("Show Switch Positions")
-        switch_btn.clicked.connect(self.show_switch_window)
-        control_layout.addWidget(switch_btn)
+        #switch_btn = QPushButton("Show Switch Positions")
+        #switch_btn.clicked.connect(self.show_switch_window)
+        #control_layout.addWidget(switch_btn)
         
         # Block number input
         self.block_input = QLineEdit()
@@ -490,6 +510,6 @@ class GridWindow(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = GridWindow()
-    window.show()
+    main_window = MainWindow()
+    main_window.show()
     sys.exit(app.exec_())

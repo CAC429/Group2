@@ -40,7 +40,7 @@ class SwitchWindow(QWidget):
         title = QLabel("Track System Monitor")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-weight: bold; font-size: 24px; padding: 10px;")
-        main_layout.addWidget(title)
+        #main_layout.addWidget(title)
         
         quadrants = QWidget()
         grid_layout = QGridLayout(quadrants)
