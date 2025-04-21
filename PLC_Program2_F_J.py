@@ -86,6 +86,7 @@ else:
 
 #Cross Bar Control
 Cross_Bar_Control[1] = 1 if any(Occupancy_In[i] for i in [45, 46, 47]) else 0
+
 #Detects the failures that occur
 #General failure check for most cases
 for i in range(15,75):
@@ -140,7 +141,7 @@ else:
 
 #Determines the speed and authority based on a failure      
 for Failure_Check in range(15,73):
-    if (Failure_Check >= 15 and Failure_Check <=47) or (Failure_Check >= 66  and Failure_Check <= 73):
+    if (Failure_Check >= 15 and Failure_Check <=47) or (Failure_Check >= 69  and Failure_Check <= 70):
         if Track_Failure[Failure_Check] == 1:
             Suggested_Speed[Failure_Check] = "0"
             Suggested_Authority[Failure_Check] = "0"
@@ -153,41 +154,71 @@ for Failure_Check in range(15,73):
             Suggested_Speed[Failure_Check+2] = "1010"
             Suggested_Speed[Failure_Check+3] = "1111"
     
-if Track_Failure[2] == 1:
-    Suggested_Speed[2] = "0"
-    Suggested_Authority[2] = "0"
-    Suggested_Speed[1] = "0"
-    Suggested_Authority[1] = "0"
-    Suggested_Speed[0] = "1010"
-    Suggested_Speed[14] = "1111"
-    Suggested_Speed[3] = "0"
-    Suggested_Authority[3] = "0"
-    Suggested_Speed[4] = "1010"
-    Suggested_Speed[5] = "1111"
+if Occupancy_In[75] == 1 or Occupancy_In[74] == 1 or Occupancy_In[73] == 1 or Occupancy_In[72] == 1 or Occupancy_In[71] == 1:
+    Suggested_Authority[26] = "0"
+    Suggested_Speed[26] = "0"
+    Suggested_Authority[25] = "0"
+    Suggested_Speed[25] = "0"
+    Suggested_Authority[24] = "0"
+    Suggested_Speed[24] = "0"
+    Suggested_Speed[23] = "1010"
+    Suggested_Speed[22] = "1111"
 
-if Track_Failure[1] == 1:
-    Suggested_Speed[1] = "0"
-    Suggested_Authority[1] = "0"
-    Suggested_Speed[0] = "0"
-    Suggested_Authority[0] = "0"
-    Suggested_Speed[14] = "1010"
-    Suggested_Speed[15] = "1111"
-    Suggested_Speed[2] = "0"
-    Suggested_Authority[2] = "0"
-    Suggested_Speed[3] = "1010"
-    Suggested_Speed[4] = "1111"
+for i in range(15,27):
+    if Occupancy_In[i] == 1:
+        Suggested_Authority[27] = "0"
+        Suggested_Speed[27] = "0"
+        Suggested_Authority[28] = "0"
+        Suggested_Speed[28] = "0"
+        Suggested_Authority[29] = "0"
+        Suggested_Speed[29] = "0"
+        Suggested_Speed[30] = "1010"
+        Suggested_Speed[31] = "1111"
 
-if Track_Failure[0] == 1:
-    Suggested_Speed[0] = "0"
-    Suggested_Authority[0] = "0"
-    Suggested_Speed[14] = "0"
-    Suggested_Authority[14] = "0"
-    Suggested_Speed[15] = "1010"
-    Suggested_Speed[16] = "1111"
-    Suggested_Speed[1] = "0"
-    Suggested_Authority[1] = "0"
-    Suggested_Speed[2] = "1010"
-    Suggested_Speed[3] = "1111"
+if Occupancy_In[66] == 1 or Occupancy_In[67] == 1 or Occupancy_In[68] == 1 or Occupancy_In[69] == 1 or Occupancy_In[70] == 1:
+    Suggested_Authority[37] = "0"
+    Suggested_Speed[37] = "0"
+    Suggested_Authority[36] = "0"
+    Suggested_Speed[36] = "0"
+    Suggested_Authority[35] = "0"
+    Suggested_Speed[35] = "0"
+    Suggested_Speed[34] = "1010"
+    Suggested_Speed[33] = "1111"
+
+for i in range(32,38):
+    if Occupancy_In[i] == 1:
+        Suggested_Authority[38] = "0"
+        Suggested_Speed[38] = "0"
+        Suggested_Authority[39] = "0"
+        Suggested_Speed[39] = "0"
+        Suggested_Authority[40] = "0"
+        Suggested_Speed[40] = "0"
+        Suggested_Speed[41] = "1010"
+        Suggested_Speed[42] = "1111"
+        Suggested_Authority[71] = "0"
+        Suggested_Speed[71] = "0"
+        Suggested_Authority[72] = "0"
+        Suggested_Speed[72] = "0"
+        Suggested_Authority[73] = "0"
+        Suggested_Speed[73] = "0"
+        Suggested_Authority[74] = "0"
+        Suggested_Speed[74] = "0"
+        Suggested_Authority[75] = "0"
+        Suggested_Speed[75] = "0"
+
+for i in range(43, 48):
+    if Occupancy_In[i] == 1:
+        Suggested_Authority[66] = "0"
+        Suggested_Speed[66] = "0"
+        Suggested_Authority[67] = "0"
+        Suggested_Speed[67] = "0"
+        Suggested_Authority[68] = "0"
+        Suggested_Speed[68] = "0"
+        Suggested_Authority[69] = "0"
+        Suggested_Speed[69] = "0"
+        Suggested_Authority[70] = "0"
+        Suggested_Speed[70] = "0"
+
 
 # Read PLC_OUTPUTS.jsons
 try:

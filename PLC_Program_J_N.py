@@ -40,23 +40,30 @@ Cross_Bar_Control = [0] * 2
 Temp_Occupancy = Occupancy_Out
 
 #Switch Control and Light Control
-Actual_Switch_Position[0] = 0
-Light_Control[0] = 1
-Light_Control[1] = 0
 
-Actual_Switch_Position[1] = 1
-Light_Control[2] = 1
-Light_Control[3] = 0
-
-#Cross Bar Control
-Cross_Bar_Control[0] = 1 if any(Occupancy_In[i] for i in [9, 10, 11]) else 0
+if Occupancy_In[63] == 1 and Occupancy_In[64] == 1:
+    Actual_Switch_Position[7] = 1
+    Light_Control[12] = 0
+    Light_Control[13] = 1
+elif Actual_Switch_Position[7] == 1 and Occupancy_In[64] == 1:
+    Actual_Switch_Position[7] = 1
+    Light_Control[12] = 0
+    Light_Control[13] = 1
+elif Actual_Switch_Position[7] == 1 and Occupancy_In[65] == 1:
+    Actual_Switch_Position[7] = 1
+    Light_Control[12] = 0
+    Light_Control[13] = 1
+else:
+    Actual_Switch_Position[7] = 0
+    Light_Control[12] = 1
+    Light_Control[13] = 0
 
 #Detects the failures that occur
 #General failure check for most cases
-for i in range(15):
+for i in range(48,66):
     if Track_Failure[i] != 1 and Occupancy_In[i] != 1:
 
-        for Occupancy_Check in range(0,15):
+        for Occupancy_Check in range(48,66):
             if Occupancy_Check != 0 and Occupancy_Check != 8:
                 if Occupancy_In[Occupancy_Check] == 1 and Temp_Occupancy[Occupancy_Check] == 1 and Track_Failure[Occupancy_Check] == 0:
                     Track_Failure[Occupancy_Check] = 0
@@ -65,28 +72,8 @@ for i in range(15):
                 else:
                     Track_Failure[Occupancy_Check] = 0
 
-if Occupancy_In[0] == 1 and Temp_Occupancy[0] == 1 and Track_Failure[0] == 0:
-    Track_Failure[0] == 0
-elif Occupancy_In[0] == 1 and Temp_Occupancy[15] == 0 and Temp_Occupancy [1] == 0:
-    Track_Failure[0] = 1
-elif Track_Failure[0] == 0 and Occupancy_In[0] == 1:
-    Track_Failure[0] = 0
-else:
-    Track_Failure[0] = 0
-
-if Occupancy_In[15] == 1 and Temp_Occupancy[15] == 1 and Track_Failure[15] == 0:
-    Track_Failure[15] == 0
-elif Occupancy_In[15] == 1 and Temp_Occupancy[0] == 0 and Temp_Occupancy [16] == 0:
-    Track_Failure[15] = 1
-elif Track_Failure[15] == 0 and Occupancy_In[15] == 1:
-    Track_Failure[15] = 0
-else:
-    Track_Failure[15] = 0
-
-Track_Failure[8] = 0
-
 #Determines the speed and authority based on a failure      
-for Failure_Check in range(3, 15):
+for Failure_Check in range(48,53):
     if Track_Failure[Failure_Check] == 1:
         Suggested_Speed[Failure_Check] = "0"
         Suggested_Authority[Failure_Check] = "0"
@@ -99,41 +86,27 @@ for Failure_Check in range(3, 15):
         Suggested_Speed[Failure_Check+2] = "1010"
         Suggested_Speed[Failure_Check+3] = "1111"
     
-if Track_Failure[2] == 1:
-    Suggested_Speed[2] = "0"
-    Suggested_Authority[2] = "0"
-    Suggested_Speed[1] = "0"
-    Suggested_Authority[1] = "0"
-    Suggested_Speed[0] = "1010"
-    Suggested_Speed[14] = "1111"
-    Suggested_Speed[3] = "0"
-    Suggested_Authority[3] = "0"
-    Suggested_Speed[4] = "1010"
-    Suggested_Speed[5] = "1111"
+for i in range(53,66):
+    if Track_Failure[i] == 1:
+        Suggested_Speed[i] = "0"
+        Suggested_Authority[i] = "0"
+        Suggested_Speed[i-1] = "0"
+        Suggested_Authority[i-1] = "0"
+        Suggested_Speed[i-2] = "1010"
+        Suggested_Speed[i-3] = "1111"
 
-if Track_Failure[1] == 1:
-    Suggested_Speed[1] = "0"
-    Suggested_Authority[1] = "0"
-    Suggested_Speed[0] = "0"
-    Suggested_Authority[0] = "0"
-    Suggested_Speed[14] = "1010"
-    Suggested_Speed[15] = "1111"
-    Suggested_Speed[2] = "0"
-    Suggested_Authority[2] = "0"
-    Suggested_Speed[3] = "1010"
-    Suggested_Speed[4] = "1111"
-
-if Track_Failure[0] == 1:
-    Suggested_Speed[0] = "0"
-    Suggested_Authority[0] = "0"
-    Suggested_Speed[14] = "0"
-    Suggested_Authority[14] = "0"
-    Suggested_Speed[15] = "1010"
-    Suggested_Speed[16] = "1111"
-    Suggested_Speed[1] = "0"
-    Suggested_Authority[1] = "0"
-    Suggested_Speed[2] = "1010"
-    Suggested_Speed[3] = "1111"
+for i in range(48, 66):
+    if Occupancy_In[i] == 1:
+        Suggested_Authority[66] = "0"
+        Suggested_Speed[66] = "0"
+        Suggested_Authority[67] = "0"
+        Suggested_Speed[67] = "0"
+        Suggested_Authority[68] = "0"
+        Suggested_Speed[68] = "0"
+        Suggested_Authority[69] = "0"
+        Suggested_Speed[69] = "0"
+        Suggested_Authority[70] = "0"
+        Suggested_Speed[70] = "0"
 
 for i in range(0,16):
     if Occupancy_In[i] == 1:
