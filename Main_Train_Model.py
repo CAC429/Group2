@@ -131,7 +131,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(1, 40900, 20, 1000, 0)
+        self.Train_Ca = Train_Calc(1, 40900, 0.1, 0.1, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
