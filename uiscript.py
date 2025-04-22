@@ -84,26 +84,19 @@ class BrakeController:
     def __init__(self):
         self.service_brake_active = False
         self.emergency_brake_active = False
-        self.manual_eb_engaged = False
-        self.manual_sb_engaged = False
 
     def activate_service_brake(self, manual=False):
-        self.service_brake_active = True
-        self.emergency_brake_active = False
-        if manual:
-            self.manual_sb_engaged = True
+        if not self.emergency_brake_active:
+            self.service_brake_active = True
+            self.emergency_brake_active = False
 
     def activate_emergency_brake(self, manual=False):
         self.emergency_brake_active = True
         self.service_brake_active = False
-        if manual:
-            self.manual_eb_engaged = True
 
     def release_brakes(self):
         self.service_brake_active = False
         self.emergency_brake_active = False
-        self.manual_eb_engaged = False
-        self.manual_sb_engaged = False
 
 class DoorController:
     def __init__(self):
@@ -223,20 +216,6 @@ class TrainControllerUI(QWidget):
         main_layout.addLayout(content_layout)
         self.setLayout(main_layout)
         self.connect_signals()
-        
-        # Disable controls initially since auto mode is enabled by default
-        #self.ext_light_on.setEnabled(False)
-        #self.ext_light_off.setEnabled(False)
-        #self.cabin_light_on.setEnabled(False)
-        #self.cabin_light_off.setEnabled(False)
-        #self.open_left.setEnabled(False)
-        #self.close_left.setEnabled(False)
-        #self.open_right.setEnabled(False)
-        #self.close_right.setEnabled(False)
-        #self.setpoint_input.setEnabled(False)
-        #self.kp_input.setEnabled(False)
-        #self.ki_input.setEnabled(False)
-        #self.set_constants_button.setEnabled(False)
         
     def create_title(self, layout):
         title_label = QLabel("B Team Train Control")
@@ -515,17 +494,8 @@ class TrainControllerUI(QWidget):
         temp_controller = train['temp_controller']
         brake_controller = train['brake_controller']
 
-        # Update light buttons
-        self.ext_light_on.setEnabled(not state.outside_lights)
-        self.ext_light_off.setEnabled(state.outside_lights)
-        self.cabin_light_on.setEnabled(not state.cabin_lights)
-        self.cabin_light_off.setEnabled(state.cabin_lights)
-        
-        # Update door buttons
-        self.open_left.setEnabled(door_controller.left_door)
-        self.close_left.setEnabled(not door_controller.left_door)
-        self.open_right.setEnabled(door_controller.right_door)
-        self.close_right.setEnabled(not door_controller.right_door)
+        # Update controls enabled state based on current mode
+        self.set_controls_enabled_state(not self.auto_checkbox.isChecked())
         
         # Update labels
         self.left_door_label.setText(f"Left Door: {'Closed' if door_controller.left_door else 'Open'}")
@@ -572,7 +542,7 @@ class TrainControllerUI(QWidget):
     def read_train_outputs(self, file_path=None):
         if self.current_train_id is None:
             return False
-            
+                
         train = self.get_current_train()
         if train is None:
             return False
@@ -585,6 +555,8 @@ class TrainControllerUI(QWidget):
             # Speed is already in MPH
             train['state'].current_speed_mph = float(data.get('Actual_Speed', 0))
             train['state'].current_authority = float(data.get('Actual_Authority', 0))
+            train['state'].delta_position = float(data.get('Delta_Position', 0))
+            train['state'].beacon = data.get('Beacon', '')
             
             # Suggested speed handling (in MPH)
             suggested_speed_mph = 20  # Default
@@ -605,7 +577,32 @@ class TrainControllerUI(QWidget):
             self.suggested_speed_label.setText(f"Suggested Speed: {train['state'].suggested_speed_mph:.1f} mph")
             self.authority_label.setText(f"Current Authority: {train['state'].current_authority:.1f} m")
 
-            # [Rest of the method remains the same...]
+            # Check for emergency brake or failures
+            emergency_brake_active = bool(data.get('Emergency_Brake', 0))
+            brake_fail = bool(data.get('Brake_Fail', 0))
+            signal_fail = bool(data.get('Signal_Fail', 0))
+            engine_fail = bool(data.get('Engine_Fail', 0))
+            
+            if emergency_brake_active or brake_fail or signal_fail or engine_fail:
+                train['brake_controller'].activate_emergency_brake()
+                output_file = f"TC{self.current_train_id}_outputs.json"
+                self.write_outputs(output_file, emergency_brake=1, service_brake=0)
+                print("Emergency brake activated due to:")
+                if emergency_brake_active:
+                    print("- Emergency brake command from track")
+                if brake_fail:
+                    print("- Brake failure detected")
+                if signal_fail:
+                    print("- Signal failure detected")
+                if engine_fail:
+                    print("- Engine failure detected")
+            else:
+                # Only release brakes if they were activated by these conditions
+                if train['brake_controller'].emergency_brake_active and not train['brake_controller'].emergency_brake_active:
+                    train['brake_controller'].release_brakes()
+                    output_file = f"TC{self.current_train_id}_outputs.json"
+                    self.write_outputs(output_file, emergency_brake=0)
+
             return True
         except Exception as e:
             print(f"Error reading train outputs: {e}")
@@ -620,14 +617,7 @@ class TrainControllerUI(QWidget):
         if auto_mode:
             print("Automatic Mode Enabled!")
             self.master_timer.start(1000)
-            self.ext_light_on.setEnabled(False)
-            self.ext_light_off.setEnabled(False)
-            self.cabin_light_on.setEnabled(False)
-            self.cabin_light_off.setEnabled(False)
-            self.open_left.setEnabled(False)
-            self.close_left.setEnabled(False)
-            self.open_right.setEnabled(False)
-            self.close_right.setEnabled(False)
+            self.set_controls_enabled_state(False)  # Disable and gray out controls
 
             # Disable power control inputs
             self.setpoint_input.setEnabled(False)
@@ -642,18 +632,7 @@ class TrainControllerUI(QWidget):
         else:
             print("Automatic Mode Disabled")
             self.master_timer.stop()
-
-            state = train['state']
-            door_controller = train['door_controller']
-            
-            self.ext_light_on.setEnabled(not state.outside_lights)
-            self.ext_light_off.setEnabled(state.outside_lights)
-            self.cabin_light_on.setEnabled(not state.cabin_lights)
-            self.cabin_light_off.setEnabled(state.cabin_lights)
-            self.open_left.setEnabled(door_controller.left_door)
-            self.close_left.setEnabled(not door_controller.left_door)
-            self.open_right.setEnabled(door_controller.right_door)
-            self.close_right.setEnabled(not door_controller.right_door)
+            self.set_controls_enabled_state(True)  # Enable controls
 
             # Enable power control inputs
             self.setpoint_input.setEnabled(True)
@@ -666,16 +645,50 @@ class TrainControllerUI(QWidget):
             self.kp_input.setText("0")
             self.ki_input.setText("0")
 
+    def set_controls_enabled_state(self, enabled):
+        # Light controls
+        self.ext_light_off.setEnabled(enabled and self.get_current_train()['state'].outside_lights)
+        self.ext_light_on.setEnabled(enabled and not self.get_current_train()['state'].outside_lights)
+        self.cabin_light_off.setEnabled(enabled and self.get_current_train()['state'].cabin_lights)
+        self.cabin_light_on.setEnabled(enabled and not self.get_current_train()['state'].cabin_lights)
+        
+        # Door controls
+        self.open_left.setEnabled(enabled and self.get_current_train()['door_controller'].left_door)
+        self.close_left.setEnabled(enabled and not self.get_current_train()['door_controller'].left_door)
+        self.open_right.setEnabled(enabled and self.get_current_train()['door_controller'].right_door)
+        self.close_right.setEnabled(enabled and not self.get_current_train()['door_controller'].right_door)
+        
+        # Set styles to gray out when disabled
+        style = "background-color: #e0e0e0; color: #a0a0a0;" if not enabled else ""
+        self.ext_light_off.setStyleSheet(style)
+        self.ext_light_on.setStyleSheet(style)
+        self.cabin_light_off.setStyleSheet(style)
+        self.cabin_light_on.setStyleSheet(style)
+        self.open_left.setStyleSheet(style)
+        self.close_left.setStyleSheet(style)
+        self.open_right.setStyleSheet(style)
+        self.close_right.setStyleSheet(style)
+
     def sb_clicked(self):
         train = self.get_current_train()
         if train is None:
             return
             
-        if not train['brake_controller'].emergency_brake_active:
-            train['brake_controller'].activate_service_brake(manual=True)
-            output_file = f"TC{self.current_train_id}_outputs.json"
-            self.write_outputs(output_file, service_brake=1)
-            print("Service Brake Engaged")
+        brake_controller = train['brake_controller']
+        
+        # Toggle service brake if emergency brake isn't manually engaged
+        if not brake_controller.emergency_brake_active:
+            if brake_controller.service_brake_active and brake_controller.service_brake_active:
+                # If already manually engaged, release it
+                self.clear_brakes()
+            else:
+                # Otherwise activate service brake
+                brake_controller.activate_service_brake(manual=True)
+                output_file = f"TC{self.current_train_id}_outputs.json"
+                self.write_outputs(output_file, service_brake=1, emergency_brake=0)
+                print("Service Brake Engaged")
+            self.update_ui_from_state()
+            self.update_tb()
 
     def close_doors_after_delay(self, door_controller):
         door_controller.stop_door_timer()
@@ -693,7 +706,7 @@ class TrainControllerUI(QWidget):
                     data = json.load(f)
             except (FileNotFoundError, json.JSONDecodeError):
                 data = {
-                    "Commanded Power": 37155.31,
+                    "Commanded Power": 0.0,
                     "Suggested Speed": 20,
                     "Suggested Authority": 0,
                     "Emergency Brake": False,
@@ -705,19 +718,28 @@ class TrainControllerUI(QWidget):
                     "Cabin Temp": 70
                 }
 
+            # Update all provided values
             for key, value in kwargs.items():
                 if key == "power":
                     data["Commanded Power"] = round(value, 2)
-                elif key == "suggested_speed":
-                    data["Suggested Speed"] = round(value, 1)
+                elif key == "service_brake":
+                    data["Service Brake"] = bool(value)
                 elif key == "emergency_brake":
                     data["Emergency Brake"] = bool(value)
                 elif key == "left_door":
                     data["Left Door"] = bool(value)
-                # [Add other mappings as needed...]
+                elif key == "right_door":
+                    data["Right Door"] = bool(value)
+                elif key == "cabin_lights":
+                    data["Cabin Lights"] = bool(value)
+                elif key == "exterior_lights":
+                    data["Exterior Lights"] = bool(value)
+                elif key == "cabin_temp":
+                    data["Cabin Temp"] = int(value)
 
             with open(filename, 'w') as f:
                 json.dump(data, f, indent=4)
+
         except Exception as e:
             print(f"Error writing to {filename}: {e}")
 
@@ -726,10 +748,21 @@ class TrainControllerUI(QWidget):
         if train is None:
             return
             
-        train['brake_controller'].activate_emergency_brake(manual=True)
-        output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, emergency_brake=1)
-        print("Emergency Brake Engaged")           
+        brake_controller = train['brake_controller']
+        
+        # Toggle emergency brake if service brake isn't manually engaged
+        if not brake_controller.service_brake_active:
+            if brake_controller.emergency_brake_active and brake_controller.emergency_brake_active:
+                # If already manually engaged, release it
+                self.clear_brakes()
+            else:
+                # Otherwise activate emergency brake
+                brake_controller.activate_emergency_brake(manual=True)
+                output_file = f"TC{self.current_train_id}_outputs.json"
+                self.write_outputs(output_file, emergency_brake=1, service_brake=0)
+                print("Emergency Brake Engaged")
+            self.update_ui_from_state()
+            self.update_tb()           
 
     def update_tb(self):
         train = self.get_current_train()
@@ -756,8 +789,7 @@ class TrainControllerUI(QWidget):
         output_file = f"TC{self.current_train_id}_outputs.json"
         self.write_outputs(output_file, emergency_brake=0, service_brake=0)
         print("Brakes Released")
-        self.service_brake_label.setText("Service Brake: Off")
-        self.emergency_brake_label.setText("Emergency Brake: Off")
+        self.update_ui_from_state()
 
     def calculate_power(self):
         train = self.get_current_train()
@@ -804,9 +836,113 @@ class TrainControllerUI(QWidget):
 
     def update_from_files(self):
         self.scan_for_trains()  # Check for new trains periodically
-        self.read_train_outputs()
+        if self.read_train_outputs():
+            self.update_ui_from_state()  # Update UI if read was successful
+            
+            train = self.get_current_train()
+            if train is None:
+                return
+                
+            # Check if we're approaching a station
+            try:
+                # Parse beacon info if available
+                beacon = train['state'].beacon
+                if "station_distance" in beacon:
+                    # Extract station distance
+                    station_dist_str = beacon.split("station_distance: ")[1].split(",")[0].strip()
+                    station_distance = float(station_dist_str)
+                    
+                    # Get delta_position (you'll need to store this when reading the file)
+                    delta_position = train['state'].delta_position
+                    
+                    # Check if within 10 meters
+                    if (abs(delta_position) <= 10 and station_distance <= 10 and not getattr(train, 'stopping_sequence_active', False)):
+                        self.handle_station_stop()
+            except Exception as e:
+                print(f"Error checking station distance: {e}")
+                
         self.check_speed_and_brake()
-        self.update_power_display()  
+        self.update_power_display()
+
+    def handle_station_stop(self):
+        train = self.get_current_train()
+        if train is None:
+            return
+            
+        # Check if we're already in a stopping sequence
+        if hasattr(train, 'stopping_sequence_active') and train.stopping_sequence_active:
+            return
+            
+        # Activate service brake
+        train['brake_controller'].activate_service_brake()
+        output_file = f"TC{self.current_train_id}_outputs.json"
+        self.write_outputs(output_file, service_brake=1)
+        print("Approaching station - activating service brake")
+        
+        # Mark that we're in a stopping sequence
+        train.stopping_sequence_active = True
+        
+        # Start checking for full stop
+        self.stopping_timer = QTimer(self)
+        self.stopping_timer.timeout.connect(self.check_station_stop_sequence)
+        self.stopping_timer.start(100)  # Check every 100ms
+
+    def check_station_stop_sequence(self):
+        train = self.get_current_train()
+        if train is None:
+            self.stopping_timer.stop()
+            return
+            
+        # Check if train has come to complete stop
+        if train['state'].current_speed_mph <= 0.1:  # Consider stopped below 0.1 mph
+            self.stopping_timer.stop()
+            self.complete_station_stop_sequence()
+
+    def complete_station_stop_sequence(self):
+        train = self.get_current_train()
+        if train is None:
+            return
+            
+        # Open doors
+        door_side = "right"  # Default, should parse from beacon
+        try:
+            # Parse beacon to get door side
+            beacon = train['state'].beacon
+            if "station_side: left" in beacon:
+                door_side = "left"
+        except:
+            pass
+            
+        # Open the appropriate door
+        train['door_controller'].set_door_state(door_side, False)
+        output_file = f"TC{self.current_train_id}_outputs.json"
+        self.write_outputs(output_file, **{f"{door_side}_door": 0})
+        print(f"{door_side.capitalize()} doors opened")
+        
+        # Start timer for door closing
+        train['door_controller'].start_door_timer(
+            lambda: self.finish_station_stop_sequence(door_side),
+            15000  # 15 seconds
+        )
+
+    def finish_station_stop_sequence(self, door_side):
+        train = self.get_current_train()
+        if train is None:
+            return
+            
+        # Close doors
+        train['door_controller'].set_door_state(door_side, True)
+        output_file = f"TC{self.current_train_id}_outputs.json"
+        self.write_outputs(output_file, **{f"{door_side}_door": 1})
+        print(f"{door_side.capitalize()} doors closed")
+        
+        # Release service brake
+        train['brake_controller'].release_brakes()
+        self.write_outputs(output_file, service_brake=0)
+        print("Service brake released")
+        
+        # Reset stopping sequence flag
+        train.stopping_sequence_active = False
 
     def check_speed_and_brake(self):
         if not self.auto_checkbox.isChecked():
@@ -816,22 +952,25 @@ class TrainControllerUI(QWidget):
         if train is None:
             return
 
-        # Convert current and suggested speeds from MPH to m/s for comparison
-        current_speed_mps = train['state'].current_speed_mph * self.constants.MPH_TO_MPS
-        suggested_speed_mps = train['state'].suggested_speed_mph * self.constants.MPH_TO_MPS
+        current_speed_mph = train['state'].current_speed_mph
+        suggested_speed_mph = train['state'].suggested_speed_mph
+        
+        # Convert to m/s for power calculations if needed
+        current_speed_mps = current_speed_mph * self.constants.MPH_TO_MPS
+        suggested_speed_mps = suggested_speed_mph * self.constants.MPH_TO_MPS
+        
+        # More lenient threshold for brake activation
         speed_diff = current_speed_mps - suggested_speed_mps
-
-        if speed_diff > 0.1:
+        threshold = 0.5  # m/s difference threshold
+        
+        if speed_diff > threshold:
             if not train['brake_controller'].service_brake_active:
-                print(f"Activating service brake - current speed ({train['state'].current_speed_mph:.1f} mph) > suggested speed ({train['state'].suggested_speed_mph:.1f} mph)")
+                print(f"Speed exceeded - activating service brake (Current: {current_speed_mph:.1f} mph, Suggested: {suggested_speed_mph:.1f} mph)")
                 train['brake_controller'].activate_service_brake()
                 output_file = f"TC{self.current_train_id}_outputs.json"
                 self.write_outputs(output_file, service_brake=1)
-
-        elif (abs(speed_diff) <= 0.1 and 
-            train['brake_controller'].service_brake_active and 
-            not train['brake_controller'].manual_sb_engaged):
-            print(f"Releasing service brake - speeds matched ({train['state'].current_speed_mph:.1f} mph)")
+        elif train['brake_controller'].service_brake_active and speed_diff <= threshold:
+            print(f"Speed within limits - releasing service brake (Current: {current_speed_mph:.1f} mph, Suggested: {suggested_speed_mph:.1f} mph)")
             train['brake_controller'].release_brakes()
             output_file = f"TC{self.current_train_id}_outputs.json"
             self.write_outputs(output_file, service_brake=0)

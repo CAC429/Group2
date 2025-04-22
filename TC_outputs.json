@@ -1,7 +1,7 @@
 {
-    "Commanded Power": 37155.31,
+    "Commanded Power": 0.0,
     "Suggested Speed": 20,
-    "Suggested Authority": 0,
+    "Suggested Authority": 168,
     "Emergency Brake": false,
     "Service Brake": false,
     "Left Door": false,

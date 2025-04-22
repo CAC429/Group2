@@ -32,7 +32,7 @@ class MainTrainModel:
             with open(file_path, 'r') as file:
                 try:
                     data = json.load(file)
-                    print("Loaded occupancy data:", data)  # Debug print
+                    #print("Loaded occupancy data:", data)  # Debug print
                 except json.JSONDecodeError as e:
                     messagebox.showerror("JSON Error", f"Invalid JSON format in {file_path}:\n{str(e)}")
                     self.root.destroy()
@@ -65,7 +65,7 @@ class MainTrainModel:
                         beacon_str += f"station_distance: {beacon_info.get('station_distance', 0)}"
                         beacon_info = beacon_str
                     
-                    print(f"Train {train_number} beacon info:", beacon_info)  # Debug print
+                    #print(f"Train {train_number} beacon info:", beacon_info)  # Debug print
                     
                     # Create train window and model
                     train_window = tk.Toplevel()
@@ -131,7 +131,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(1, 40900, 20, 1000, 0)
+        self.Train_Ca = Train_Calc(1, 40900, 0.1, 0.1, 0)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
@@ -167,7 +167,7 @@ class Train_Model:
 
     def read_tc_outputs(self, file_path='TC_outputs.json'):
         try: 
-            print(f"Reading TC outputs from {file_path}...")  # Debug print
+            #print(f"Reading TC outputs from {file_path}...")  # Debug print
             with open(file_path, 'r') as file:
                 data = json.load(file)
                 print("TC outputs data:", data)  # Debug print
@@ -227,7 +227,7 @@ class Train_Model:
 
     def read_track_model_outputs(self, file_path='occupancy_data.json'):
         try: 
-            print(f"Reading track model from {file_path}...")  # Debug print
+            #print(f"Reading track model from {file_path}...")  # Debug print
             with open(file_path, 'r') as file:
                 data = json.load(file)
                 print("Track model data:", data)  # Debug print
@@ -267,7 +267,7 @@ class Train_Model:
 
     def write_outputs_to_file(self):
         try:
-            print(f"DEBUG: Writing outputs - Emergency brake active: {self.emergency_brake_active}")  # Debug line
+            #print(f"DEBUG: Writing outputs - Emergency brake active: {self.emergency_brake_active}")  # Debug line
             # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
@@ -450,17 +450,13 @@ class Train_Model:
         if self.emergency_brake == 1 and not self.emergency_brake_active:
             self.activate_emergency_brake()
         elif self.emergency_brake == 0 and self.emergency_brake_active:
-            # Only deactivate if emergency brake was manually released
             self.emergency_brake_active = False
-            self.emergency_brake = 0  # Ensure this is set to 0
-            # If service brake is still active, keep braking
+            self.emergency_brake = 0
+            self.write_outputs_to_file()
             if self.service_brake == 1:
                 self.activate_service_brake()
             elif not self.Train_F.Engine_Fail:
                 self.update_acceleration_display()
-        
-        # Ensure outputs reflect current brake status
-        self.write_outputs_to_file()
         
         # Handle service brake only if no brake failure and emergency brake isn't active
         if not self.Train_F.Brake_Fail and not self.emergency_brake_active:
@@ -468,8 +464,11 @@ class Train_Model:
                 self.activate_service_brake()
             elif self.service_brake == 0 and self.service_brake_active:
                 self.service_brake_active = False
-                if not self.emergency_brake_active and not self.Train_F.Engine_Fail:
+                if not self.Train_F.Engine_Fail:
                     self.update_acceleration_display()
+        
+        # Ensure outputs reflect current brake status
+        self.write_outputs_to_file()
 
     def update_acceleration_display(self):
         """Update the acceleration display based on current state"""
@@ -486,6 +485,15 @@ class Train_Model:
             # Read inputs first
             self.read_tc_outputs()
             self.read_track_model_outputs()
+
+            # Check brake status before doing anything else
+            self.check_brake_status()
+
+            # Only calculate movement if not braking
+            if not self.emergency_brake_active and not self.service_brake_active:
+                if not self.Train_F.Engine_Fail:
+                    # Rest of the movement logic...
+                    pass
 
             # Check brake status before doing anything else
             if hasattr(self, 'emergency_brake'):
@@ -599,7 +607,7 @@ class Train_Model:
         return self.cumulative_distance
 
     def activate_service_brake(self):
-        """Slows down the train at 1.2 m/s² (converted to mph/s)"""
+        """Slows down the train at 1.2 m/s² (converted to mph/s) and maintains brake state"""
         if not self.emergency_brake_active:
             self.service_brake_active = True
             initial_speed = self.Train_Ca.Actual_Speed
@@ -607,6 +615,9 @@ class Train_Model:
             start_time = time.time()
             
             def update_braking():
+                if not self.service_brake_active:  # Check if brake was released
+                    return
+                    
                 elapsed = time.time() - start_time
                 current_speed = max(0, initial_speed + deceleration * elapsed)
                 
@@ -616,13 +627,15 @@ class Train_Model:
                 self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
                 self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s (Service Brake)")
                 
-                if current_speed > 0 and self.service_brake_active:  # Check if still active
+                if current_speed > 0:
                     self.root.after(50, update_braking)
                 else:
-                    self.service_brake_active = False
+                    # When fully stopped, maintain service brake active
+                    self.Train_Ca.Actual_Speed = 0  # Ensure speed is exactly 0
                     self.station_status = 1
                     self.train_stopped()
-                    self.write_outputs_to_file()  # Force write outputs
+                    # Force write outputs immediately
+                    self.write_outputs_to_file()
             
             update_braking()
 
