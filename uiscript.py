@@ -439,10 +439,10 @@ class TrainControllerUI(QWidget):
         self.cabin_light_on.clicked.connect(lambda: self.set_light_state("cabin_lights", True))
         
         # Door controls
-        self.open_left.clicked.connect(lambda: self.set_door_state("left", False))
-        self.close_left.clicked.connect(lambda: self.set_door_state("left", True))
-        self.open_right.clicked.connect(lambda: self.set_door_state("right", False))
-        self.close_right.clicked.connect(lambda: self.set_door_state("right", True))
+        self.open_left.clicked.connect(lambda: self.set_door_state("left", True))
+        self.close_left.clicked.connect(lambda: self.set_door_state("left", False))
+        self.open_right.clicked.connect(lambda: self.set_door_state("right", True))
+        self.close_right.clicked.connect(lambda: self.set_door_state("right", False))
         
         # Temperature controls
         self.temp_slider.valueChanged.connect(self.update_temp_label)
@@ -481,7 +481,7 @@ class TrainControllerUI(QWidget):
         self.update_ui_from_state()
         
         output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, **{f"{door_type}_door": int(not state)})
+        self.write_outputs(output_file, **{f"{door_type}_door": int(state)})
         self.update_tb()
 
     def update_ui_from_state(self):
@@ -498,8 +498,8 @@ class TrainControllerUI(QWidget):
         self.set_controls_enabled_state(not self.auto_checkbox.isChecked())
         
         # Update labels
-        self.left_door_label.setText(f"Left Door: {'Closed' if door_controller.left_door else 'Open'}")
-        self.right_door_label.setText(f"Right Door: {'Closed' if door_controller.right_door else 'Open'}")
+        self.left_door_label.setText(f"Left Door: {'Open' if door_controller.left_door else 'Closed'}")
+        self.right_door_label.setText(f"Right Door: {'Open' if door_controller.right_door else 'Closed'}")
         self.cabin_lights_label.setText(f"Cabin Lights: {'On' if state.cabin_lights else 'Off'}")
         self.outside_lights_label.setText(f"Outside Lights: {'On' if state.outside_lights else 'Off'}")
         self.temperature_label.setText(f"Cabin Temp: {temp_controller.current_temp} °F")
@@ -653,10 +653,11 @@ class TrainControllerUI(QWidget):
         self.cabin_light_on.setEnabled(enabled and not self.get_current_train()['state'].cabin_lights)
         
         # Door controls
-        self.open_left.setEnabled(enabled and self.get_current_train()['door_controller'].left_door)
-        self.close_left.setEnabled(enabled and not self.get_current_train()['door_controller'].left_door)
-        self.open_right.setEnabled(enabled and self.get_current_train()['door_controller'].right_door)
-        self.close_right.setEnabled(enabled and not self.get_current_train()['door_controller'].right_door)
+        door_controller = self.get_current_train()['door_controller']
+        self.open_left.setEnabled(enabled and not door_controller.left_door)  # Enable open button if door is closed
+        self.close_left.setEnabled(enabled and door_controller.left_door)     # Enable close button if door is open
+        self.open_right.setEnabled(enabled and not door_controller.right_door)  # Enable open button if door is closed
+        self.close_right.setEnabled(enabled and door_controller.right_door)     # Enable close button if door is open
         
         # Set styles to gray out when disabled
         style = "background-color: #e0e0e0; color: #a0a0a0;" if not enabled else ""
@@ -870,7 +871,7 @@ class TrainControllerUI(QWidget):
         if hasattr(train, 'stopping_sequence_active') and train.stopping_sequence_active:
             return
             
-        # Only proceed if both delta_position and station_distance are within 5 meters
+        # Only proceed if both delta_position and station_distance are within 3 meters
         try:
             beacon = train['state'].beacon
             if "station_distance" in beacon:
@@ -922,9 +923,9 @@ class TrainControllerUI(QWidget):
             pass
             
         # Open the appropriate door
-        train['door_controller'].set_door_state(door_side, False)
+        train['door_controller'].set_door_state(door_side, True)
         output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, **{f"{door_side}_door": 0})
+        self.write_outputs(output_file, **{f"{door_side}_door": 1})
         print(f"{door_side.capitalize()} doors opened")
         
         # Start timer for door closing (15 seconds)
@@ -974,9 +975,9 @@ class TrainControllerUI(QWidget):
             return
             
         # Close doors
-        train['door_controller'].set_door_state(door_side, True)
+        train['door_controller'].set_door_state(door_side, False)
         output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, **{f"{door_side}_door": 1})
+        self.write_outputs(output_file, **{f"{door_side}_door": 0})
         print(f"{door_side.capitalize()} doors closed")
         
         # Release service brake
