@@ -843,24 +843,21 @@ class TrainControllerUI(QWidget):
             if train is None:
                 return
                 
-            # Check if we're approaching a station
-            try:
-                # Parse beacon info if available
-                beacon = train['state'].beacon
-                if "station_distance" in beacon:
-                    # Extract station distance
-                    station_dist_str = beacon.split("station_distance: ")[1].split(",")[0].strip()
-                    station_distance = float(station_dist_str)
+            # Check if we're approaching a station (only if not in cooldown)
+            if not getattr(train, 'station_stop_cooldown', False):
+                try:
+                    beacon = train['state'].beacon
+                    if "station_distance" in beacon:
+                        station_dist_str = beacon.split("station_distance: ")[1].split(",")[0].strip()
+                        station_distance = float(station_dist_str)
+                        delta_position = train['state'].delta_position
+                        
+                        if (abs(delta_position) <= 5 and station_distance <= 5 
+                                and not getattr(train, 'stopping_sequence_active', False)):
+                            self.handle_station_stop()
+                except Exception as e:
+                    print(f"Error checking station distance: {e}")
                     
-                    # Get delta_position (you'll need to store this when reading the file)
-                    delta_position = train['state'].delta_position
-                    
-                    # Check if within 10 meters
-                    if (abs(delta_position) <= 10 and station_distance <= 10 and not getattr(train, 'stopping_sequence_active', False)):
-                        self.handle_station_stop()
-            except Exception as e:
-                print(f"Error checking station distance: {e}")
-                
         self.check_speed_and_brake()
         self.update_power_display()
 
@@ -873,19 +870,30 @@ class TrainControllerUI(QWidget):
         if hasattr(train, 'stopping_sequence_active') and train.stopping_sequence_active:
             return
             
-        # Activate service brake
-        train['brake_controller'].activate_service_brake()
-        output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, service_brake=1)
-        print("Approaching station - activating service brake")
-        
-        # Mark that we're in a stopping sequence
-        train.stopping_sequence_active = True
-        
-        # Start checking for full stop
-        self.stopping_timer = QTimer(self)
-        self.stopping_timer.timeout.connect(self.check_station_stop_sequence)
-        self.stopping_timer.start(100)  # Check every 100ms
+        # Only proceed if both delta_position and station_distance are within 5 meters
+        try:
+            beacon = train['state'].beacon
+            if "station_distance" in beacon:
+                station_dist_str = beacon.split("station_distance: ")[1].split(",")[0].strip()
+                station_distance = float(station_dist_str)
+                delta_position = train['state'].delta_position
+                
+                if abs(delta_position) <= 3 and station_distance <= 3:
+                    # Activate service brake
+                    train['brake_controller'].activate_service_brake()
+                    output_file = f"TC{self.current_train_id}_outputs.json"
+                    self.write_outputs(output_file, service_brake=1)
+                    print("Within 5 meters of station - activating service brake")
+                    
+                    # Mark that we're in a stopping sequence
+                    train.stopping_sequence_active = True
+                    
+                    # Start checking for full stop
+                    self.stopping_timer = QTimer(self)
+                    self.stopping_timer.timeout.connect(self.check_station_stop_sequence)
+                    self.stopping_timer.start(100)  # Check every 100ms
+        except Exception as e:
+            print(f"Error in station stop handling: {e}")
 
     def check_station_stop_sequence(self):
         train = self.get_current_train()
@@ -919,30 +927,11 @@ class TrainControllerUI(QWidget):
         self.write_outputs(output_file, **{f"{door_side}_door": 0})
         print(f"{door_side.capitalize()} doors opened")
         
-        # Start timer for door closing
+        # Start timer for door closing (15 seconds)
         train['door_controller'].start_door_timer(
             lambda: self.finish_station_stop_sequence(door_side),
-            15000  # 15 seconds
+            15000
         )
-
-    def finish_station_stop_sequence(self, door_side):
-        train = self.get_current_train()
-        if train is None:
-            return
-            
-        # Close doors
-        train['door_controller'].set_door_state(door_side, True)
-        output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, **{f"{door_side}_door": 1})
-        print(f"{door_side.capitalize()} doors closed")
-        
-        # Release service brake
-        train['brake_controller'].release_brakes()
-        self.write_outputs(output_file, service_brake=0)
-        print("Service brake released")
-        
-        # Reset stopping sequence flag
-        train.stopping_sequence_active = False
 
     def check_speed_and_brake(self):
         if not self.auto_checkbox.isChecked():
@@ -996,8 +985,9 @@ class TrainControllerUI(QWidget):
         print("Service brake released")
         
         # Set leaving station flag and start timer to clear it
-        train.leaving_station = True
-        QTimer.singleShot(5000, lambda: setattr(train, 'leaving_station', False))  # Clear after 5 seconds
+        train.stopping_sequence_active = False
+        train.station_stop_cooldown = True
+        QTimer.singleShot(3000, lambda: setattr(train, 'leaving_station', False))  # Clear after 5 seconds
         
         # Reset stopping sequence flag
         train.stopping_sequence_active = False
