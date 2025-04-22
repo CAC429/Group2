@@ -952,6 +952,10 @@ class TrainControllerUI(QWidget):
         if train is None:
             return
 
+        # Don't apply service brakes if we're in the process of leaving the station
+        if getattr(train, 'leaving_station', False):
+            return
+
         current_speed_mph = train['state'].current_speed_mph
         suggested_speed_mph = train['state'].suggested_speed_mph
         
@@ -974,6 +978,29 @@ class TrainControllerUI(QWidget):
             train['brake_controller'].release_brakes()
             output_file = f"TC{self.current_train_id}_outputs.json"
             self.write_outputs(output_file, service_brake=0)
+
+    def finish_station_stop_sequence(self, door_side):
+        train = self.get_current_train()
+        if train is None:
+            return
+            
+        # Close doors
+        train['door_controller'].set_door_state(door_side, True)
+        output_file = f"TC{self.current_train_id}_outputs.json"
+        self.write_outputs(output_file, **{f"{door_side}_door": 1})
+        print(f"{door_side.capitalize()} doors closed")
+        
+        # Release service brake
+        train['brake_controller'].release_brakes()
+        self.write_outputs(output_file, service_brake=0)
+        print("Service brake released")
+        
+        # Set leaving station flag and start timer to clear it
+        train.leaving_station = True
+        QTimer.singleShot(5000, lambda: setattr(train, 'leaving_station', False))  # Clear after 5 seconds
+        
+        # Reset stopping sequence flag
+        train.stopping_sequence_active = False
 
 def main():
     app = QApplication([])
