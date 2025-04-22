@@ -2,7 +2,7 @@
 # Trains Group 2
 # Train Controller SW UI
 # Created: 2/19/2025
-# Last Updated: 4/16/2025
+# Last Updated: 4/22/2025
 
 import json
 import os
@@ -546,7 +546,7 @@ class TrainControllerUI(QWidget):
     def read_train_outputs(self, file_path=None):
         if self.current_train_id is None:
             return False
-                
+                    
         train = self.get_current_train()
         if train is None:
             return False
@@ -562,24 +562,36 @@ class TrainControllerUI(QWidget):
             train['state'].delta_position = float(data.get('Delta_Position', 0))
             train['state'].beacon = data.get('Beacon', '')
             
-            # Suggested speed handling (in MPH)
-            suggested_speed_mph = 20  # Default
+            # Suggested speed and authority handling
+            suggested_speed_mph = 20  # Default speed
+            suggested_authority = 0   # Default authority
+            
             suggested_speed_auth = data.get('Suggested_Speed_Authority', '')
             if suggested_speed_auth and all(bit in '01' for bit in suggested_speed_auth):
+                # Pad with zeros to make 10 bits if needed
                 if len(suggested_speed_auth) < 10:
                     suggested_speed_auth = suggested_speed_auth.ljust(10, '0')
-                msb = suggested_speed_auth[0]
-                remaining_bits = suggested_speed_auth[1:] if len(suggested_speed_auth) > 1 else '0'
-                value = int(remaining_bits, 2) if remaining_bits else 0
-                if msb == '0':  # Speed value
+                
+                # First bit is the mode (0 = speed, 1 = authority)
+                mode_bit = suggested_speed_auth[0]
+                
+                # Remaining 9 bits are the value
+                value_bits = suggested_speed_auth[1:]
+                value = int(value_bits, 2)
+                
+                if mode_bit == '0':  # Speed value
                     suggested_speed_mph = value
+                else:  # Authority value
+                    suggested_authority = value
 
             train['state'].suggested_speed_mph = suggested_speed_mph
+            train['state'].suggested_authority = suggested_authority
 
-            # Update UI labels (in MPH)
+            # Update UI labels
             self.speed_label.setText(f"Current Speed: {train['state'].current_speed_mph:.1f} mph")
             self.suggested_speed_label.setText(f"Suggested Speed: {train['state'].suggested_speed_mph:.1f} mph")
             self.authority_label.setText(f"Current Authority: {train['state'].current_authority:.1f} m")
+            self.suggested_authority_label.setText(f"Suggested Authority: {train['state'].suggested_authority:.1f} m")
 
             # Check for emergency brake or failures
             emergency_brake_active = bool(data.get('Emergency_Brake', 0))
