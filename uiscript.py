@@ -84,19 +84,23 @@ class BrakeController:
     def __init__(self):
         self.service_brake_active = False
         self.emergency_brake_active = False
+        self.manual_brake = False
 
     def activate_service_brake(self, manual=False):
         if not self.emergency_brake_active:
             self.service_brake_active = True
             self.emergency_brake_active = False
+            self.manual_brake = manual
 
     def activate_emergency_brake(self, manual=False):
         self.emergency_brake_active = True
         self.service_brake_active = False
+        self.manual_brake = manual
 
     def release_brakes(self):
         self.service_brake_active = False
         self.emergency_brake_active = False
+        self.manual_brake = False
 
 class DoorController:
     def __init__(self):
@@ -679,15 +683,19 @@ class TrainControllerUI(QWidget):
         
         # Toggle service brake if emergency brake isn't manually engaged
         if not brake_controller.emergency_brake_active:
-            if brake_controller.service_brake_active and brake_controller.service_brake_active:
-                # If already manually engaged, release it
-                self.clear_brakes()
+            # Toggle the service brake state
+            if brake_controller.service_brake_active:
+                brake_controller.release_brakes()
+                print("Service Brake Released")
             else:
-                # Otherwise activate service brake
                 brake_controller.activate_service_brake(manual=True)
-                output_file = f"TC{self.current_train_id}_outputs.json"
-                self.write_outputs(output_file, service_brake=1, emergency_brake=0)
                 print("Service Brake Engaged")
+            
+            # Update outputs and UI
+            output_file = f"TC{self.current_train_id}_outputs.json"
+            self.write_outputs(output_file, 
+                            service_brake=int(brake_controller.service_brake_active),
+                            emergency_brake=0)
             self.update_ui_from_state()
             self.update_tb()
 
@@ -941,6 +949,9 @@ class TrainControllerUI(QWidget):
         train = self.get_current_train()
         if train is None:
             return
+        
+        if getattr(train['brake_controller'], 'manual_brake', False):
+            return
 
         # Don't apply service brakes if we're in the process of leaving the station
         if getattr(train, 'leaving_station', False):
@@ -980,18 +991,10 @@ class TrainControllerUI(QWidget):
         self.write_outputs(output_file, **{f"{door_side}_door": 0})
         print(f"{door_side.capitalize()} doors closed")
         
-        # Release service brake
-        train['brake_controller'].release_brakes()
-        self.write_outputs(output_file, service_brake=0)
-        print("Service brake released")
-        
         # Set leaving station flag and start timer to clear it
         train.stopping_sequence_active = False
         train.station_stop_cooldown = True
         QTimer.singleShot(3000, lambda: setattr(train, 'leaving_station', False))  # Clear after 5 seconds
-        
-        # Reset stopping sequence flag
-        train.stopping_sequence_active = False
 
 def main():
     app = QApplication([])
