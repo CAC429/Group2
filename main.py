@@ -152,17 +152,13 @@ class main(QWidget):
 
     def dispatch_automatic(self):
         if self.file_path:  #when a file is selected
-            df = pd.read_excel(self.file_path)
-
-            #set row and column count
-            self.parent_window.routes_maintenance_tab.table.setRowCount(df.shape[0])
-            self.parent_window.routes_maintenance_tab.table.setColumnCount(df.shape[1]+1)
+            #choose based on line value (sheet value)
+            df = pd.read_excel(self.file_path, sheet_name=global_variables.line)
 
             #enter data from sheet
-            for row in range(df.shape[0]):
-                self.parent_window.routes_maintenance_tab.table.setItem(row, 0, QTableWidgetItem(str(row+1)))
-                for col in range(df.shape[1]):
-                    self.parent_window.routes_maintenance_tab.table.setItem(row, col+1, QTableWidgetItem(str(df.iat[row, col])))
+            for i, content in enumerate(df.columns):
+                if str(content).startswith("Train"):
+                    self.parent_window.routes_maintenance_tab.update_scheduled_trains(str(df.iat[0, i]))
 
     def dispatch_manual(self):
         chosen_destination = chr(self.dropdown.currentIndex()+65)
@@ -171,7 +167,7 @@ class main(QWidget):
         print(chosen_time)
 
         #connect to routes tab to update trains table
-        self.parent_window.routes_maintenance_tab.update_scheduled_trains(chosen_destination, chosen_time)
+        self.parent_window.routes_maintenance_tab.update_scheduled_trains(chosen_time)
 
     def update_multiplier(self):
         multipliers = [1, 2, 4, 8, 10, 20, 25, 40, 50]

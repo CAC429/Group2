@@ -39,7 +39,10 @@ class speed_authority(QWidget):
         statistics = QGridLayout(container)
         statistics.setSpacing(40)
 
-        self.blocks = 150
+        if global_variables.line == 0:
+            self.blocks = 150
+        elif global_variables.line == 1:
+            self.blocks = 76
         cols = 10
         self.labels = [QLabel(f'Block {i+1}\nSpeed: {global_variables.static_speed[i]} km/hr\nAuthority: {global_variables.static_authority[i]} km') for i in range(self.blocks)]
         for i in self.labels:

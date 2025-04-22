@@ -32,7 +32,10 @@ class routes_maintenance(QWidget):
         ###
         self.dropdown = QComboBox()
         self.current_choice = QLabel('Selected: None')
-        self.dropdown.addItems([f'Block {i+1}' for i in range(150)])
+        if global_variables.line == 0:
+            self.dropdown.addItems([f'Block {i+1}' for i in range(150)])
+        elif global_variables.line == 1:
+            self.dropdown.addItems([f'Block {i+1}' for i in range(76)])
         #connect to function (passes a reference since there are NO parentheses;
         #otherwise immediate execution would occur)
         self.dropdown.currentIndexChanged.connect(self.update_block)
@@ -67,8 +70,8 @@ class routes_maintenance(QWidget):
         #create table for trains
         self.table = QTableWidget()
         self.table.setRowCount(0)
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(['Train #', 'Start Time', 'Est. End Time', 'Status'])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(['Train #', 'Start Time', 'Status'])
 
         layout.addWidget(self.table)
 
@@ -97,15 +100,15 @@ class routes_maintenance(QWidget):
     def update_block(self):
         self.current_choice.setText(f'Selected: {self.dropdown.currentText()}')
 
-    def update_scheduled_trains(self, stops, time):
+    def update_scheduled_trains(self, time):
         #print(stops, time)
         new_train_number = self.table.rowCount()+1
         self.table.insertRow(0)
         self.table.setVerticalHeaderLabels(['' for i in range (new_train_number)])
-        data = [str(new_train_number), str(time), str("N/A"), 'WAITING']
+        data = [str(new_train_number), str(time), 'WAITING']
         #train number, time to send, 0 to flag it has not been sent
-        self.train_list.append([str(time), 0])
-        for col in range(4):
+        self.train_list.insert(0, [str(time), 0])
+        for col in range(3):
             self.table.setItem(0, col, QTableWidgetItem(data[col]))
     
     def switch_default_position(self):
@@ -121,17 +124,11 @@ class routes_maintenance(QWidget):
     def train_check(self):
         #testing
         for i, train in enumerate(self.train_list):
-
-            print(str(train[0][:8]))
-            print(str(global_variables.current_time)[11:19])
-            print(str(train[0][:8]) == str(str(global_variables.current_time)[11:19]))
-            print(train[1] == 0)
-
             #make sure times match up and train has never been sent
             if str(train[0][:8]) == str(str(global_variables.current_time)[11:19]) and train[1] == 0:
                 #flag that the train has been sent
                 train[1] = 1
                 send_train(1)
-                self.table.setItem(i, 3, QTableWidgetItem('SENT'))
+                self.table.setItem(i, 2, QTableWidgetItem('SENT'))
             else:
                 send_train(0)

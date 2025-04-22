@@ -2,13 +2,23 @@ import global_variables
 import json
 
 def get_block_occupancies():
-    
-    try:
-        with open('PLC_OUTPUTS.json', 'r') as file:
-            data = json.load(file)
-    except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Failed to read PLC_OUTPUTS JSON: {e}")
-        return
+
+    #green line
+    if global_variables.line == 0:
+        try:
+            with open('PLC_OUTPUTS.json', 'r') as file:
+                data = json.load(file)
+        except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"Failed to read PLC_OUTPUTS JSON: {e}")
+            return
+    #red line
+    elif global_variables.line == 1:
+        try:
+            with open('PLC_OUTPUTS2.json', 'r') as file:
+                data = json.load(file)
+        except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"Failed to read PLC_OUTPUTS2 JSON: {e}")
+            return
 
     occupancies = data["Occupancy"]
 
