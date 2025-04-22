@@ -1,15 +1,18 @@
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QGridLayout, QPushButton, 
                             QMessageBox, QVBoxLayout, QLabel, QHBoxLayout, 
-                            QLineEdit, QComboBox)
+                            QLineEdit, QComboBox, QTabWidget)
 from PyQt5.QtCore import QTimer
 from greenlineoccup import GreenLineOccupancy, load_csv, write_to_file, append_new_train_data, update_train_data, pass_count, BEACON_BLOCKS
+from redlineoccup import RedLineOccupancy, load_csv, write_to_file, append_new_train_data, update_train_data, pass_count, BEACON_BLOCKS
 import global_variables
 from switch_window import SwitchWindow
+from switch_window2 import SwitchWindow2  # New Red Line switch window
 from beacons import beacons
 import sys
 import json
+
 global_tickets = []
- # Format: {block_num: failure_type}
+# Format: {block_num: failure_type}
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -20,23 +23,57 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
         
-        # Create your two "windows" as widgets
-        self.grid_window = GridWindow()  # Your existing GridWindow class
-        self.switch_window = SwitchWindow()  # Your existing SwitchWindow class
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # Create tabs
+        self.green_tab = QWidget()
+        self.red_tab = QWidget()
+        
+        # Add tabs to tab widget
+        self.tab_widget.addTab(self.green_tab, "Green Line")
+        self.tab_widget.addTab(self.red_tab, "Red Line")
+        
+        # Create content for each tab
+        self.setup_green_tab()
+        self.setup_red_tab()
+        
+        # Add tab widget to main layout
+        layout.addWidget(self.tab_widget)
+        
+        self.setWindowTitle("Track Layout and Peripherals")
+        self.setGeometry(100, 100, 800, 600)
+    
+    def setup_green_tab(self):
+        """Setup the Green Line tab with grid and switch window"""
+        layout = QVBoxLayout(self.green_tab)
+        
+        # Create Green Line widgets
+        self.grid_window = GridWindow("data2.csv", "data1.csv", 0)  # Green Line operational and info files
+        self.switch_window = SwitchWindow()  # Green Line switch window
         
         # Add them to the layout
         layout.addWidget(self.grid_window)
         layout.addWidget(self.switch_window)
+    
+    def setup_red_tab(self):
+        """Setup the Red Line tab with grid and switch window"""
+        layout = QVBoxLayout(self.red_tab)
         
-        self.setWindowTitle("Track Layout and Peripherals")
-        self.setGeometry(100, 100,500, 500)
+        # Create Red Line widgets
+        self.red_grid_window = GridWindow("data4.csv", "data3.csv", 1)  # Red Line operational and info files
+        self.red_switch_window = SwitchWindow2()  # Red Line switch window
+        
+        # Add them to the layout
+        layout.addWidget(self.red_grid_window)
+        layout.addWidget(self.red_switch_window)
 
 class ClickableBox(QPushButton):
     def __init__(self, index, grid_data, block_info_data):
         super().__init__()
         self.index = index
-        self.grid_data = grid_data  # From data2.csv (operational data)
-        self.block_info = block_info_data  # From block_info.csv (display info)
+        self.grid_data = grid_data  # From operational data CSV
+        self.block_info = block_info_data  # From display info CSV
         self.state = 0  # 0 for vacant, 1 for occupied
         self.occupying_train = None
         self.failure_type = None
@@ -94,16 +131,26 @@ class ClickableBox(QPushButton):
         self.update_color()
 
 class GridWindow(QWidget):
-    def __init__(self):
+    def __init__(self, operational_file, info_file, line_number):
         super().__init__()
-        self.setWindowTitle("Green Line Blocks")
-        self.green_lines = []
+        self.operational_file = operational_file
+        self.info_file = info_file
+        self.line_number = line_number  # 0 for Green, 1 for Red
+        self.setWindowTitle("Track Blocks")
+        self.class_lines = []
         self.train_positions = []
         self.train_creations = 0
         self.ticket_array = []
         self.manual_failures = {}  # Track manual failures {block_num: failure_type}
         
-        
+        # Set the appropriate line class based on line number
+        if self.line_number == 0:  # Green Line
+            self.line_class = GreenLineOccupancy
+            #self.beacon_blocks = GREEN_BEACON_BLOCKS  # You'll need to define these
+        else:  # Red Line
+            self.line_class = RedLineOccupancy
+            #self.beacon_blocks = RED_BEACON_BLOCKS  # You'll need to define these
+            
         self.init_ui()
         
         self.timer = QTimer(self)
@@ -119,8 +166,8 @@ class GridWindow(QWidget):
         self.boxes = {}
         
         # Load both CSV files
-        grid_data = load_csv("data2.csv")  # Operational data
-        block_info_data = load_csv("data1.csv")  # Informational data
+        grid_data = load_csv(self.operational_file)  # Operational data
+        block_info_data = load_csv(self.info_file)  # Informational data
         
         # Create mapping of block numbers to their info with validation
         block_info_map = {}
@@ -163,11 +210,6 @@ class GridWindow(QWidget):
         # Create control panel
         control_panel = QWidget()
         control_layout = QHBoxLayout(control_panel)
-        
-        # Switch Positions button
-        #switch_btn = QPushButton("Show Switch Positions")
-        #switch_btn.clicked.connect(self.show_switch_window)
-        #control_layout.addWidget(switch_btn)
         
         # Block number input
         self.block_input = QLineEdit()
@@ -228,18 +270,18 @@ class GridWindow(QWidget):
     def create_next_train(self):
         """Create a new train instance and initialize its data"""
         try:
-            print(f"Creating train {len(self.green_lines) + 1}...")
-            grid_data = load_csv("data2.csv")
-            new_green_line = GreenLineOccupancy(grid_data)
+            print(f"Creating train {len(self.class_lines) + 1}...")
+            grid_data = load_csv(self.operational_file)
+            new_class_line = self.line_class(grid_data)
             
             # Initialize train data structures
-            new_green_line.ticket_array = []
-            new_green_line.passengers_count = 0
-            new_green_line.new_passengers = 0
+            new_class_line.ticket_array = []
+            new_class_line.passengers_count = 0
+            new_class_line.new_passengers = 0
             
-            self.green_lines.append(new_green_line)
+            self.class_lines.append(new_class_line)
             self.train_positions.append(0)
-            print(f"New train created. Total trains: {len(self.green_lines)}")
+            print(f"New train created. Total trains: {len(self.class_lines)}")
             
         except Exception as e:
             print(f"Error creating train: {e}")
@@ -298,22 +340,26 @@ class GridWindow(QWidget):
     def update_blocks(self):
         """Main update loop handling train movements, failures, and data recording"""
         try:
+            # Only proceed if this grid matches the active line
+            if global_variables.line != self.line_number:
+                return
+                
             # Read train creation status first
             self.train_creations, baud_rates = self.read_train_creation_status()
             
-            previous_train_count = len(self.green_lines)
+            previous_train_count = len(self.class_lines)
             # Create new train if needed
             if (self.train_creations == 1 and 
-                (not self.green_lines or self.boxes.get(63).state == 0)):
+                (not self.class_lines or self.boxes.get(63).state == 0)):
                 self.create_next_train()
 
-            if not self.green_lines:
+            if not self.class_lines:
                 return
 
             global_occupancy = {}
             train_statuses = []
 
-            for train_number, green_line in enumerate(self.green_lines, start=1):
+            for train_number, class_line in enumerate(self.class_lines, start=1):
                 try:
                     if train_number > len(self.train_positions):
                         print(f"Skipping train {train_number} - no position data")
@@ -327,7 +373,7 @@ class GridWindow(QWidget):
 
                     # Update position and get occupied blocks
                     self.train_positions[train_number - 1] = delta_position
-                    occupied_blocks = green_line.find_blocks(delta_position)
+                    occupied_blocks = class_line.find_blocks(delta_position)
                     global_occupancy.update({block: train_number for block in occupied_blocks})
                     train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
@@ -398,15 +444,15 @@ class GridWindow(QWidget):
 
                     # Handle station arrivals
                     if station_status == 1:
-                        if not hasattr(green_line, 'station_cooldown'):
-                            green_line.station_cooldown = False
+                        if not hasattr(class_line, 'station_cooldown'):
+                            class_line.station_cooldown = False
                         
-                        if not green_line.station_cooldown:
+                        if not class_line.station_cooldown:
                             print(f"Train {train_number} at station - processing passengers")
                             passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
-                            green_line.passengers_count = passengers
-                            green_line.new_passengers = new_passengers
-                            green_line.station_cooldown = True  # Set cooldown
+                            class_line.passengers_count = passengers
+                            class_line.new_passengers = new_passengers
+                            class_line.station_cooldown = True  # Set cooldown
                             
                             current_time = str(global_variables.current_time)[11:16]
                             global_tickets.append([new_passengers, current_time])
@@ -415,24 +461,24 @@ class GridWindow(QWidget):
                                 train_number,
                                 occupied_blocks,
                                 global_tickets,
-                                green_line.new_passengers,
-                                green_line.passengers,
+                                class_line.new_passengers,
+                                class_line.passengers,
                                 delta_position,
                                 speed_auth,
                                 beacon_info
                             )
                         
                     # Reset cooldown when leaving station
-                    if station_status == 0 and hasattr(green_line, 'station_cooldown'):
-                        green_line.station_cooldown = False
+                    if station_status == 0 and hasattr(class_line, 'station_cooldown'):
+                        class_line.station_cooldown = False
 
                     # Update train data (whether at station or not)
                     update_train_data(
                         train_number,
                         occupied_blocks,
                         global_tickets,
-                        green_line.new_passengers,
-                        green_line.passengers_count,
+                        class_line.new_passengers,
+                        class_line.passengers_count,
                         delta_position,
                         speed_auth,
                         beacon_info
