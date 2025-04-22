@@ -117,6 +117,7 @@ class Train_Model:
         
         # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.json"
+        self.tc_outputs_file = f"TC{Train_Number}_outputs.json"  # Train-specific TC outputs file
         
         # Initialize parameters
         self.Power = Power
@@ -165,12 +166,18 @@ class Train_Model:
         
         return arriving_station, next_station
 
-    def read_tc_outputs(self, file_path='TC_outputs.json'):
+    def read_tc_outputs(self):
+        """Read train-specific TC outputs file"""
+        file_path = self.tc_outputs_file
         try: 
             #print(f"Reading TC outputs from {file_path}...")  # Debug print
+            if not os.path.exists(file_path):
+                # If the specific TC file doesn't exist, use default values
+                return False
+                
             with open(file_path, 'r') as file:
                 data = json.load(file)
-                print("TC outputs data:", data)  # Debug print
+                #print("TC outputs data:", data)  # Debug print
                 
             # Get the new emergency brake value from TC_outputs
             new_emergency_brake = int(float(data.get('Emergency Brake', 0)))
@@ -230,7 +237,7 @@ class Train_Model:
             #print(f"Reading track model from {file_path}...")  # Debug print
             with open(file_path, 'r') as file:
                 data = json.load(file)
-                print("Track model data:", data)  # Debug print
+                #print("Track model data:", data)  # Debug print
                 
             # Find data for this specific train
             train_data = None
