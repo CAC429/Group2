@@ -197,7 +197,7 @@ class Train_Model:
                     self.activate_service_brake()
                 elif not self.Train_F.Engine_Fail:
                     self.update_acceleration_display()
-            
+            #
             # Only update service brake if no brake failure and emergency brake isn't active
             if not self.Train_F.Brake_Fail and not self.emergency_brake_active:
                 self.service_brake = int(float(data.get('Service Brake', 0)))
