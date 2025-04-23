@@ -8,6 +8,7 @@ import time
 import json
 from tkinter import messagebox
 import os
+from PIL import Image, ImageTk
 
 class MainTrainModel:
     def __init__(self):
@@ -336,12 +337,59 @@ class Train_Model:
         # Create a new frame for the advertisement
         self.Ad_Frame = tk.LabelFrame(self.root, text="Advertisement", padx=10, pady=10)
         self.Ad_Frame.grid(row=3, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
-       
-        # Add advertisement text
-        ad_text = "Ride in comfort with MetroRail! Enjoy our premium seating and climate-controlled cabins."
-        tk.Label(self.Ad_Frame, text=ad_text, wraplength=500, justify=tk.LEFT).pack(anchor="w")
-       
-        tk.Label(self.Ad_Frame, text="Sponsored Content", font=('Arial', 7), fg='gray').pack(anchor="e")
+        
+        # Store ad paths and current ad index
+        self.ad_paths = [
+            r"C:\Users\there\Downloads\adfrtain3.jpg",
+            r"C:\Users\there\Downloads\adfrtrain2.jpg"
+        ]
+        self.current_ad = 0
+        
+        # Create label for ads (empty initially)
+        self.ad_label = tk.Label(self.Ad_Frame)
+        self.ad_label.pack()
+        
+        # Sponsored content label
+        self.sponsored_label = tk.Label(self.Ad_Frame, text="Sponsored Content", 
+                                    font=('Arial', 7), fg='gray')
+        self.sponsored_label.pack(anchor="e")
+        
+        # Start the ad rotation
+        self.rotate_ads()
+
+    def rotate_ads(self):
+        try:
+            # Load current ad
+            img = Image.open(self.ad_paths[self.current_ad])
+            
+            # Resize (same as before)
+            max_width = 400
+            max_height = 200
+            width_ratio = max_width / float(img.size[0])
+            height_ratio = max_height / float(img.size[1])
+            ratio = min(width_ratio, height_ratio)
+            new_size = (int(float(img.size[0]) * ratio), int(float(img.size[1]) * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+            
+            # Update the label
+            ad_image = ImageTk.PhotoImage(img)
+            self.ad_label.config(image=ad_image)
+            self.ad_label.image = ad_image  # Keep reference
+            
+            # Switch to next ad for next rotation
+            self.current_ad = (self.current_ad + 1) % len(self.ad_paths)
+            
+        except Exception as e:
+            print(f"Error loading ad image: {e}")
+            # Fallback to text if images fail
+            self.ad_label.config(
+                text="Ride in comfort with MetroRail! Enjoy our premium seating and climate-controlled cabins.",
+                wraplength=400,
+                justify=tk.LEFT
+            )
+        
+        # Schedule next rotation in 10 seconds
+        self.root.after(10000, self.rotate_ads)
 
     def create_frames(self):
         self.Calc_Frame = tk.LabelFrame(self.root, text="Train Calculations", padx=10, pady=10)
@@ -407,7 +455,7 @@ class Train_Model:
         self.Reference_Status_Label = tk.Label(self.Ref_Frame, text=f"Beacon: {self.Beacon}")
         self.Reference_Status_Label.grid(row=0, column=0, columnspan=2, sticky="w")
         
-        self.Speed_Authority_Label = tk.Label(self.Ref_Frame, text="Suggested Speed/Authority: N/A")
+        self.Speed_Authority_Label = tk.Label(self.Ref_Frame, text="Bauds: N/A")
         self.Speed_Authority_Label.grid(row=1, column=0, columnspan=2, sticky="w")
         
     def create_station_info_display(self):
