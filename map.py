@@ -296,6 +296,22 @@ class GridWindow(QWidget):
         except Exception as e:
             print(f"Error creating train: {e}")
 
+    def init_train_instance_file(self):
+        """Initialize the train_instance.json file if it doesn't exist"""
+        try:
+            with open("train_instance.json", "w") as file:
+                json.dump({"train_instance": 0}, file)
+        except Exception as e:
+            print(f"Error initializing train_instance.json: {e}")
+
+    def update_train_instance_file(self, instance_status):
+        """Update the train_instance.json file with new status"""
+        try:
+            with open("train_instance.json", "w") as file:
+                json.dump({"train_instance": instance_status}, file)
+        except Exception as e:
+            print(f"Error updating train_instance.json: {e}")
+
     def read_train_creation_status(self):
         """Read train instance and baud rates from PLC JSON file"""
         baud_dict = {
@@ -310,6 +326,12 @@ class GridWindow(QWidget):
             with open("PLC_OUTPUTS_Baud_Train_Instance.json", "r") as file:
                 data = json.load(file)
                 train_instance = data.get("Train_Instance", 0)
+                
+                # Update the train_instance.json file if needed
+                if train_instance == 1:
+                    self.update_train_instance_file(1)
+                else:
+                    self.update_train_instance_file(0)
                 
                 # Extract baud values from Train_Bauds dictionary
                 train_bauds = data.get("Train_Bauds", {})
