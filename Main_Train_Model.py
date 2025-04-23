@@ -101,7 +101,7 @@ class MainTrainModel:
 class Train_Model:
     NORMAL_ACCELERATION = 0.5 * 2.23694  # Convert 0.5 m/s² to mph/s
     
-    def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=70, 
+    def __init__(self, root, Train_Number=0, Power=0, Passenger_Number=0, Cabin_Temp=70, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
                  emergency_brake=0, service_brake=0, elevation=0.0):
@@ -119,8 +119,9 @@ class Train_Model:
         self.Suggested_Authority = 0
         
         # Initialize logging file
-        self.log_file = f"train{Train_Number}_outputs.json"
-        self.tc_outputs_file = f"TC{Train_Number}_outputs.json"  # Train-specific TC outputs file
+        if Train_Number != 0:
+            self.log_file = f"train{Train_Number}_outputs.json"
+            self.tc_outputs_file = f"TC{Train_Number}_outputs.json"  # Train-specific TC outputs file
         
         # Initialize parameters
         self.Power = Power
