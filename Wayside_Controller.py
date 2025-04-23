@@ -5,8 +5,6 @@ import PLC_Program_N_Q  # Import the script
 import PLC_Program_R_Z  # Import the script
 import tkinter as tk
 from tkinter import ttk
-import threading
-import time
 import os
 import shutil
 import importlib
@@ -135,6 +133,7 @@ class DataGridUI:
 
     #Update the UI
     def Update_UI(Self):
+        #All Baud Functionality
         try:
         # Read PLC_OUTPUTS.json
             with open("PLC_OUTPUTS.json", "r") as file:

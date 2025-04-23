@@ -1,10 +1,9 @@
 import importlib
 import PLC_Program2_A_E  # Import the script
 import PLC_Program2_F_J  # Import the script
+import PLC_Program_J_N  # Import the script
 import tkinter as tk
 from tkinter import ttk
-import threading
-import time
 import os
 import shutil
 import importlib
@@ -19,6 +18,7 @@ Light_Control_Out = [0] * 14
 Suggested_Speed_Out = [0] * 76
 Suggested_Authority_Out = [0] * 76
 Track_Failure_Out = [0] * 76
+Train_Bauds = ["1000000000"]*8
 
 #This is the UI setup, has data driven arguments as well
 class DataGridUI:
@@ -111,6 +111,314 @@ class DataGridUI:
 
     #Update the UI
     def Update_UI(Self):
+        # All Baud Functionallity
+        try:
+        # Read PLC_OUTPUTS.json
+            with open("PLC_OUTPUTS2.json", "r") as file:
+                outputs = json.load(file)
+                Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
+                Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
+                Occupancy_Out = outputs.get("Occupancy", [])
+                Track_Failure_Out = outputs.get("Track_Failure", [])
+                Light_Control_Out = outputs.get("Light_Control", [])
+                Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
+                Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
+
+            #0
+            for i in list(range(1, 9)) + list(range(15, 27)):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[0][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[0] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[0] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[0][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[0] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[0] = "1" + "111111111"
+                            else:
+                                Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[0] = "1" + "111111111"
+                            else:
+                                Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[0] = "1" + "111111111"
+                            else:
+                                Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+            #71 and 75
+            for i in range(72, 75):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[1][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[1] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[1] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[1][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[1] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[1] = "1" + "111111111"
+                            else:
+                                Train_Bauds[1] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[1] = "1" + "111111111"
+                            else:
+                                Train_Bauds[1] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[1] = "1" + "111111111"
+                            else:
+                                Train_Bauds[1] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+
+            for i in range(27, 33):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[2][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[2] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[2] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[2][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[2] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[2] = "1" + "111111111"
+                            else:
+                                Train_Bauds[2] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[2] = "1" + "111111111"
+                            else:
+                                Train_Bauds[2] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[2] = "1" + "111111111"
+                            else:
+                                Train_Bauds[2] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+
+            for i in range(33, 38):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[3][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[3] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[3] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[3][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[3] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[3] = "1" + "111111111"
+                            else:
+                                Train_Bauds[3] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[3] = "1" + "111111111"
+                            else:
+                                Train_Bauds[3] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[3] = "1" + "111111111"
+                            else:
+                                Train_Bauds[3] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+            #66 and 70
+            for i in range(67, 70):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[4][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[4] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[4] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[4][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[4] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[4] = "1" + "111111111"
+                            else:
+                                Train_Bauds[4] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[4] = "1" + "111111111"
+                            else:
+                                Train_Bauds[4] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[4] = "1" + "111111111"
+                            else:
+                                Train_Bauds[4] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+
+            for i in range(38, 44):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[5][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[5] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[5] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[5][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[5] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[5] = "1" + "111111111"
+                            else:
+                                Train_Bauds[5] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[5] = "1" + "111111111"
+                            else:
+                                Train_Bauds[5] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[5] = "1" + "111111111"
+                            else:
+                                Train_Bauds[5] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+
+            for i in range(44, 52):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[6][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[6] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[6] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[6][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i+1] == 0 or Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == "0" or Suggested_Authority_Out[i+1] == "0" or Suggested_Authority_Out[i] == "0":
+                            Train_Bauds[6] = "1" + "0"
+                        elif Suggested_Authority_Out[i-1] < Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[6] = "1" + "111111111"
+                            else:
+                                Train_Bauds[6] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        elif Suggested_Authority_Out[i-1] > Suggested_Authority_Out[i+1]:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i+1] > 511:
+                                Train_Bauds[6] = "1" + "111111111"
+                            else:
+                                Train_Bauds[6] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i+1]))[2:])
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[6] = "1" + "111111111"
+                            else:
+                                Train_Bauds[6] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+
+            #65
+            for i in range(52, 65):
+                if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
+                    (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0)):
+                    if Train_Bauds[7][0] == "1":
+                        if Suggested_Speed_Out[i] == "1111" or Suggested_Speed_Out[i] == "1010" or Suggested_Speed_Out[i] == "0":
+                            Train_Bauds[7] = "0" + str(Suggested_Speed_Out[i])
+                        else:
+                            Train_Bauds[7] = "0" + str(bin(int(Suggested_Speed_Out[i]))[2:])
+                        break
+                    elif Train_Bauds[7][0] == "0":  # Should only execute if the first if does not
+                        if Suggested_Authority_Out[i] == 0 or Suggested_Authority_Out[i-1] == 0 or Suggested_Authority_Out[i] == "0" or Suggested_Authority_Out[i-1] == "0":
+                            Train_Bauds[7] = "1" + "0"
+                        else:
+                            if Suggested_Authority_Out[i] + Suggested_Authority_Out[i-1] > 511:
+                                Train_Bauds[7] = "1" + "111111111"
+                            else:
+                                Train_Bauds[7] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
+                        break
+
+        except FileNotFoundError:
+            print("Error: File not found! Please check the file path.")
+        except Exception as e:
+            print(f"Unexpected Error: {e}")
+
+        # Read PLC_INPUTS.json
+        try:
+            with open("PLC_INPUTS2.json", "r") as file:
+                inputs = json.load(file)
+                Suggested_Speed_In = inputs.get("Suggested_Speed", [])
+                Suggested_Authority_In = inputs.get("Suggested_Authority", [])
+                Occupancy_In = inputs.get("Occupancy", [])
+                Default_Switch_In = inputs.get("Default_Switch_Position", [])
+                Train_Instance = inputs.get("Train_Instance")
+        except FileNotFoundError:
+            print("Error: PLC_INPUTS.json not found! Please check the file path.")
+        except Exception as e:
+            print(f"Unexpected error in input file: {e}")
+        
+        try:
+            # Load existing JSON
+            with open("PLC_OUTPUTS_Baud_Train_Instance2.json", "r") as file:
+                data = json.load(file)
+
+            # Update Train_Instance
+            data["Train_Instance"] = Train_Instance
+
+            # Update Train_Bauds assuming list of lists: [Baud1-Baud8]
+            data["Train_Bauds"] = {
+                "1-27-Baud1=": Train_Bauds[0],
+                "72-76-Baud2=": Train_Bauds[1],
+                "28-33-Baud3=": Train_Bauds[2],
+                "34-38-Baud4=": Train_Bauds[3],
+                "67-71-Baud5=": Train_Bauds[4],
+                "39-44-Baud6=": Train_Bauds[5],
+                "45-52-Baud7=": Train_Bauds[6],
+                "53-66-Baud8=": Train_Bauds[7]
+            }
+
+            # Write back to JSON
+            with open("PLC_OUTPUTS_Baud_Train_Instance2.json", "w") as file:
+                json.dump(data, file, indent=2)
+
+        except FileNotFoundError:
+            print("Error: JSON file not found! Please check the file path.")
+        except Exception as e:
+            print(f"Unexpected Error: {e}")
+
+        # Define file paths
+        original_file = "PLC_OUTPUTS2.json"
+        backup_file = "PLC_OUTPUTS_backup2.json"
+
+        # Step 1: Backup the file (only if it exists and is not empty)
+        if os.path.exists(original_file) and os.path.getsize(original_file) > 0:
+            shutil.copy(original_file, backup_file)  # Make a backup
+
+        # Step 2: Check if original file is empty or missing
+        if not os.path.exists(original_file) or os.path.getsize(original_file) == 0:
+            print("Original file is missing or empty. Restoring from backup...")
+            if os.path.exists(backup_file):  # Ensure backup exists
+                shutil.copy(backup_file, original_file)  # Restore from backup
+            else:
+                print("Backup file does not exist! Cannot restore data.")
+
         Self.Tree.delete(*Self.Tree.get_children())
         # Define text colors for specific blocks
         Self.Tree.tag_configure("Green", foreground="green")  # Default green text
@@ -210,6 +518,7 @@ class DataGridUI:
 
         importlib.reload(PLC_Program2_A_E)
         importlib.reload(PLC_Program2_F_J)
+        importlib.reload(PLC_Program_J_N)
         # Open and read the Output file
         # Read the file and store its content
         try:

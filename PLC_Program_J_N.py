@@ -42,19 +42,19 @@ Temp_Occupancy = Occupancy_Out
 #Switch Control and Light Control
 
 if Occupancy_In[63] == 1 and Occupancy_In[64] == 1:
-    Actual_Switch_Position[7] = 1
+    Actual_Switch_Position[6] = 1
     Light_Control[12] = 0
     Light_Control[13] = 1
-elif Actual_Switch_Position[7] == 1 and Occupancy_In[64] == 1:
-    Actual_Switch_Position[7] = 1
+elif Actual_Switch_Position[6] == 1 and Occupancy_In[64] == 1:
+    Actual_Switch_Position[6] = 1
     Light_Control[12] = 0
     Light_Control[13] = 1
-elif Actual_Switch_Position[7] == 1 and Occupancy_In[65] == 1:
-    Actual_Switch_Position[7] = 1
+elif Actual_Switch_Position[6] == 1 and Occupancy_In[65] == 1:
+    Actual_Switch_Position[6] = 1
     Light_Control[12] = 0
     Light_Control[13] = 1
 else:
-    Actual_Switch_Position[7] = 0
+    Actual_Switch_Position[6] = 0
     Light_Control[12] = 1
     Light_Control[13] = 0
 
@@ -108,17 +108,6 @@ for i in range(48, 66):
         Suggested_Authority[70] = "0"
         Suggested_Speed[70] = "0"
 
-for i in range(0,16):
-    if Occupancy_In[i] == 1:
-        Suggested_Authority[27] = "0"
-        Suggested_Speed[27] = "0"
-        Suggested_Authority[28] = "0"
-        Suggested_Speed[28] = "0"
-        Suggested_Authority[29] = "0"
-        Suggested_Speed[29] = "0"
-        Suggested_Speed[30] = "1010"
-        Suggested_Speed[31] = "1111"
-
 # Read PLC_OUTPUTS.jsons
 try:
     with open("PLC_OUTPUTS2.json", "r") as file:
@@ -128,19 +117,16 @@ try:
         Track_Failure_Out = outputs.get("Track_Failure", [])
         Light_Control_Out = outputs.get("Light_Control", [])
         Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
-        Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
     for i in range(76):
-        if i > 3 and i < 14:
+        if i < 12:
             Light_Control[i] = Light_Control_Out[i]
-        if i > 2 and i < 7:
+        if i < 6:
             Actual_Switch_Position[i] = Actual_Switch_Position_Out[i]
-        if i == 1:
-            Cross_Bar_Control[i] = Cross_Bar_Control_Out[i]
-        if i > 16  and i != 27 and i != 28 and i != 29 and i != 30 and i != 31:
+        if i < 48 or i > 70:
             Suggested_Speed[i] = Suggested_Speed_Out[i]
             Suggested_Authority[i] = Suggested_Authority_Out[i]
             Track_Failure[i] = Track_Failure_Out[i]
-        if i <= 16 or (i >= 27 and i <= 31):
+        if i >= 48 and i <= 70:
             if Suggested_Speed[i] != 100:
                 Suggested_Speed_Out[i] = Suggested_Speed[i]
             if Suggested_Authority[i] != 100:
@@ -151,7 +137,7 @@ try:
     outputs["Track_Failure"] = Track_Failure
     outputs["Light_Control"] = Light_Control
     outputs["Actual_Switch_Position"] = Actual_Switch_Position
-    outputs["Cross_Bar_Control"] = Cross_Bar_Control_Out
+    outputs["Occupancy"] = Occupancy_In
 except FileNotFoundError:
     print("Error: File not found! Please check the file path.")
 except Exception as e:

@@ -254,7 +254,6 @@ try:
     outputs["Light_Control"] = Light_Control
     outputs["Actual_Switch_Position"] = Actual_Switch_Position
     outputs["Cross_Bar_Control"] = Cross_Bar_Control_Out
-    outputs["Occupancy"] = Occupancy_In
 except FileNotFoundError:
     print("Error: File not found! Please check the file path.")
 except Exception as e:
