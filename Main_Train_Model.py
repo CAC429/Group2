@@ -235,11 +235,9 @@ class Train_Model:
 
     def read_track_model_outputs(self, file_path='occupancy_data.json'):
         try: 
-            #print(f"Reading track model from {file_path}...")  # Debug print
             with open(file_path, 'r') as file:
                 data = json.load(file)
-                #print("Track model data:", data)  # Debug print
-                
+                    
             # Find data for this specific train
             train_data = None
             if isinstance(data, list):
@@ -249,18 +247,20 @@ class Train_Model:
                         break
             elif data.get('Train_Number') == self.Train_Number:
                 train_data = data
-                
+                    
             if train_data:
                 self.Passenger_Number = float(train_data.get('Total_Passenger_Count', 0))
-                # Only update beacon if no signal pickup failure
+                # Update beacon if no signal pickup failure
                 if not self.Train_F.Signal_Pickup_Fail:
                     beacon_info = train_data.get('Beacon_Info', "No beacon info")
                     if beacon_info != "No beacon info":
                         self.Beacon = beacon_info
+                    # Update suggested speed/authority from track model
+                    self.Suggested_Speed_Authority = train_data.get('speed_authority', "0")
                 self.last_update_time = time.time()
                 return True
             return False
-            
+                
         except Exception as e:
             print(f"Error reading track model outputs: {e}")
             return False
@@ -402,8 +402,12 @@ class Train_Model:
         self.Door_Status_Label = tk.Label(self.Comp_Frame, text="Right Door: N/A, Left Door: N/A")
         self.Door_Status_Label.grid(row=2, column=0, columnspan=2, sticky="w")
 
+        # Updated Reference Objects display
         self.Reference_Status_Label = tk.Label(self.Ref_Frame, text=f"Beacon: {self.Beacon}")
         self.Reference_Status_Label.grid(row=0, column=0, columnspan=2, sticky="w")
+        
+        self.Speed_Authority_Label = tk.Label(self.Ref_Frame, text="Suggested Speed/Authority: N/A")
+        self.Speed_Authority_Label.grid(row=1, column=0, columnspan=2, sticky="w")
         
     def create_station_info_display(self):
         """Create a dedicated section for station information"""
@@ -589,7 +593,7 @@ class Train_Model:
             self.Lights_Status_Label.config(text=f"Exterior Lights: {ext_lights}, Interior Lights: {int_lights}")
             
             self.Reference_Status_Label.config(text=f"Beacon: {self.Beacon}")
-            
+            self.Speed_Authority_Label.config(text=f"Suggested Speed/Authority: {self.Suggested_Speed_Authority}")
             # Write outputs at the end of each update cycle
             self.write_outputs_to_file()
             
