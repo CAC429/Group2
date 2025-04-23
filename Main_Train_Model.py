@@ -76,7 +76,8 @@ class MainTrainModel:
                         Train_Number=train_number,
                         Passenger_Number=passenger_count,
                         Suggested_Speed_Authority=train_data.get('speed_authority', "0"),
-                        Beacon=beacon_info
+                        Beacon=beacon_info,
+                        elevation=train_data.get('elevation', 0.0)
                     )
                     self.train_models.append(train_model)
                     
@@ -102,7 +103,7 @@ class Train_Model:
     def __init__(self, root, Train_Number=1, Power=0, Passenger_Number=0, Cabin_Temp=70, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
-                 emergency_brake=0, service_brake=0):
+                 emergency_brake=0, service_brake=0, elevation=0.0):
         
         # Initialize all attributes
         self.emergency_brake_active = bool(emergency_brake)  # Track actual brake status
@@ -133,7 +134,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(1, 40900, 0.1, 0.1, 0)
+        self.Train_Ca = Train_Calc(1, 40900, 0.1, 0.1, elevation)
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)

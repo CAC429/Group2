@@ -10,7 +10,8 @@
             "new_passengers": 0,
             "total_passengers": 55,
             "ticket_sales_history": [],
-            "beacon_info": null
+            "beacon_info": null,
+            "elevation": 0.0
         }
     ]
 }
