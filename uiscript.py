@@ -2,7 +2,7 @@
 # Trains Group 2
 # Train Controller SW UI
 # Created: 2/19/2025
-# Last Updated: 4/22/2025
+# Last Updated: 4/23/2025
 
 import json
 import os
@@ -150,11 +150,25 @@ class TrainControllerUI(QWidget):
         self.constants = Constants()
         self.train_instances = {}  # Dictionary to store train instances
         self.current_train_id = None
+
+        self.cleanup_output_files()
         
         self.init_ui()
         self.scan_for_trains()
         self.init_timers()
         self.update_ui_from_state()
+
+    def cleanup_output_files(self):
+        try:
+            output_files = glob('TC*_outputs.json')
+            for file in output_files:
+                try:
+                    os.remove(file)
+                    print(f"Deleted existing output file: {file}")
+                except Exception as e:
+                    print(f"Error deleting file {file}: {e}")
+        except Exception as e:
+            print(f"Error cleaning up output files: {e}")
         
     def scan_for_trains(self):
         train_files = glob('train*_outputs.json')
