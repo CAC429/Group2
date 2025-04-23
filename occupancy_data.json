@@ -2,6 +2,23 @@
     "trains": [
         {
             "number": 1,
+            "position": 150.0,
+            "blocks": [
+                64
+            ],
+            "speed_authority": "11100100",
+            "new_passengers": 0,
+            "total_passengers": 0,
+            "ticket_sales_history": [],
+            "beacon_info": {
+                "station_side": "right",
+                "arriving_station": "GLENBURY",
+                "new_station": "DORMONT",
+                "station_distance": 287.0
+            }
+        },
+        {
+            "number": 2,
             "position": 0.0,
             "blocks": [
                 63

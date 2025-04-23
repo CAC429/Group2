@@ -46,7 +46,7 @@ class MainWindow(QMainWindow):
     
     def setup_green_tab(self):
         """Setup the Green Line tab with grid and switch window"""
-        layout = QVBoxLayout(self.green_tab)
+        layout = QHBoxLayout(self.green_tab)
         
         # Create Green Line widgets
         self.grid_window = GridWindow("data2.csv", "data1.csv", 0)  # Green Line operational and info files
@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
     
     def setup_red_tab(self):
         """Setup the Red Line tab with grid and switch window"""
-        layout = QVBoxLayout(self.red_tab)
+        layout = QHBoxLayout(self.red_tab)
         
         # Create Red Line widgets
         self.red_grid_window = GridWindow("data4.csv", "data3.csv", 1)  # Red Line operational and info files
