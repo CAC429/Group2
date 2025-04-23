@@ -623,8 +623,8 @@ class TrainControllerUI(QWidget):
                     self.write_outputs(output_file, emergency_brake=0)
 
             train['state'].beacon = data.get('Beacon', '')
-            print(f"DEBUG - Beacon content: '{train['state'].beacon}'")  # <-- ADD THIS
-            print(f"DEBUG - Station distance in beacon: {'station_distance' in train['state'].beacon}")
+            #print(f"DEBUG - Beacon content: '{train['state'].beacon}'")  # <-- ADD THIS
+            #print(f"DEBUG - Station distance in beacon: {'station_distance' in train['state'].beacon}")
 
             return True
         except Exception as e:
@@ -881,8 +881,8 @@ class TrainControllerUI(QWidget):
                         station_dist_str = beacon.split("station_distance: ")[1].split(",")[0].strip()
                         station_distance = float(station_dist_str)
                         delta_position = state.delta_position
-                        print(f"DEBUG - Delta: {delta_position}, Station Dist: {station_distance}")  # <-- ADD THIS
-                        print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")  # <-- ADD THIS
+                        #print(f"DEBUG - Delta: {delta_position}, Station Dist: {station_distance}")  # <-- ADD THIS
+                        #print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")  # <-- ADD THIS
                         
                         # Enhanced check for station stop condition
                         if (abs(delta_position - station_distance) <= 3  # Difference within 3 meters
@@ -901,8 +901,6 @@ class TrainControllerUI(QWidget):
             
         state = train['state']
 
-        # Force brake activation regardless of manual state
-        # Force brake ON (override everything else)
         train['brake_controller'].activate_service_brake()
         train['brake_controller'].manual_brake = False  # Ensure auto control
         
@@ -933,8 +931,6 @@ class TrainControllerUI(QWidget):
             
         state = train['state']
         current_speed = state.current_speed_mph
-        
-        print(f"STOP SEQ CHECK - Current speed: {current_speed:.1f} mph")
         
         # Check if train has come to complete stop
         if current_speed <= 0.1:  # Consider stopped below 0.1 mph
