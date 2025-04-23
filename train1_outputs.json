@@ -1,0 +1,13 @@
+{
+    "Passengers": 55,
+    "Station_Status": 0,
+    "Actual_Speed": 20.0,
+    "Actual_Authority": 60.96,
+    "Delta_Position": 353.4461086088261,
+    "Emergency_Brake": 0,
+    "Brake_Fail": 0,
+    "Signal_Fail": 0,
+    "Engine_Fail": 0,
+    "Beacon": "None",
+    "Suggested_Speed_Authority": "111001111"
+}

@@ -28,7 +28,7 @@ class Train_Calc:
     def Actual_Authority_Calc(self, Power, Passenger_Number):
         new_speed = self.Actual_Speed_Calc(Power, Passenger_Number)
         speed_fps = new_speed * 1.46667  # mph to ft/s
-        return self.Actual_Authority - (speed_fps * self.Dt)
+        return self.Actual_Authority + (speed_fps * self.Dt)
 
     def Grade_Calc(self, Power, Passenger_Number):
         delta_pos = self.Delta_Position_Track_Model(Power, Passenger_Number)

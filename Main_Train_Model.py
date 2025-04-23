@@ -114,6 +114,7 @@ class Train_Model:
         self.cumulative_distance = 0  # Initialize to 0
         self.last_update_time = time.time()  # Track last update time
         self.last_beacon = None  # Track last beacon for change detection
+        self.Suggested_Authority = 0
         
         # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.json"
@@ -274,24 +275,20 @@ class Train_Model:
 
     def write_outputs_to_file(self):
         try:
-            #print(f"DEBUG: Writing outputs - Emergency brake active: {self.emergency_brake_active}")  # Debug line
-            # Convert delta position from feet to meters (1 foot = 0.3048 meters)
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
-            # Handle Suggested_Speed_Authority conversion
             if isinstance(self.Suggested_Speed_Authority, (list, tuple)):
                 suggested_speed_auth = ''.join(map(str, self.Suggested_Speed_Authority))
             else:
                 suggested_speed_auth = str(self.Suggested_Speed_Authority)
             
-            # Always use the actual emergency brake status
             output_data = {
                 "Passengers": int(self.Passenger_Number),
                 "Station_Status": self.station_status,
                 "Actual_Speed": self.Train_Ca.Actual_Speed,
-                "Actual_Authority": self.Train_Ca.Actual_Authority,
+                "Actual_Authority": self.Train_Ca.Actual_Authority * 0.3048,
                 "Delta_Position": delta_pos_meters,
-                "Emergency_Brake": 1 if self.emergency_brake_active else 0,
+                "Emergency_Brake": 1 if self.emergency_brake_active else 0,  # Direct status mapping
                 "Brake_Fail": int(self.Get_Brake_Fail_Status()),
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
                 "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
@@ -444,28 +441,43 @@ class Train_Model:
             height=2, 
             bg='red', 
             fg='white', 
-            command=self.activate_emergency_brake
+            command=self.toggle_emergency_brake
         )
         self.Emergency_Brake_Button.grid(row=4, column=0, columnspan=3, pady=10)
+
+    def toggle_emergency_brake(self):
+        """Directly toggle emergency brake status"""
+        if not self.emergency_brake_active:
+            # Activate emergency brake
+            self.emergency_brake_active = True
+            self.emergency_brake = 1
+            self.write_outputs_to_file()  # Immediate update
+            self.activate_emergency_brake()  # Start braking process
+        else:
+            # Deactivate emergency brake
+            self.emergency_brake_active = False 
+            self.emergency_brake = 0
+            self.write_outputs_to_file()  # Immediate update
+            if self.service_brake == 1:
+                self.activate_service_brake()
         
     def update_temp_display(self):
         self.Cabin_Temp_Display.config(text=f"Cabin Temperature: {self._cabin_temp:.1f} °F")
 
     def check_brake_status(self):
-        """Check if brake status has changed and trigger appropriate action"""
-        # Emergency brake takes priority
+        # Emergency brake handling
         if self.emergency_brake == 1 and not self.emergency_brake_active:
             self.activate_emergency_brake()
         elif self.emergency_brake == 0 and self.emergency_brake_active:
             self.emergency_brake_active = False
             self.emergency_brake = 0
-            self.write_outputs_to_file()
+            self.write_outputs_to_file()  # Immediate status update
             if self.service_brake == 1:
                 self.activate_service_brake()
             elif not self.Train_F.Engine_Fail:
                 self.update_acceleration_display()
         
-        # Handle service brake only if no brake failure and emergency brake isn't active
+        # Service brake handling (existing code)
         if not self.Train_F.Brake_Fail and not self.emergency_brake_active:
             if self.service_brake == 1 and not self.service_brake_active:
                 self.activate_service_brake()
@@ -474,7 +486,6 @@ class Train_Model:
                 if not self.Train_F.Engine_Fail:
                     self.update_acceleration_display()
         
-        # Ensure outputs reflect current brake status
         self.write_outputs_to_file()
 
     def update_acceleration_display(self):
@@ -495,18 +506,6 @@ class Train_Model:
 
             # Check brake status before doing anything else
             self.check_brake_status()
-
-            # Only calculate movement if not braking
-            if not self.emergency_brake_active and not self.service_brake_active:
-                if not self.Train_F.Engine_Fail:
-                    # Rest of the movement logic...
-                    pass
-
-            # Check brake status before doing anything else
-            if hasattr(self, 'emergency_brake'):
-                if self.emergency_brake == 0 and self.emergency_brake_active:
-                    self.emergency_brake_active = False
-                    self.write_outputs_to_file()  # Force immediate update
 
             # Update station information if beacon has changed
             if hasattr(self, 'last_beacon') and self.last_beacon != self.Beacon:
@@ -537,10 +536,16 @@ class Train_Model:
                         # Calculate acceleration normally
                         accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
                     
-                    # Update authority
+                    # Update authority - respect suggested authority if available
                     try:
-                        authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
-                        self.Train_Ca.Actual_Authority = max(0, authority)
+                        if not self.Train_F.Signal_Pickup_Fail and hasattr(self, 'Suggested_Authority'):
+                            # Calculate authority normally but don't exceed suggested authority
+                            calculated_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
+                            self.Train_Ca.Actual_Authority = min(calculated_authority, self.Suggested_Authority)
+                        else:
+                            # Calculate authority normally (no suggested authority available)
+                            authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
+                            self.Train_Ca.Actual_Authority = max(0, authority)
                     except Exception as e:
                         print(f"Error calculating authority: {e}")
                         self.Train_Ca.Actual_Authority = 0
@@ -647,43 +652,34 @@ class Train_Model:
             update_braking()
 
     def activate_emergency_brake(self):
-        """Activate emergency brake from UI, overriding TC_outputs"""
-        if not self.emergency_brake_active:  # Only activate if not already active
-            self.emergency_brake_active = True
-            self.emergency_brake = 1  # Ensure this is set to 1
-            self.station_status = 0
-            initial_speed = self.Train_Ca.Actual_Speed
-            deceleration = -6.1  # mph/s
-            start_time = time.time()
+        """Handle the physics of emergency braking"""
+        initial_speed = self.Train_Ca.Actual_Speed
+        deceleration = -6.1  # mph/s
+        start_time = time.time()
+        
+        def update_braking():
+            elapsed = time.time() - start_time
+            current_speed = max(0, initial_speed + deceleration * elapsed)
             
-            def update_braking():
-                elapsed = time.time() - start_time
-                current_speed = max(0, initial_speed + deceleration * elapsed)
-                
-                self.Train_Ca.Actual_Speed = current_speed
-                self.Get_Delta_Pos()
-                
-                self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
-                self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s")
-                self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
-                
-                if current_speed > 0:
-                    self.root.after(50, update_braking)
-                else:
-                    # When fully stopped, keep emergency brake active
-                    self.Train_Ca.Actual_Speed = 0  # Ensure speed is exactly 0
-                    self.Acceleration_Label.config(text="Acceleration: 0.00 mph/s")
-                    self.Authority_Label.config(text="Actual Authority: 0.00 ft")
-                    self.train_stopped()
-                    # Ensure power is set to 0 when emergency brake is active
-                    self.Power = 0
-                    # Force write outputs immediately
-                    self.write_outputs_to_file()
+            self.Train_Ca.Actual_Speed = current_speed
+            self.Get_Delta_Pos()
             
-            update_braking()
-        else:
-            # If already active, just ensure outputs are written
+            # Update displays
+            self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
+            self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s")
+            
+            # Continuous output updates
             self.write_outputs_to_file()
+            
+            if current_speed > 0:
+                self.root.after(50, update_braking)
+            else:
+                # When stopped
+                self.Train_Ca.Actual_Speed = 0
+                self.Power = 0
+                self.write_outputs_to_file()
+        
+        update_braking()
 
     def simulate_engine_failure(self):
         if not self.Train_F.Engine_Fail:
