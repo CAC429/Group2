@@ -1,9 +1,9 @@
-Commanded_Power: 0.00
-Current_Speed: 165.40
-Suggested_Speed: 0.00
+Commanded_Power: 120.00
+Current_Speed: 88.23
+Suggested_Speed: 12.50
 Current_Authority: 0.0
-Suggested_Authority: 200
+Suggested_Authority: 100
 Service_Brake: 0
 Emergency_Brake: 0
 Beacon: {'station_side': 'right', 'arriving_station': 'asdf', 'next_station': 'edgebrook', 'station_distance': 12345.0}
-Delta_Position: 5585.573821133433
+Delta_Position: 1641.5984180027292

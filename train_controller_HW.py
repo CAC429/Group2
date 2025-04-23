@@ -1,80 +1,141 @@
-import argparse
+#!/usr/bin/env python3
+import lgpio
 import time
-from gpiozero import LED
+import atexit
+import json
+import sys
+import select
+from PIL import Image, ImageDraw, ImageFont
 import board
 import busio
 import adafruit_ssd1306
-from PIL import Image, ImageDraw, ImageFont
 
 class LEDController:
     def __init__(self):
-        # Initialize LEDs
-        self.leds = {
-            "service_brake": LED(26),
-            "emergency_brake": LED(23),
-            "left_door": LED(24),
-            "right_door": LED(25),
-            "out_light": LED(16),
-            "cabin_light": LED(6),
-            "ac": LED(5),
-            "failure": LED(17)
+        # Hardware initialization flags
+        self.hardware_initialized = True
+        self.gpio_handle = None
+        self.oled = None
+        
+        # Initialize GPIO
+        try:
+            self.gpio_handle = lgpio.gpiochip_open(0)
+            print("GPIO chip opened successfully")
+        except Exception as e:
+            print(f"GPIO initialization failed: {str(e)} - Running in simulation mode")
+            self.hardware_initialized = False
+
+        self.pins = {
+            "service_brake": 26,
+            "emergency_brake": 23,
+            "left_door": 24,
+            "right_door": 25,
+            "out_light": 16,
+            "cabin_light": 6,
+            "ac": 5,
+            "failure": 17
         }
-        
-        # Initialize OLED
-        i2c = busio.I2C(board.SCL, board.SDA)
-        self.oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
-        self.oled.fill(0)
-        self.oled.show()
-        
-        # Current power value
-        self.current_power = 0
 
-    def update_led(self, led_name, state):
-        if led_name in self.leds:
-            self.leds[led_name].on() if state else self.leds[led_name].off()
+        # Initialize GPIO pins if hardware is available
+        if self.hardware_initialized:
+            for name, pin in self.pins.items():
+                try:
+                    # Try to free first (ignore errors)
+                    try:
+                        lgpio.gpio_free(self.gpio_handle, pin)
+                    except:
+                        pass
+                    
+                    # Claim as output
+                    lgpio.gpio_claim_output(self.gpio_handle, pin)
+                    lgpio.gpio_write(self.gpio_handle, pin, 0)
+                    print(f"GPIO {pin} ({name}) initialized successfully")
+                except Exception as e:
+                    print(f"Warning: Could not initialize {name} (GPIO {pin}): {str(e)}")
+                    self.pins[name] = None  # Mark pin as unavailable
 
-    def update_oled(self, power=None):
-        if power is not None:
-            self.current_power = power
+        # Initialize OLED display
+        try:
+            i2c = busio.I2C(board.SCL, board.SDA)
+            self.oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
+            self.oled.fill(0)
+            self.oled.show()
+            print("OLED display initialized successfully")
+        except Exception as e:
+            print(f"OLED initialization failed: {str(e)}")
+            self.oled = None
+
+        atexit.register(self.cleanup)
+
+    def update_oled(self, power):
+        """Update OLED display with power value"""
+        if self.oled:
+            try:
+                image = Image.new("1", (self.oled.width, self.oled.height))
+                draw = ImageDraw.Draw(image)
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+                draw.text((10, 20), f"{power:.2f} kW", font=font, fill=255)
+                self.oled.image(image)
+                self.oled.show()
+            except Exception as e:
+                print(f"OLED update error: {str(e)}")
+
+    def cleanup(self):
+        """Clean up resources"""
+        if self.hardware_initialized and self.gpio_handle:
+            for name, pin in self.pins.items():
+                if pin is not None:  # Only cleanup initialized pins
+                    try:
+                        lgpio.gpio_write(self.gpio_handle, pin, 0)
+                        lgpio.gpio_free(self.gpio_handle, pin)
+                    except:
+                        pass  # Silent cleanup
             
-        image = Image.new("1", (self.oled.width, self.oled.height))
-        draw = ImageDraw.Draw(image)
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+            try:
+                lgpio.gpiochip_close(self.gpio_handle)
+            except:
+                pass
 
-        draw.rectangle((0, 0, self.oled.width, self.oled.height), outline=0, fill=0)
-        draw.text((10, 20), f"{round(self.current_power, 2)} kW", font=font, fill=255)
-
-        self.oled.image(image)
-        self.oled.show()
-
-    def process_command(self, args):
-        # Update LEDs based on command line arguments
-        for led_name in self.leds.keys():
-            state = getattr(args, led_name, None)
-            if state is not None:
-                self.update_led(led_name, state)
-        
-        # Update power display if provided
-        if args.power is not None:
-            self.update_oled(args.power)
-        
-        return "LED states updated successfully"
+        if self.oled:
+            try:
+                self.oled.fill(0)
+                self.oled.show()
+            except:
+                pass
 
 def main():
     controller = LEDController()
+    print("Hardware controller ready - waiting for commands...")
     
-    parser = argparse.ArgumentParser(description='Control train LEDs and display')
-    parser.add_argument('--power', type=float, help='Set power display value')
-    
-    # Add arguments for each LED
-    for led_name in controller.leds.keys():
-        parser.add_argument(f'--{led_name}', type=int, choices=[0, 1], 
-                          help=f'Set {led_name} state (0=off, 1=on)')
-    
-    args = parser.parse_args()
-    
-    result = controller.process_command(args)
-    print(result)
+    try:
+        while True:
+            if select.select([sys.stdin], [], [], 0.1)[0]:
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                    
+                try:
+                    command = json.loads(line.strip())
+                    print(f"Received command: {command}")
+                    
+                    if 'power' in command:
+                        controller.update_oled(command['power'])
+                        
+                    if 'leds' in command and controller.hardware_initialized:
+                        for led, state in command['leds'].items():
+                            if led in controller.pins and controller.pins[led] is not None:
+                                lgpio.gpio_write(controller.gpio_handle, 
+                                                controller.pins[led], 
+                                                1 if state else 0)
+                except json.JSONDecodeError as e:
+                    print(f"Invalid JSON: {str(e)}")
+                except Exception as e:
+                    print(f"Command error: {str(e)}")
+                    
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    finally:
+        controller.cleanup()
 
 if __name__ == "__main__":
     main()

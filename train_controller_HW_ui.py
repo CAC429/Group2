@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import paramiko
 import json
+import time
 
 class RemoteController:
     def __init__(self, hostname, username, password):
@@ -11,32 +12,70 @@ class RemoteController:
         self.username = username
         self.password = password
         self.ssh = None
+        self.connected = False
+        
+    def ensure_connection(self):
+        """Ensure we have an active SSH connection"""
+        if self.connected:
+            try:
+                # Test if connection is still alive
+                transport = self.ssh.get_transport()
+                if transport and transport.is_active():
+                    return True
+            except:
+                self.connected = False
+                
+        return self.connect()
         
     def connect(self):
         try:
+            if self.ssh:
+                self.ssh.close()
+                
             self.ssh = paramiko.SSHClient()
             self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.ssh.connect(self.hostname, username=self.username, password=self.password)
+            self.ssh.connect(
+                hostname=self.hostname,
+                username=self.username,
+                password=self.password,
+                timeout=10,
+                banner_timeout=20
+            )
+            self.connected = True
+            print("SSH connection established successfully")
             return True
         except Exception as e:
-            print(f"SSH connection error: {e}")
+            print(f"SSH Connection Error: {str(e)}")
+            self.connected = False
+            return False
+                
+    def send_command(self, command_dict):
+        if not self.ensure_connection():
             return False
             
-    def execute_command(self, command):
-        if not self.ssh:
-            if not self.connect():
-                return None
-                
         try:
-            stdin, stdout, stderr = self.ssh.exec_command(command)
-            return stdout.read().decode().strip()
-        except Exception as e:
-            print(f"Command execution error: {e}")
-            return None
+            command_json = json.dumps(command_dict)
+            # Simple echo approach
+            cmd = f"echo '{command_json}' | python3 /home/ethannam/Documents/trainControllerHW/Group2/train_controller_HW.py"
+            stdin, stdout, stderr = self.ssh.exec_command(cmd)
             
+            # Read output
+            output = stdout.read().decode()
+            error = stderr.read().decode()
+            
+            if error:
+                print(f"PI ERROR: {error}")
+            return True
+            
+        except Exception as e:
+            print(f"SSH ERROR: {str(e)}")
+            return False
+
     def close(self):
         if self.ssh:
             self.ssh.close()
+        self.connected = False
+
 
 class PowerControl:
     def __init__(self, P_max=120, T=0.1):
@@ -122,13 +161,13 @@ class PowerControl:
 
         return self.Kp, self.Ki
 
-class train_controller_ui(tk.Tk):
-    def __init__(self, controller, remote_controller):
-        super().__init__()
+class TrainControllerUI:
+    def __init__(self, master, controller, remote_controller):
+        self.master = master
         self.controller = controller
         self.remote_controller = remote_controller
-        self.title("Train 1 Controller UI")
-        self.geometry("400x700")
+        self.master.title("Train 1 Controller UI")
+        self.master.geometry("400x700")
         
         # Constants
         self.MPH_TO_MPS = 0.44704
@@ -184,10 +223,10 @@ class train_controller_ui(tk.Tk):
 
         # Start periodic updates
         self.update_power()
-        self.after(1000, self.check_file_updates)
+        self.check_file_updates()
 
     def create_widgets(self):
-        self.main_frame = tk.Frame(self)
+        self.main_frame = tk.Frame(self.master)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Top frame
@@ -408,14 +447,14 @@ class train_controller_ui(tk.Tk):
         self.beacon_label.config(text=f"APPROACHING: {self.arriving_station}", fg="red")
         
         # Check every 100ms if we've stopped
-        self.after(100, self.check_stopped_at_station)
+        self.master.after(100, self.check_stopped_at_station)
 
     def check_stopped_at_station(self):
         """Check if train has stopped to begin door sequence"""
         if self.current_speed <= 0.1:  # Consider stopped below 0.1 mph
             self.handle_stopped_at_station()
         elif self.station_approach_active:
-            self.after(100, self.check_stopped_at_station)
+            self.master.after(100, self.check_stopped_at_station)
 
     def handle_stopped_at_station(self):
         """Handle the door opening/closing sequence"""
@@ -436,8 +475,8 @@ class train_controller_ui(tk.Tk):
         
         # Close door after 30 seconds
         if self.door_open_timer:
-            self.after_cancel(self.door_open_timer)
-        self.door_open_timer = self.after(30000, self.close_doors_and_depart)
+            self.master.after_cancel(self.door_open_timer)
+        self.door_open_timer = self.master.after(30000, self.close_doors_and_depart)
 
     def close_doors_and_depart(self):
         """Close doors and prepare for departure"""
@@ -458,7 +497,7 @@ class train_controller_ui(tk.Tk):
             self.station_approach_active = False
             self.led_states['service_brake'] = False
             if self.door_open_timer:
-                self.after_cancel(self.door_open_timer)
+                self.master.after_cancel(self.door_open_timer)
                 self.door_open_timer = None
             self.led_states['left_door'] = False
             self.led_states['right_door'] = False
@@ -474,7 +513,7 @@ class train_controller_ui(tk.Tk):
         except Exception as e:
             print(f"File check error: {e}")
         
-        self.after(1000, self.check_file_updates)
+        self.master.after(1000, self.check_file_updates)
 
     def toggle_led(self, led_name):
         if self.is_automatic_mode:
@@ -517,13 +556,12 @@ class train_controller_ui(tk.Tk):
         if not self.remote_controller:
             return
             
-        command = "python3 /path/to/led_controller.py "
-        for led, state in self.led_states.items():
-            command += f"--{led} {'1' if state else '0'} "
+        command = {
+            "leds": self.led_states
+        }
         
-        result = self.remote_controller.execute_command(command)
-        if result:
-            print(f"LED states updated: {result}")
+        if not self.remote_controller.send_command(command):
+            self.update_status("LED update failed", is_error=True)
 
     def update_ui(self):
         self.current_speed_label.config(text=f"Current Speed: {self.current_speed:.1f} mph")
@@ -548,7 +586,7 @@ class train_controller_ui(tk.Tk):
             self.status_label.config(text=f"Status: ERROR - {message}", fg="red")
         else:
             self.status_label.config(text=f"Status: {message}", fg="black")
-        self.update_idletasks()
+        self.master.update_idletasks()
 
     def update_power(self):
         if self.is_automatic_mode:
@@ -556,7 +594,6 @@ class train_controller_ui(tk.Tk):
 
         service_brake = self.led_states["service_brake"]
         emergency_brake = self.led_states["emergency_brake"]
-
         current_speed_mps = self.current_speed * self.MPH_TO_MPS
         
         P_cmd = self.controller.compute_Pcmd(
@@ -569,27 +606,50 @@ class train_controller_ui(tk.Tk):
         self.power_label.config(text=f"Current Power: {round(P_cmd, 2)} kW")
         self.P_actual = P_cmd
         
+        # Send combined command
+        self.send_hardware_command()
+        
         self.write_commanded_power(P_cmd)
-        self.send_power_command(P_cmd)
-
+        
         if self.suggested_authority == 0:
             if not self.led_states["failure"]:
                 self.led_states["failure"] = True
                 self.led_states["emergency_brake"] = True
                 self.update_status("Emergency Stop: Suggested authority is 0", is_error=True)
-                self.send_led_states()
+                self.send_hardware_command()
 
-        self.after(1000, self.update_power)
+        self.master.after(1000, self.update_power)
 
     def send_power_command(self, power):
         """Send power command to Raspberry Pi via SSH"""
         if not self.remote_controller:
             return
             
-        command = f"python3 /path/to/led_controller.py --power {power}"
-        result = self.remote_controller.execute_command(command)
-        if result:
-            print(f"Power command sent: {result}")
+        command = {
+            "power": power
+        }
+        
+        if not self.remote_controller.send_command(command):
+            self.update_status("Power command failed!", is_error=True)
+
+    def send_hardware_command(self):
+        """Send both LED states and power command"""
+        command = {
+            "leds": self.led_states,
+            "power": self.P_actual
+        }
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if self.remote_controller.send_command(command):
+                    return True
+                time.sleep(0.5)
+            except Exception as e:
+                print(f"Command failed (attempt {attempt+1}): {e}")
+
+        self.update_status("Hardware update failed!", is_error=True)
+        return False
 
     def write_commanded_power(self, power):
         try:
@@ -655,19 +715,20 @@ class train_controller_ui(tk.Tk):
         self.update_ui()
 
 if __name__ == "__main__":
-    # Initialize remote controller (replace with your Pi's credentials)
+    # Initialize remote controller
     remote_controller = RemoteController(
-        hostname="raspberrypi.local",
-        username="pi",
-        password="raspberry"
+        hostname="10.5.19.8",  
+        username="ethannam",
+        password="password"
     )
     
-    if not remote_controller.connect():
-        print("Warning: Could not connect to Raspberry Pi. Running in local mode only.")
-    
+    # Initialize controller
     controller = PowerControl(P_max=120)
-    app = train_controller_ui(controller, remote_controller)
-    app.mainloop()
+    
+    # Create and run UI
+    root = tk.Tk()
+    app = TrainControllerUI(root, controller, remote_controller)
+    root.mainloop()
     
     # Clean up
     remote_controller.close()
