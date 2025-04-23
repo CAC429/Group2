@@ -1,4 +1,3 @@
-
 import csv
 import random
 import copy
@@ -8,14 +7,14 @@ import os
 from beacons import beacons, BEACON_BLOCKS
 
 def write_to_file(content, mode="w"):
-    """Write content to JSON file without creating placeholder entries"""
+    """Write content to JSON file including elevation data"""
     try:
         data = {"trains": []}
         if mode == "a":
             try:
                 with open("occupancy_data.json", "r") as file:
                     data = json.load(file)
-                    # Remove any entries with number=0 or missing number
+                    # Clean existing data
                     data["trains"] = [t for t in data["trains"] 
                                     if isinstance(t, dict) and t.get("number", 0) != 0]
             except (FileNotFoundError, json.JSONDecodeError):
@@ -31,7 +30,7 @@ def write_to_file(content, mode="w"):
                 value = value.strip()
                 if key == "Train":
                     train_number = int(value[:-1])
-                    if train_number > 0:  # Only process valid train numbers
+                    if train_number > 0:
                         train_data["number"] = train_number
                 elif key == "Position" and "number" in train_data:
                     train_data["position"] = float(value.split()[0].replace('m', ''))
@@ -47,8 +46,9 @@ def write_to_file(content, mode="w"):
                     train_data["ticket_sales_history"] = eval(value)
                 elif key == "Beacon Info" and value != "None" and "number" in train_data:
                     train_data["beacon_info"] = eval(value)
+                elif key == "Elevation" and "number" in train_data:
+                    train_data["elevation"] = float(value.split()[0].replace('m', ''))
         
-        # Only add if we have a valid train number
         if train_data.get("number", 0) > 0:
             existing_index = next(
                 (i for i, t in enumerate(data["trains"]) 
@@ -74,10 +74,11 @@ def append_new_train_data(
     total_passengers,
     delta_position,
     speed_auth,
-    beacon_info
+    beacon_info,
+    elevation=None
 ):
-    """Append new train data only for valid train numbers"""
-    if train_number <= 0:  # Skip invalid train numbers
+    """Append new train data including elevation"""
+    if train_number <= 0:
         return
         
     train_data = {
@@ -88,7 +89,8 @@ def append_new_train_data(
         "new_passengers": int(new_passengers),
         "total_passengers": int(total_passengers),
         "ticket_sales_history": list(ticket_data),
-        "beacon_info": beacon_info
+        "beacon_info": beacon_info,
+        "elevation": float(elevation) if elevation is not None else None
     }
     
     try:
@@ -96,13 +98,11 @@ def append_new_train_data(
         try:
             with open("occupancy_data.json", "r") as file:
                 data = json.load(file)
-                # Clean existing data
                 data["trains"] = [t for t in data["trains"] 
                                 if isinstance(t, dict) and t.get("number", 0) > 0]
         except (FileNotFoundError, json.JSONDecodeError):
             pass
         
-        # Only append if train number is valid
         if train_number > 0:
             data["trains"].append(train_data)
             with open("occupancy_data.json", "w") as file:
@@ -119,10 +119,11 @@ def update_train_data(
     total_passengers,
     delta_position,
     speed_auth,
-    beacon_info
+    beacon_info,
+    elevation=None
 ):
     """Update train data while preventing number=0 entries"""
-    if train_number <= 0:  # Skip invalid train numbers
+    if train_number <= 0:
         return
         
     try:
@@ -130,7 +131,6 @@ def update_train_data(
         try:
             with open("occupancy_data.json", "r") as file:
                 data = json.load(file)
-                # Clean existing data
                 data["trains"] = [t for t in data["trains"] 
                                 if isinstance(t, dict) and t.get("number", 0) > 0]
         except (FileNotFoundError, json.JSONDecodeError):
@@ -144,10 +144,10 @@ def update_train_data(
             "new_passengers": int(new_passengers),
             "total_passengers": int(total_passengers),
             "ticket_sales_history": list(ticket_data),
-            "beacon_info": beacon_info
+            "beacon_info": beacon_info,
+            "elevation": float(elevation) if elevation is not None else None
         }
         
-        # Find and update existing train
         found = False
         for i, train in enumerate(data["trains"]):
             if isinstance(train, dict) and train.get("number") == train_number:
@@ -206,7 +206,6 @@ def pass_count(passengers, station_status):
 
 
 def load_csv(csv_file):
-    
     """Load a CSV file into a list of dictionaries."""
     data = []
     try:
@@ -231,7 +230,7 @@ class GreenLineOccupancy:
         self.station_cooldown = False
 
     def determine_section(self, position):
-        """Determines the block section based on the given position."""
+        """Determines the block section based on the given position (Green Line specific)."""
         if 0 <= position <= 800:
             return 'K'
         elif 800 < position <= 1300:
@@ -298,22 +297,21 @@ class GreenLineOccupancy:
     def find_blocks(self, position):
         """
         Find all blocks that overlap with the train's length (extending 16.1m on each end from the middle).
+        Returns tuple of (block_list, elevation)
         """
         block_section = self.determine_section(position)
         if block_section is None:
             print("Position out of range.")
-            return []
+            return [], None
 
         train_start = position - 16.1
         train_end = position + 16.1
 
-        #print(f"\nTrain position: {position}m (range: {train_start}m to {train_end}m)")
-        #print(f"Looking for blocks in section: {block_section}\n")
-
         overlapping_blocks = []
-        previous_end_position = 0  # Initialize previous end position to 0 for the first block
+        previous_end_position = 0
+        current_elevation = None
 
-        # Define the reversal condition ranges
+        # Define the reversal condition ranges (Green Line specific)
         in_reversal_range = (5486.6 < position <= 8186.6) or (11552.6 < position <= 15552.6)
 
         # If the train moves outside the reversal range, reset the dataset and status
@@ -333,13 +331,16 @@ class GreenLineOccupancy:
 
         for row in self.data:
             try:
-                block_num = int(float(row["Block Number"]))  # Convert to integer
+                block_num = int(float(row["Block Number"]))
                 block_section_value = row.get("Section", "").strip()
 
                 # Skip empty or invalid section values
                 if not block_section_value or block_section_value != block_section:
                     continue
 
+                # Get elevation from grid data
+                elevation = float(row.get("ELEVATION (M)", 0))  # Default to 0 if not found
+                
                 # Choose correct route based on position
                 if in_reversal_range:
                     block_length = float(row["route 2"])
@@ -347,20 +348,19 @@ class GreenLineOccupancy:
                     block_length = float(row["route 1"])
 
                 block_start = previous_end_position
-                block_end = 0 + block_length
-
-                #print(f"Block: {block_num}, Start: {block_start}, End: {block_end}")
+                block_end = block_start + block_length
 
                 # Check if the train overlaps with the block
                 if not (train_end < block_start or train_start > block_end):
                     overlapping_blocks.append(block_num)
+                    current_elevation = elevation  # Store elevation of occupied block
 
-                previous_end_position = block_end  # Update previous end position
+                previous_end_position = block_end
 
             except (ValueError, KeyError, TypeError) as e:
-                continue  # Skip rows with errors
+                continue
 
-        return overlapping_blocks
+        return overlapping_blocks, current_elevation
 
     def getTickets_sold(self):
         """Return the number of new passengers who bought tickets."""
@@ -369,14 +369,24 @@ class GreenLineOccupancy:
 
 # Example usage:
 if __name__ == "__main__":
-    csv_file_path = "data2.csv"  # Replace with actual path
+    csv_file_path = "data2.csv"  # Green Line data file
     green_line = GreenLineOccupancy(load_csv(csv_file_path))
     train_number = 1 
-    position = 0  # Example train position
-    overlapping_blocks = green_line.find_blocks(position)
+    position = 15552  # Example train position
+    overlapping_blocks, elevation = green_line.find_blocks(position)
     passengers, new_passengers, starting_pass = pass_count(10, 1)
     ticket_array = []  # Initialize an empty list
     tickets_sold = [green_line.getTickets_sold(), str(global_variables.current_time)[11:16]]
     ticket_array.append(tickets_sold)  # Append tickets_sold to the array
-    update_train_data(train_number, overlapping_blocks, ticket_array, new_passengers, passengers, position)
-    print(f"{train_number}, {position}, {overlapping_blocks}, {passengers}, {ticket_array}")
+    update_train_data(
+        train_number,
+        overlapping_blocks,
+        ticket_array,
+        new_passengers,
+        passengers,
+        position,
+        "speed_auth",
+        "beacon_info",
+        elevation
+    )
+    print(f"{train_number}, {position}, {overlapping_blocks}, {passengers}, {ticket_array}, Elevation: {elevation}")

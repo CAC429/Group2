@@ -338,17 +338,13 @@ class GridWindow(QWidget):
         return None, None, None
 
     def update_blocks(self):
-        """Main update loop handling train movements, failures, and data recording"""
         try:
-            # Only proceed if this grid matches the active line
             if global_variables.line != self.line_number:
                 return
                 
-            # Read train creation status first
             self.train_creations, baud_rates = self.read_train_creation_status()
             
             previous_train_count = len(self.class_lines)
-            # Create new train if needed
             if (self.train_creations == 1 and 
                 (not self.class_lines or self.boxes.get(63).state == 0)):
                 self.create_next_train()
@@ -361,21 +357,13 @@ class GridWindow(QWidget):
 
             for train_number, class_line in enumerate(self.class_lines, start=1):
                 try:
-                    if train_number > len(self.train_positions):
-                        print(f"Skipping train {train_number} - no position data")
-                        continue
-
-                    # Read train data
                     delta_position, station_status, passengers = self.read_train_output(train_number)
                     if None in (delta_position, station_status, passengers):
-                        print(f"Error reading train {train_number} data")
                         continue
 
-                    # Update position and get occupied blocks
                     self.train_positions[train_number - 1] = delta_position
-                    occupied_blocks = class_line.find_blocks(delta_position)
+                    occupied_blocks, elevation = class_line.find_blocks(delta_position)
                     global_occupancy.update({block: train_number for block in occupied_blocks})
-                    train_statuses.append(f"Train {train_number}: {', '.join(map(str, occupied_blocks))}")
 
                     # Check for beacon blocks
                     beacon_info = None
@@ -412,11 +400,10 @@ class GridWindow(QWidget):
                         elif 101 <= block_num <= 150:
                             speed_auth = self.train_bauds['Baud4']
                         else:
-                            speed_auth = "0"  # Default if block number is out of range
+                            speed_auth = "0"
                     else:
                         speed_auth = "N/A"
 
-                    # Handle new train initialization
                     new_train_created = (train_number > previous_train_count)
                     if new_train_created:
                         if train_number == 1:
@@ -427,7 +414,8 @@ class GridWindow(QWidget):
                                 f"Suggested_Speed_Authority: {speed_auth}\n"
                                 f"Passengers: 0\n"
                                 f"Ticket Sales: []\n"
-                                f"Beacon Info: {beacon_info}\n\n",
+                                f"Beacon Info: {beacon_info}\n"
+                                f"Elevation: {elevation}m\n\n",
                                 mode="w"
                             )
                         else:
@@ -435,24 +423,23 @@ class GridWindow(QWidget):
                                 train_number,
                                 occupied_blocks,
                                 global_tickets,
-                                0,  # new_passengers
-                                0,  # total_passengers
+                                0,
+                                0,
                                 delta_position,
                                 speed_auth,
-                                beacon_info
+                                beacon_info,
+                                elevation
                             )
 
-                    # Handle station arrivals
                     if station_status == 1:
                         if not hasattr(class_line, 'station_cooldown'):
                             class_line.station_cooldown = False
                         
                         if not class_line.station_cooldown:
-                            print(f"Train {train_number} at station - processing passengers")
                             passengers, new_passengers, starting_pass = pass_count(passengers, station_status)
                             class_line.passengers_count = passengers
                             class_line.new_passengers = new_passengers
-                            class_line.station_cooldown = True  # Set cooldown
+                            class_line.station_cooldown = True
                             
                             current_time = str(global_variables.current_time)[11:16]
                             global_tickets.append([new_passengers, current_time])
@@ -462,17 +449,16 @@ class GridWindow(QWidget):
                                 occupied_blocks,
                                 global_tickets,
                                 class_line.new_passengers,
-                                class_line.passengers,
+                                class_line.passengers_count,
                                 delta_position,
                                 speed_auth,
-                                beacon_info
+                                beacon_info,
+                                elevation
                             )
                         
-                    # Reset cooldown when leaving station
                     if station_status == 0 and hasattr(class_line, 'station_cooldown'):
                         class_line.station_cooldown = False
 
-                    # Update train data (whether at station or not)
                     update_train_data(
                         train_number,
                         occupied_blocks,
@@ -481,7 +467,8 @@ class GridWindow(QWidget):
                         class_line.passengers_count,
                         delta_position,
                         speed_auth,
-                        beacon_info
+                        beacon_info,
+                        elevation
                     )
 
                 except Exception as e:

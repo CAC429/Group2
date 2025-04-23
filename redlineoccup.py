@@ -1,4 +1,3 @@
-
 import csv
 import random
 import copy
@@ -8,14 +7,14 @@ import os
 from beacons import beacons, BEACON_BLOCKS
 
 def write_to_file(content, mode="w"):
-    """Write content to JSON file without creating placeholder entries"""
+    """Write content to JSON file including elevation data"""
     try:
         data = {"trains": []}
         if mode == "a":
             try:
                 with open("occupancy_data.json", "r") as file:
                     data = json.load(file)
-                    # Remove any entries with number=0 or missing number
+                    # Clean existing data
                     data["trains"] = [t for t in data["trains"] 
                                     if isinstance(t, dict) and t.get("number", 0) != 0]
             except (FileNotFoundError, json.JSONDecodeError):
@@ -31,7 +30,7 @@ def write_to_file(content, mode="w"):
                 value = value.strip()
                 if key == "Train":
                     train_number = int(value[:-1])
-                    if train_number > 0:  # Only process valid train numbers
+                    if train_number > 0:
                         train_data["number"] = train_number
                 elif key == "Position" and "number" in train_data:
                     train_data["position"] = float(value.split()[0].replace('m', ''))
@@ -47,8 +46,9 @@ def write_to_file(content, mode="w"):
                     train_data["ticket_sales_history"] = eval(value)
                 elif key == "Beacon Info" and value != "None" and "number" in train_data:
                     train_data["beacon_info"] = eval(value)
+                elif key == "Elevation" and "number" in train_data:
+                    train_data["elevation"] = float(value.split()[0].replace('m', ''))
         
-        # Only add if we have a valid train number
         if train_data.get("number", 0) > 0:
             existing_index = next(
                 (i for i, t in enumerate(data["trains"]) 
@@ -74,10 +74,11 @@ def append_new_train_data(
     total_passengers,
     delta_position,
     speed_auth,
-    beacon_info
+    beacon_info,
+    elevation=None
 ):
-    """Append new train data only for valid train numbers"""
-    if train_number <= 0:  # Skip invalid train numbers
+    """Append new train data including elevation"""
+    if train_number <= 0:
         return
         
     train_data = {
@@ -88,7 +89,8 @@ def append_new_train_data(
         "new_passengers": int(new_passengers),
         "total_passengers": int(total_passengers),
         "ticket_sales_history": list(ticket_data),
-        "beacon_info": beacon_info
+        "beacon_info": beacon_info,
+        "elevation": float(elevation) if elevation is not None else None
     }
     
     try:
@@ -96,13 +98,11 @@ def append_new_train_data(
         try:
             with open("occupancy_data.json", "r") as file:
                 data = json.load(file)
-                # Clean existing data
                 data["trains"] = [t for t in data["trains"] 
                                 if isinstance(t, dict) and t.get("number", 0) > 0]
         except (FileNotFoundError, json.JSONDecodeError):
             pass
         
-        # Only append if train number is valid
         if train_number > 0:
             data["trains"].append(train_data)
             with open("occupancy_data.json", "w") as file:
@@ -119,10 +119,11 @@ def update_train_data(
     total_passengers,
     delta_position,
     speed_auth,
-    beacon_info
+    beacon_info,
+    elevation=None
 ):
     """Update train data while preventing number=0 entries"""
-    if train_number <= 0:  # Skip invalid train numbers
+    if train_number <= 0:
         return
         
     try:
@@ -130,7 +131,6 @@ def update_train_data(
         try:
             with open("occupancy_data.json", "r") as file:
                 data = json.load(file)
-                # Clean existing data
                 data["trains"] = [t for t in data["trains"] 
                                 if isinstance(t, dict) and t.get("number", 0) > 0]
         except (FileNotFoundError, json.JSONDecodeError):
@@ -144,10 +144,10 @@ def update_train_data(
             "new_passengers": int(new_passengers),
             "total_passengers": int(total_passengers),
             "ticket_sales_history": list(ticket_data),
-            "beacon_info": beacon_info
+            "beacon_info": beacon_info,
+            "elevation": float(elevation) if elevation is not None else None
         }
         
-        # Find and update existing train
         found = False
         for i, train in enumerate(data["trains"]):
             if isinstance(train, dict) and train.get("number") == train_number:
@@ -206,7 +206,6 @@ def pass_count(passengers, station_status):
 
 
 def load_csv(csv_file):
-    
     """Load a CSV file into a list of dictionaries."""
     data = []
     try:
@@ -221,7 +220,7 @@ def load_csv(csv_file):
 
 class RedLineOccupancy:
     def __init__(self, data):
-        """Initialize the GreenLineOccupancy class by loading the CSV data."""
+        """Initialize the RedLineOccupancy class by loading the CSV data."""
         self.data = data
         self.passengers = 0  # Default initial passenger count
         self.station_status = 1  # Example default station status
@@ -231,90 +230,71 @@ class RedLineOccupancy:
         self.station_cooldown = False
 
     def determine_section(self, position):
-        """Determines the block section based on the given position."""
-        if 0 <= position <= 800:
-            return 'K'
-        elif 800 < position <= 1300:
-            return 'L'
-        elif 1300 < position <= 1600:
-            return 'M'
-        elif 1600 < position <= 4300:
-            return 'N'
-        elif 4300 < position <= 4586.6:
-            return 'O'
-        elif 4586.6 < position <= 5261.1:
-            return 'P'
-        elif 5261.1 < position <= 5486.6:
-            return "Q"
-        elif 5486.6 < position <= 8186.6:
-            return 'N'
-        elif 8186.6 < position <= 8221.6:
-            return 'R'
-        elif 8221.6 < position <= 8501.6:
-            return 'S'
-        elif 8501.6 < position <= 8991.6:
-            return 'T'
-        elif 8991.6 < position <= 9753.6:
-            return 'U'
-        elif 9753.6 < position <= 9993.6:
-            return 'V'
-        elif 9993.6 < position <= 11093.6:
-            return 'W'
-        elif 11093.6 < position <= 11243.6:
-            return 'X'
-        elif 11243.6 < position <= 11517.6:
-            return 'Y'
-        elif 11517.6 < position <= 11552.6:
-            return 'Z'
-        elif 11552.6 < position <= 13152.6:
-            return 'F'
-        elif 13152.6 < position <= 13752.6:
-            return 'E'
-        elif 13752.6 < position <= 14352.6:
-            return 'D'
-        elif 14352.6 < position <= 14952.6:
-            return 'C'
-        elif 14952.6 < position <= 15252.6:
-            return 'B'
-        elif 15252.6 < position <= 15552.6:
+        """Determines the block section based on the given position (Red Line specific)."""
+        if 0 <= position <= 850:
             return 'A'
-        elif 15552.6 < position <= 16152.6:
+        elif 850 < position <= 1500:
+            return 'B'
+        elif 1500 < position <= 2200:
+            return 'C'
+        elif 2200 < position <= 3000:
             return 'D'
-        elif 16152.6 < position <= 16752.6:
+        elif 3000 < position <= 4000:
             return 'E'
-        elif 16752.6 < position <= 18352.6:
+        elif 4000 < position <= 5000:
             return 'F'
-        elif 18352.6 < position <= 18552.6:
+        elif 5000 < position <= 6000:
             return 'G'
-        elif 18552.6 < position <= 18702.6:
+        elif 6000 < position <= 7000:
             return 'H'
-        elif 18702.6 < position <= 19802.6:
+        elif 7000 < position <= 8000:
             return 'I'
-        elif 19802.6 < position <= 20052.6:
-            return None
+        elif 8000 < position <= 9000:
+            return 'J'
+        elif 9000 < position <= 10000:
+            return 'K'
+        elif 10000 < position <= 11000:
+            return 'L'
+        elif 11000 < position <= 12000:
+            return 'M'
+        elif 12000 < position <= 13000:
+            return 'N'
+        elif 13000 < position <= 14000:
+            return 'O'
+        elif 14000 < position <= 15000:
+            return 'P'
+        elif 15000 < position <= 16000:
+            return 'Q'
+        elif 16000 < position <= 17000:
+            return 'R'
+        elif 17000 < position <= 18000:
+            return 'S'
+        elif 18000 < position <= 19000:
+            return 'T'
+        elif 19000 < position <= 20000:
+            return 'U'
         else:
             return None
 
     def find_blocks(self, position):
         """
         Find all blocks that overlap with the train's length (extending 16.1m on each end from the middle).
+        Returns tuple of (block_list, elevation)
         """
         block_section = self.determine_section(position)
         if block_section is None:
             print("Position out of range.")
-            return []
+            return [], None
 
         train_start = position - 16.1
         train_end = position + 16.1
 
-        #print(f"\nTrain position: {position}m (range: {train_start}m to {train_end}m)")
-        #print(f"Looking for blocks in section: {block_section}\n")
-
         overlapping_blocks = []
-        previous_end_position = 0  # Initialize previous end position to 0 for the first block
+        previous_end_position = 0
+        current_elevation = None
 
-        # Define the reversal condition ranges
-        in_reversal_range = (5486.6 < position <= 8186.6) or (11552.6 < position <= 15552.6)
+        # Define the reversal condition ranges (Red Line specific)
+        in_reversal_range = (5000 < position <= 8000) or (12000 < position <= 16000)
 
         # If the train moves outside the reversal range, reset the dataset and status
         if not in_reversal_range:
@@ -323,23 +303,26 @@ class RedLineOccupancy:
 
         # Reverse the dataset only if it's within the range and has not been reversed yet
         if in_reversal_range and self.reverse_status == 0:
-            if 5486.6 < position <= 8186.6:
-                self.data = [row for row in self.original_data if row.get("Section", "").strip() == "N"]
-            elif 11552.6 < position <= 15552.6:
-                self.data = [row for row in self.original_data if row.get("Section", "").strip() in ["F", "E", "D", "C", "B", "A"]]
+            if 5000 < position <= 8000:
+                self.data = [row for row in self.original_data if row.get("Section", "").strip() in ["F", "G", "H"]]
+            elif 12000 < position <= 16000:
+                self.data = [row for row in self.original_data if row.get("Section", "").strip() in ["M", "N", "O", "P"]]
 
             self.data.reverse()
             self.reverse_status = 1  # Mark as reversed
 
         for row in self.data:
             try:
-                block_num = int(float(row["Block Number"]))  # Convert to integer
+                block_num = int(float(row["Block Number"]))
                 block_section_value = row.get("Section", "").strip()
 
                 # Skip empty or invalid section values
                 if not block_section_value or block_section_value != block_section:
                     continue
 
+                # Get elevation from grid data
+                elevation = float(row.get("ELEVATION (M)", 0))  # Default to 0 if not found
+                
                 # Choose correct route based on position
                 if in_reversal_range:
                     block_length = float(row["route 2"])
@@ -349,18 +332,17 @@ class RedLineOccupancy:
                 block_start = previous_end_position
                 block_end = 0 + block_length
 
-                #print(f"Block: {block_num}, Start: {block_start}, End: {block_end}")
-
                 # Check if the train overlaps with the block
                 if not (train_end < block_start or train_start > block_end):
                     overlapping_blocks.append(block_num)
+                    current_elevation = elevation  # Store elevation of occupied block
 
-                previous_end_position = block_end  # Update previous end position
+                previous_end_position = block_end
 
             except (ValueError, KeyError, TypeError) as e:
-                continue  # Skip rows with errors
+                continue
 
-        return overlapping_blocks
+        return overlapping_blocks, current_elevation
 
     def getTickets_sold(self):
         """Return the number of new passengers who bought tickets."""
@@ -369,14 +351,24 @@ class RedLineOccupancy:
 
 # Example usage:
 if __name__ == "__main__":
-    csv_file_path = "data4.csv"  # Replace with actual path
-    green_line = RedLineOccupancy(load_csv(csv_file_path))
+    csv_file_path = "data4.csv"  # Red Line data file
+    red_line = RedLineOccupancy(load_csv(csv_file_path))
     train_number = 1 
     position = 0  # Example train position
-    overlapping_blocks = green_line.find_blocks(position)
+    overlapping_blocks, elevation = red_line.find_blocks(position)
     passengers, new_passengers, starting_pass = pass_count(10, 1)
     ticket_array = []  # Initialize an empty list
-    tickets_sold = [green_line.getTickets_sold(), str(global_variables.current_time)[11:16]]
+    tickets_sold = [red_line.getTickets_sold(), str(global_variables.current_time)[11:16]]
     ticket_array.append(tickets_sold)  # Append tickets_sold to the array
-    update_train_data(train_number, overlapping_blocks, ticket_array, new_passengers, passengers, position, "speed_auth", "beacon_info")
-    print(f"{train_number}, {position}, {overlapping_blocks}, {passengers}, {ticket_array}")
+    update_train_data(
+        train_number,
+        overlapping_blocks,
+        ticket_array,
+        new_passengers,
+        passengers,
+        position,
+        "speed_auth",
+        "beacon_info",
+        elevation
+    )
+    print(f"{train_number}, {position}, {overlapping_blocks}, {passengers}, {ticket_array}, Elevation: {elevation}")
