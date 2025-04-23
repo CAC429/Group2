@@ -12,96 +12,123 @@ from PIL import Image, ImageTk
 
 class MainTrainModel:
     def __init__(self):
-        self.root = None  # Initialize as None, will create only if needed
+        self.root = tk.Tk()
+        self.root.title("Train Model Controller")
+        self.root.withdraw()  # Start hidden
         self.train_models = []
+        self.last_train_count = 0
         self._cleanup_train_outputs()
-        self.load_train_instances()
+        
+        # Create a status frame that's always visible
+        self.status_frame = tk.Frame(self.root)
+        self.status_frame.pack(pady=10)
+        self.status_label = tk.Label(
+            self.status_frame, 
+            text="Monitoring train instances...",
+            font=('Arial', 10)
+        )
+        self.status_label.pack()
+        
+        # Start monitoring
+        self.monitor_train_instances()
+        self.run()
 
     def _cleanup_train_outputs(self):
-        """Deletes only trainX_outputs.json files (e.g. train1_outputs.json) on startup"""
+        """Deletes only trainX_outputs.json files on startup"""
         for filename in os.listdir('.'):
             if (filename.startswith('train') 
                 and filename.endswith('_outputs.json') 
-                and not filename.startswith('TC')):  # Explicitly exclude TC files
+                and not filename.startswith('TC')):
                 try:
                     os.remove(filename)
                     print(f"Deleted old train output: {filename}")
                 except Exception as e:
                     print(f"Couldn't delete {filename}: {e}")
 
-    def load_train_instances(self):
-        """Read train_instance.json to determine how many trains to create"""
+    def monitor_train_instances(self):
+        """Continuously check for changes in train instances"""
         try:
             with open('train_instance.json', 'r') as f:
                 data = json.load(f)
-                num_trains = data.get('train_instance', 0)
+                current_count = data.get('train_instance', 0)
                 
-            if num_trains > 0:
-                # Only create root window if we have trains
-                self.root = tk.Tk() 
-                self.root.withdraw()  # Keep hidden initially
-                self.load_trains_from_file(num_trains)
-                
-                # Only show if we successfully created trains
-                if self.train_models:
-                    self.root.deiconify()
-
-
+            if current_count != self.last_train_count:
+                self.status_label.config(
+                    text=f"Train count changed from {self.last_train_count} to {current_count}",
+                    fg='blue'
+                )
+                self.last_train_count = current_count
+                self.update_trains(current_count)
             else:
-                messagebox.showinfo("No Trains", "No active trains currently running")
-                return
+                self.status_label.config(
+                    text=f"Monitoring: {current_count} active trains",
+                    fg='green'
+                )
                 
         except FileNotFoundError:
-            messagebox.showerror("Error", "train_instance.json not found")
-            return
+            self.status_label.config(
+                text="Error: train_instance.json not found",
+                fg='red'
+            )
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to read train instances: {str(e)}")
-            if hasattr(self, 'root') and self.root:
-                self.root.destroy()
-            return
+            self.status_label.config(
+                text=f"Error reading train instances: {str(e)}",
+                fg='red'
+            )
+            
+        # Check again every 2 seconds
+        self.root.after(2000, self.monitor_train_instances)
+
+    def update_trains(self, num_trains):
+        """Create or destroy trains as needed"""
+        # Remove excess trains if count decreased
+        while len(self.train_models) > num_trains:
+            train = self.train_models.pop()
+            train.root.destroy()
+            print(f"Destroyed train {train.Train_Number}")
+            
+        # Add new trains if count increased
+        if num_trains > len(self.train_models):
+            try:
+                self.load_trains_from_file(num_trains)
+            except Exception as e:
+                print(f"Error creating trains: {e}")
+                
+        # Update window visibility
+        if num_trains > 0:
+            self.root.deiconify()
+        else:
+            self.root.withdraw()
 
     def load_trains_from_file(self, num_trains, file_path='occupancy_data.json'):
+        """Load trains from file, creating new ones as needed"""
         try:
             # First check if file exists
             if not os.path.exists(file_path):
-                # If no occupancy file, create trains with default values
                 self.create_default_trains(num_trains)
                 return
                 
             if os.path.getsize(file_path) == 0:
                 messagebox.showerror("Error", f"File is empty: {file_path}")
-                if self.root:
-                    self.root.destroy()
                 return
 
             with open(file_path, 'r') as file:
-                try:
-                    data = json.load(file)
-                except json.JSONDecodeError as e:
-                    messagebox.showerror("JSON Error", f"Invalid JSON format in {file_path}:\n{str(e)}")
-                    if self.root:
-                        self.root.destroy()
-                    return
+                data = json.load(file)
             
             # Handle the format with "trains" array or single train
-            if 'trains' in data:
-                trains_data = data['trains']
-            else:
-                trains_data = [data]  # Fallback to single train format
+            trains_data = data['trains'] if 'trains' in data else [data]
 
-            # Create the requested number of trains
-            for i in range(1, num_trains + 1):
+            # Create only the missing trains
+            for i in range(len(self.train_models) + 1, num_trains + 1):
                 try:
-                    # Find data for this train if it exists in occupancy data
                     train_data = next((t for t in trains_data if t.get('number') == i), None)
                     
-                    # Create train window (Toplevel, not Tk)
+                    # Create train window (Toplevel)
                     train_window = tk.Toplevel(self.root)
                     train_window.title(f"Train {i} Controls")
                     
                     beacon_info = train_data.get('beacon_info', "No beacon info") if train_data else "No beacon info"
                     if beacon_info and isinstance(beacon_info, dict):
-                        # Convert beacon info to string format
                         beacon_str = f"station_side: {beacon_info.get('station_side', 'unknown')}, "
                         beacon_str += f"arriving_station: {beacon_info.get('arriving_station', 'UNKNOWN')}, "
                         beacon_str += f"new_station: {beacon_info.get('new_station', 'UNKNOWN')}, "
@@ -117,28 +144,18 @@ class MainTrainModel:
                         elevation=train_data.get('elevation', 0.0) if train_data else 0.0
                     )
                     self.train_models.append(train_model)
+                    print(f"Created train {i}")
                     
                 except Exception as e:
                     print(f"Error creating train {i}: {e}")
-                    continue
                     
-            if not self.train_models:
-                messagebox.showwarning("No Trains", "No train models were created")
-                if self.root:
-                    self.root.destroy()
-            else:
-                self.root.deiconify()  # Show the main window
-                
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load train data: {str(e)}")
-            if self.root:
-                self.root.destroy()
+            print(f"Error loading train data: {e}")
 
     def create_default_trains(self, num_trains):
-        """Create trains with default values when no occupancy data exists"""
-        for i in range(1, num_trains + 1):
+        """Create trains with default values"""
+        for i in range(len(self.train_models) + 1, num_trains + 1):
             try:
-                # Create train window (Toplevel, not Tk)
                 train_window = tk.Toplevel(self.root)
                 train_window.title(f"Train {i} Controls")
                 
@@ -147,25 +164,14 @@ class MainTrainModel:
                     Train_Number=i
                 )
                 self.train_models.append(train_model)
+                print(f"Created default train {i}")
                 
             except Exception as e:
                 print(f"Error creating default train {i}: {e}")
-                continue
-                
-        if self.train_models:
-            self.root.deiconify()  # Show the main window
-        else:
-            self.root.destroy()
-            
+
     def run(self):
-        if hasattr(self, 'root') and self.root and self.train_models:
-            self.root.mainloop()
-        elif hasattr(self, 'root') and self.root:
-            self.root.destroy()
-            
-    def run(self):
-        if self.train_models:  # Only run if we have trains to display
-            self.root.mainloop()
+        """Main execution loop"""
+        self.root.mainloop()
         
 
 class Train_Model:
@@ -908,5 +914,9 @@ class Train_Model:
         return self.Suggested_Speed_Authority
 
 if __name__ == "__main__":
+
+    if hasattr(tk, '_default_root') and tk._default_root is not None:
+        tk._default_root.destroy()
+    
     main_model = MainTrainModel()
     main_model.run()
