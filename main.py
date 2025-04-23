@@ -10,8 +10,6 @@ from system_timer import system_timer
 import global_variables
 import pandas as pd
 import os
-import fileinput
-import ast
 import json
 
 class main(QWidget):

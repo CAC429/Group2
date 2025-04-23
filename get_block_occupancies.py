@@ -10,7 +10,7 @@ def get_block_occupancies():
                 data = json.load(file)
         except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
             print(f"Failed to read PLC_OUTPUTS JSON: {e}")
-            return
+            return global_variables.block_occupancies
     #red line
     elif global_variables.line == 1:
         try:
@@ -18,8 +18,8 @@ def get_block_occupancies():
                 data = json.load(file)
         except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
             print(f"Failed to read PLC_OUTPUTS2 JSON: {e}")
-            return
-
+            return global_variables.block_occupancies
+        
     occupancies = data["Occupancy"]
 
     #treat blocks in maintenance as occupied blocks

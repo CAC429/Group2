@@ -22,8 +22,6 @@ def set_speed_authority(speed, authority):
     data["Suggested_Speed"] = speed
     data["Suggested_Authority"] = authority
 
-    print(speed)
-
     #dump into json
     if global_variables.line == 0:
         try:
@@ -33,7 +31,6 @@ def set_speed_authority(speed, authority):
             print(f"Failed to write PLC_INPUTS JSON: {e}")
             return
     elif global_variables.line == 1:
-        print('hello')
         try:
             with open('PLC_INPUTS2.json', 'w') as file:
                 json.dump(data, file, indent=4)

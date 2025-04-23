@@ -22,6 +22,7 @@ class routes_maintenance(QWidget):
         #SENT TRAINS TIMER
         ###
         self.train_list = []
+        self.train_queue = []
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.train_check)
         self.timer.setInterval(global_variables.timer_interval)
@@ -126,9 +127,18 @@ class routes_maintenance(QWidget):
         for i, train in enumerate(self.train_list):
             #make sure times match up and train has never been sent
             if str(train[0][:8]) == str(str(global_variables.current_time)[11:19]) and train[1] == 0:
-                #flag that the train has been sent
+                #send train into dispatch queue
+                self.train_queue.insert(0, 0)
                 train[1] = 1
-                send_train(1)
+        for i, train in enumerate(self.train_queue):
+            if global_variables.line == 0:
+                self.train_queue[i] = 1
                 self.table.setItem(i, 2, QTableWidgetItem('SENT'))
-            else:
-                send_train(0)
+                send_train(1)
+                return
+            elif global_variables.line == 1 and train == 0 and all(x == 0 for x in global_variables.block_occupancies[:9]) and all(x == 0 for x in global_variables.block_occupancies[15:27]):
+                self.train_queue[i] = 1
+                self.table.setItem(i, 2, QTableWidgetItem('SENT'))
+                send_train(1)
+                return
+        send_train(0)
