@@ -18,6 +18,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        self.clear_occupancy_data()
         # Create central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -43,7 +44,16 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("Track Layout and Peripherals")
         self.setGeometry(100, 100, 800, 600)
-    
+
+    def clear_occupancy_data(self):
+        """Clear the occupancy data file when UI starts"""
+        try:
+            with open("occupancy_data.json", "w") as file:
+                json.dump({"trains": []}, file, indent=4)
+            print("Cleared occupancy data at startup")
+        except Exception as e:
+            print(f"Error clearing occupancy data: {e}")
+
     def setup_green_tab(self):
         """Setup the Green Line tab with grid and switch window"""
         layout = QHBoxLayout(self.green_tab)

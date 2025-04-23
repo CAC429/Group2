@@ -1,22 +1,3 @@
 {
-    "trains": [
-        {
-            "number": 1,
-            "position": 0.0,
-            "blocks": [
-                63
-            ],
-            "speed_authority": "11100100",
-            "new_passengers": 167,
-            "total_passengers": 167,
-            "ticket_sales_history": [
-                [
-                    167,
-                    "16:13"
-                ]
-            ],
-            "beacon_info": null,
-            "elevation": 0.0
-        }
-    ]
+    "trains": []
 }
