@@ -9,6 +9,8 @@ from PIL import Image, ImageDraw, ImageFont
 import board
 import busio
 import adafruit_ssd1306
+import os
+
 
 class LEDController:
     def __init__(self):
@@ -103,39 +105,42 @@ class LEDController:
             except:
                 pass
 
+import os
+
 def main():
     controller = LEDController()
-    print("Hardware controller ready - waiting for commands...")
-    
+    print("Hardware controller ready - waiting for pipe input...")
+
+    pipe_path = "/tmp/train_hw_pipe"
+    if not os.path.exists(pipe_path):
+        os.mkfifo(pipe_path)
+
     try:
         while True:
-            if select.select([sys.stdin], [], [], 0.1)[0]:
-                line = sys.stdin.readline()
-                if not line:
-                    break
-                    
-                try:
-                    command = json.loads(line.strip())
-                    print(f"Received command: {command}")
-                    
-                    if 'power' in command:
-                        controller.update_oled(command['power'])
-                        
-                    if 'leds' in command and controller.hardware_initialized:
-                        for led, state in command['leds'].items():
-                            if led in controller.pins and controller.pins[led] is not None:
-                                lgpio.gpio_write(controller.gpio_handle, 
-                                                controller.pins[led], 
-                                                1 if state else 0)
-                except json.JSONDecodeError as e:
-                    print(f"Invalid JSON: {str(e)}")
-                except Exception as e:
-                    print(f"Command error: {str(e)}")
-                    
-    except KeyboardInterrupt:
-        print("\nShutting down...")
+            with open(pipe_path, "r") as pipe:
+                for line in pipe:
+                    if not line.strip():
+                        continue
+                    try:
+                        command = json.loads(line.strip())
+                        print(f"Received command: {command}")
+
+                        if 'power' in command:
+                            controller.update_oled(command['power'])
+
+                        if 'leds' in command and controller.hardware_initialized:
+                            for led, state in command['leds'].items():
+                                if led in controller.pins and controller.pins[led] is not None:
+                                    print(f"Setting {led} to {'ON' if state else 'OFF'}")
+                                    lgpio.gpio_write(controller.gpio_handle, controller.pins[led], 1 if state else 0)
+
+                    except json.JSONDecodeError as e:
+                        print(f"Invalid JSON: {str(e)}")
+                    except Exception as e:
+                        print(f"Command error: {str(e)}")
     finally:
         controller.cleanup()
+
 
 if __name__ == "__main__":
     main()
