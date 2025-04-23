@@ -15,7 +15,20 @@ class MainTrainModel:
         self.root = tk.Tk()
         self.root.withdraw()  # Hide the main window
         self.train_models = []
+        self._cleanup_train_outputs()
         self.load_trains_from_file()
+
+    def _cleanup_train_outputs(self):
+        """Deletes only trainX_outputs.json files (e.g. train1_outputs.json) on startup"""
+        for filename in os.listdir('.'):
+            if (filename.startswith('train') 
+                and filename.endswith('_outputs.json') 
+                and not filename.startswith('TC')):  # Explicitly exclude TC files
+                try:
+                    os.remove(filename)
+                    print(f"Deleted old train output: {filename}")
+                except Exception as e:
+                    print(f"Couldn't delete {filename}: {e}")
         
     def load_trains_from_file(self, file_path='occupancy_data.json'):
         try:

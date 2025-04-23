@@ -1,12 +1,12 @@
 {
     "Commanded Power": 19942.79,
     "Suggested Speed": 20,
-    "Suggested Authority": 200,
+    "Suggested Authority": 0,
     "Emergency Brake": false,
     "Service Brake": false,
     "Left Door": false,
     "Right Door": false,
-    "Cabin Lights": false,
+    "Cabin Lights": true,
     "Exterior Lights": true,
     "Cabin Temp": 70
 }
