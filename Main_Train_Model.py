@@ -16,10 +16,9 @@ class MainTrainModel:
         self.root.title("Train Model Controller")
         self.root.withdraw()  # Start hidden
         self.train_models = []
-        self.last_train_count = 0
         self._cleanup_train_outputs()
         
-        # Create a status frame that's always visible
+        # Status frame
         self.status_frame = tk.Frame(self.root)
         self.status_frame.pack(pady=10)
         self.status_label = tk.Label(
@@ -29,7 +28,6 @@ class MainTrainModel:
         )
         self.status_label.pack()
         
-        # Start monitoring
         self.monitor_train_instances()
         self.run()
 
@@ -45,39 +43,54 @@ class MainTrainModel:
                 except Exception as e:
                     print(f"Couldn't delete {filename}: {e}")
 
+    def create_new_train(self):
+        """Create a new train UI with the next available number"""
+        train_number = len(self.train_models) + 1
+        try:
+            train_window = tk.Toplevel(self.root)
+            train_window.title(f"Train {train_number} Controls")
+            
+            train_model = Train_Model(
+                root=train_window,
+                Train_Number=train_number
+            )
+            self.train_models.append(train_model)
+            print(f"Created new Train {train_number}")
+            
+            # Show main window if it was hidden
+            self.root.deiconify()
+            
+        except Exception as e:
+            print(f"Error creating train {train_number}: {e}")
+    
+    def update_status(self, current_value):
+        """Update the status display"""
+        self.status_label.config(
+            text=f"Trains: {len(self.train_models)} | Current Instance: {current_value}",
+            fg='green'
+        )
+
     def monitor_train_instances(self):
-        """Continuously check for changes in train instances"""
+        """Check train_instance.json and create new trains when needed"""
         try:
             with open('train_instance.json', 'r') as f:
                 data = json.load(f)
-                current_count = data.get('train_instance', 0)
+                current_value = data.get('train_instance', 0)
                 
-            if current_count != self.last_train_count:
-                self.status_label.config(
-                    text=f"Train count changed from {self.last_train_count} to {current_count}",
-                    fg='blue'
-                )
-                self.last_train_count = current_count
-                self.update_trains(current_count)
-            else:
-                self.status_label.config(
-                    text=f"Monitoring: {current_count} active trains",
-                    fg='green'
-                )
-                
-        except FileNotFoundError:
-            self.status_label.config(
-                text="Error: train_instance.json not found",
-                fg='red'
-            )
-        except Exception as e:
-            self.status_label.config(
-                text=f"Error reading train instances: {str(e)}",
-                fg='red'
-            )
+            if current_value == 1:
+                # Only create a new train if this is a new activation
+                if not hasattr(self, 'last_instance_value') or self.last_instance_value != 1:
+                    self.create_new_train()
+                    
+            self.last_instance_value = current_value
+            self.update_status(current_value)
             
-        # Check again every 2 seconds
-        self.root.after(2000, self.monitor_train_instances)
+        except Exception as e:
+            print(f"Error reading train instances: {e}")
+            self.status_label.config(text=f"Error: {str(e)}", fg='red')
+            
+        # Check every second
+        self.root.after(1000, self.monitor_train_instances)
 
     def update_trains(self, num_trains):
         """Create or destroy trains as needed"""
