@@ -1,8 +1,4 @@
-# Philip Sherman
-# Trains Group 2
-# Train Controller SW UI
-# Created: 2/19/2025
-# Last Updated: 4/23/2025
+
 
 import json
 import os
