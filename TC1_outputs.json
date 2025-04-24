@@ -3,10 +3,10 @@
     "Suggested Speed": 20.0,
     "Suggested Authority": 104,
     "Emergency Brake": false,
-    "Service Brake": false,
-    "Left Door": true,
+    "Service Brake": true,
+    "Left Door": false,
     "Right Door": true,
-    "Cabin Lights": false,
+    "Cabin Lights": true,
     "Exterior Lights": false,
     "Cabin Temp": 70
 }

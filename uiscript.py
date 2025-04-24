@@ -216,6 +216,15 @@ class TrainControllerUI(QWidget):
         self.scan_for_trains()
         self.init_timers()
         self.update_ui_from_state()
+    
+    def read_timer_interval(self):
+        try:
+            with open('TIMER.json', 'r') as f:
+                timer_data = json.load(f)
+                return int(timer_data.get('timer_interval', 1000))
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            print("Warning: Could not read TIMER.json, using default interval of 1000ms")
+            return 1000
 
     def cleanup_output_files(self):
         try:
@@ -496,7 +505,8 @@ class TrainControllerUI(QWidget):
     def init_timers(self):
         self.master_timer = QTimer(self)
         self.master_timer.timeout.connect(self.update_from_files)
-        self.master_timer.start(1000)
+        interval = self.read_timer_interval()
+        self.master_timer.start(interval)
 
         self.file_watcher = QFileSystemWatcher()
         self.file_watcher.addPaths(glob('train*_outputs.json'))
@@ -724,7 +734,8 @@ class TrainControllerUI(QWidget):
 
         if auto_mode:
             print("Automatic Mode Enabled!")
-            self.master_timer.start(1000)
+            interval = self.read_timer_interval()
+            self.master_timer.start(interval)
             self.set_controls_enabled_state(False)  # Disable and gray out controls
 
             # Disable power control inputs
