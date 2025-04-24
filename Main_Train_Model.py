@@ -780,6 +780,7 @@ class Train_Model:
             
             def update_braking():
                 if not self.service_brake_active:  # Check if brake was released
+                    self.station_status = 0
                     return
                     
                 elapsed = time.time() - start_time
@@ -794,7 +795,7 @@ class Train_Model:
                 self.write_outputs_to_file()
                 
                 if current_speed > 0:
-                    self.root.after(50, update_braking)
+                    self.root.after(500, update_braking)
                 else:
                     # When fully stopped, maintain service brake active
                     self.Train_Ca.Actual_Speed = 0  # Ensure speed is exactly 0
