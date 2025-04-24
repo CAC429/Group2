@@ -131,7 +131,7 @@ class routes_maintenance(QWidget):
                 self.train_queue.insert(0, 0)
                 train[1] = 1
         for i, train in enumerate(self.train_queue):
-            if global_variables.line == 0:
+            if global_variables.line == 0 and train == 0:
                 self.train_queue[i] = 1
                 self.table.setItem(i, 2, QTableWidgetItem('SENT'))
                 send_train(1)
