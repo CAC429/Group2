@@ -116,13 +116,13 @@ class DataGridUI:
         # Read PLC_OUTPUTS.json
             with open("PLC_OUTPUTS2.json", "r") as file:
                 outputs = json.load(file)
-                Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
-                Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
-                Occupancy_Out = outputs.get("Occupancy", [])
-                Track_Failure_Out = outputs.get("Track_Failure", [])
-                Light_Control_Out = outputs.get("Light_Control", [])
-                Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
-                Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
+            Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
+            Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
+            Occupancy_Out = outputs.get("Occupancy", [])
+            Track_Failure_Out = outputs.get("Track_Failure", [])
+            Light_Control_Out = outputs.get("Light_Control", [])
+            Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
+            Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
 
             #0
             if ((Occupancy_Out[0] == 1 and Track_Failure_Out[0] == 0) or 
@@ -500,11 +500,11 @@ class DataGridUI:
         try:
             with open("PLC_INPUTS2.json", "r") as file:
                 inputs = json.load(file)
-                Suggested_Speed_In = inputs.get("Suggested_Speed", [])
-                Suggested_Authority_In = inputs.get("Suggested_Authority", [])
-                Occupancy_In = inputs.get("Occupancy", [])
-                Default_Switch_In = inputs.get("Default_Switch_Position", [])
-                Train_Instance = inputs.get("Train_Instance")
+            Suggested_Speed_In = inputs.get("Suggested_Speed", [])
+            Suggested_Authority_In = inputs.get("Suggested_Authority", [])
+            Occupancy_In = inputs.get("Occupancy", [])
+            Default_Switch_In = inputs.get("Default_Switch_Position", [])
+            Train_Instance = inputs.get("Train_Instance")
         except FileNotFoundError:
             print("Error: PLC_INPUTS.json not found! Please check the file path.")
         except Exception as e:
@@ -571,11 +571,11 @@ class DataGridUI:
         try:
             with open("PLC_INPUTS2.json", "r") as file:
                 inputs = json.load(file)
-                Suggested_Speed_In = inputs.get("Suggested_Speed", [])
-                Suggested_Authority_In = inputs.get("Suggested_Authority", [])
-                Occupancy_In = inputs.get("Occupancy", [])
-                Default_Switch_In = inputs.get("Default_Switch_Position", [])
-                Train_Instance = inputs.get("Train_Instance")
+            Suggested_Speed_In = inputs.get("Suggested_Speed", [])
+            Suggested_Authority_In = inputs.get("Suggested_Authority", [])
+            Occupancy_In = inputs.get("Occupancy", [])
+            Default_Switch_In = inputs.get("Default_Switch_Position", [])
+            Train_Instance = inputs.get("Train_Instance")
         except FileNotFoundError:
             print("Error: PLC_INPUTS2.json not found! Please check the file path.")
         except Exception as e:
@@ -586,13 +586,13 @@ class DataGridUI:
             try:
                 with open("PLC_OUTPUTS2.json", "r") as file:
                     outputs = json.load(file)
-                    Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
-                    Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
-                    Occupancy_Out = outputs.get("Occupancy", [])
-                    Track_Failure_Out = outputs.get("Track_Failure", [])
-                    Light_Control_Out = outputs.get("Light_Control", [])
-                    Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
-                    Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
+                Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
+                Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
+                Occupancy_Out = outputs.get("Occupancy", [])
+                Track_Failure_Out = outputs.get("Track_Failure", [])
+                Light_Control_Out = outputs.get("Light_Control", [])
+                Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
+                Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
             except FileNotFoundError:
                 print("Error: PLC_OUTPUTS2.json not found! Please check the file path.")
             except Exception as e:
@@ -622,11 +622,11 @@ class DataGridUI:
             try:
                 with open("PLC_INPUTS2.json", "r") as file:
                     inputs = json.load(file)
-                    Suggested_Speed_In = inputs.get("Suggested_Speed", [])
-                    Suggested_Authority_In = inputs.get("Suggested_Authority", [])
-                    Occupancy_In = inputs.get("Occupancy", [])
-                    Default_Switch_In = inputs.get("Default_Switch_Position", [])
-                    Train_Instance = inputs.get("Train_Instance")
+                Suggested_Speed_In = inputs.get("Suggested_Speed", [])
+                Suggested_Authority_In = inputs.get("Suggested_Authority", [])
+                Occupancy_In = inputs.get("Occupancy", [])
+                Default_Switch_In = inputs.get("Default_Switch_Position", [])
+                Train_Instance = inputs.get("Train_Instance")
             except FileNotFoundError:
                 print("Error: PLC_INPUTS.json not found! Please check the file path.")
             except Exception as e:
@@ -661,13 +661,13 @@ class DataGridUI:
         # Read PLC_OUTPUTS.json
             with open("PLC_OUTPUTS2.json", "r") as file:
                 outputs = json.load(file)
-                Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
-                Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
-                Occupancy_Out = outputs.get("Occupancy", [])
-                Track_Failure_Out = outputs.get("Track_Failure", [])
-                Light_Control_Out = outputs.get("Light_Control", [])
-                Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
-                Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
+            Suggested_Speed_Out = outputs.get("Suggested_Speed", [])
+            Suggested_Authority_Out = outputs.get("Suggested_Authority", [])
+            Occupancy_Out = outputs.get("Occupancy", [])
+            Track_Failure_Out = outputs.get("Track_Failure", [])
+            Light_Control_Out = outputs.get("Light_Control", [])
+            Actual_Switch_Position_Out = outputs.get("Actual_Switch_Position", [])
+            Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
             if Self.Speed_Change == True:
                 Suggested_Speed_Out[Self.Test_Block] = Self.User_Speed[Self.Test_Block]
                 Self.Speed_Change = False
@@ -796,8 +796,19 @@ class DataGridUI:
                 "Yes" if New_Occupancy[i] else "No"     #Occupancy status
             ), tags=(Row_Tag))                          #Apply text color tag
 
+        try:
+            with open("TIMER.json", "r") as file:
+                inputs = json.load(file)
+            time = inputs.get("timer_interval")
+        except FileNotFoundError:
+            print("Error: PLC_INPUTS.json not found! Please check the file path.")
+            time = 1000
+        except Exception as e:
+            print(f"Unexpected error in input file: {e}")
+            time = 1000
+
         #Re-run the function to check for updates periodically
-        Self.Root.after(1000, Self.Update_UI)  #Check for updates every 500ms
+        Self.Root.after(time, Self.Update_UI)  #Check for updates every 500ms
 
 #Start UI
 if __name__ == "__main__":
