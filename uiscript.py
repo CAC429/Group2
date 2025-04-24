@@ -620,6 +620,7 @@ class TrainControllerUI(QWidget):
             engine_fail = bool(data.get('Engine_Fail', 0))
             
             if emergency_brake_active or brake_fail or signal_fail or engine_fail:
+                print("THERE'S AN ERROR BRO")
                 train['brake_controller'].activate_emergency_brake()
                 output_file = f"TC{self.current_train_id}_outputs.json"
                 self.write_outputs(output_file, emergency_brake=1, service_brake=0)
@@ -721,7 +722,7 @@ class TrainControllerUI(QWidget):
         if not brake_controller.emergency_brake_active:
             # Toggle the service brake state
             brake_controller.activate_service_brake(manual=True)
-            print("Service Brake Engaged")
+            print("Service Brake Engaged through manual")
             
             # Update outputs and UI
             output_file = f"TC{self.current_train_id}_outputs.json"
@@ -906,8 +907,8 @@ class TrainControllerUI(QWidget):
                         #print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")  # <-- ADD THIS
                         
                         # Enhanced check for station stop condition
-                        if (abs(delta_position - station_distance) <= 3  # Difference within 3 meters
-                                and not state.stopping_sequence_active):
+                        if (abs(delta_position - station_distance) <= 10  # Difference within 10 meters
+                                and not train['state'].stopping_sequence_active):
                             self.handle_station_stop()
                 except Exception as e:
                     print(f"Error checking station distance: {e}")
@@ -923,6 +924,7 @@ class TrainControllerUI(QWidget):
         state = train['state']
 
         train['brake_controller'].activate_service_brake()
+        print("Service brake activated #6969")
         train['brake_controller'].manual_brake = False  # Ensure auto control
         
         # Force power to 0
@@ -988,7 +990,7 @@ class TrainControllerUI(QWidget):
             15000
         )
 
-    def check_speed_and_brake(self):
+    def check_speed_and_brake(self, sequence):
         if not self.auto_checkbox.isChecked():
             return
             
@@ -997,10 +999,12 @@ class TrainControllerUI(QWidget):
             return
         
         if getattr(train['brake_controller'], 'manual_brake', False):
+            print("manual is activated")
             return
 
         # Don't apply service brakes if we're in the process of leaving the station
         if getattr(train, 'leaving_station', False):
+            print("Train is leaing station")
             return
 
         current_speed_mph = train['state'].current_speed_mph
@@ -1015,12 +1019,13 @@ class TrainControllerUI(QWidget):
         threshold = 0.5  # m/s difference threshold
         
         if speed_diff > threshold:
-            if not train['brake_controller'].service_brake_active:
+            if not train['brake_controller'].service_brake_active and not train['state'].stopping_sequence_active:
                 print(f"Speed exceeded - activating service brake (Current: {current_speed_mph:.1f} mph, Suggested: {suggested_speed_mph:.1f} mph)")
                 train['brake_controller'].activate_service_brake()
+                print("service brake pulled bitch ass")
                 output_file = f"TC{self.current_train_id}_outputs.json"
                 self.write_outputs(output_file, service_brake=1)
-        elif train['brake_controller'].service_brake_active and speed_diff <= threshold:
+        elif train['brake_controller'].service_brake_active and speed_diff <= threshold and not train['state'].stopping_sequence_active:
             print(f"Speed within limits - releasing service brake (Current: {current_speed_mph:.1f} mph, Suggested: {suggested_speed_mph:.1f} mph)")
             train['brake_controller'].release_brakes()
             output_file = f"TC{self.current_train_id}_outputs.json"
