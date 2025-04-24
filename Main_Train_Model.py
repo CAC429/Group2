@@ -331,23 +331,23 @@ class Train_Model:
                     
             # Find data for this specific train
             train_data = None
-            if isinstance(data, list):
-                for train in data:
-                    if train.get('Train_Number') == self.Train_Number:
+            if 'trains' in data:  # New format with trains array
+                for train in data['trains']:
+                    if train.get('number') == self.Train_Number:
                         train_data = train
                         break
-            elif data.get('Train_Number') == self.Train_Number:
+            elif data.get('number') == self.Train_Number:  # Old single-train format
                 train_data = data
                     
             if train_data:
-                self.Passenger_Number = float(train_data.get('Total_Passenger_Count', 0))
+                self.Passenger_Number = train_data.get('total_passengers', 0)
+                # DIRECTLY take speed_authority as string, no processing
+                self.Suggested_Speed_Authority = str(train_data.get('speed_authority', "0"))
                 # Update beacon if no signal pickup failure
                 if not self.Train_F.Signal_Pickup_Fail:
-                    beacon_info = train_data.get('Beacon_Info', "No beacon info")
+                    beacon_info = train_data.get('beacon_info', "No beacon info")
                     if beacon_info != "No beacon info":
                         self.Beacon = beacon_info
-                    # Update suggested speed/authority from track model
-                    self.Suggested_Speed_Authority = train_data.get('speed_authority', "0")
                 self.last_update_time = time.time()
                 return True
             return False
@@ -368,10 +368,8 @@ class Train_Model:
         try:
             delta_pos_meters = self.Get_Delta_Pos() * 0.3048
             
-            if isinstance(self.Suggested_Speed_Authority, (list, tuple)):
-                suggested_speed_auth = ''.join(map(str, self.Suggested_Speed_Authority))
-            else:
-                suggested_speed_auth = str(self.Suggested_Speed_Authority)
+            # Directly use the Suggested_Speed_Authority string as is
+            suggested_speed_auth = str(self.Suggested_Speed_Authority)
             
             output_data = {
                 "Passengers": int(self.Passenger_Number),
@@ -379,12 +377,12 @@ class Train_Model:
                 "Actual_Speed": self.Train_Ca.Actual_Speed,
                 "Actual_Authority": self.Train_Ca.Actual_Authority * 0.3048,
                 "Delta_Position": delta_pos_meters,
-                "Emergency_Brake": 1 if self.emergency_brake_active else 0,  # Direct status mapping
+                "Emergency_Brake": 1 if self.emergency_brake_active else 0,
                 "Brake_Fail": int(self.Get_Brake_Fail_Status()),
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
                 "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
                 "Beacon": self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon),
-                "Suggested_Speed_Authority": suggested_speed_auth,
+                "Suggested_Speed_Authority": suggested_speed_auth,  # Direct string copy
             }
             
             with open(self.log_file, 'w') as f:
