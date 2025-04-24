@@ -125,7 +125,61 @@ class DataGridUI:
                 Cross_Bar_Control_Out = outputs.get("Cross_Bar_Control", [])
 
             #0
-            for i in list(range(1, 9)) + list(range(15, 27)):
+            if ((Occupancy_Out[0] == 1 and Track_Failure_Out[0] == 0) or 
+                (Occupancy_Out[0] == 1 and Occupancy_Out[1] == 1 and Track_Failure_Out[1] == 1 and Track_Failure_Out[0] == 0) or
+                (Occupancy_Out[0] == 1 and Occupancy_Out[15] == 1 and Track_Failure_Out[15] == 1 and Track_Failure_Out[0] == 0)):
+                if Train_Bauds[0][0] == "1":
+                    if Suggested_Speed_Out[0] == "1111" or Suggested_Speed_Out[0] == "1010" or Suggested_Speed_Out[0] == "0":
+                        Train_Bauds[0] = "0" + str(Suggested_Speed_Out[0])
+                    else:
+                        Train_Bauds[0] = "0" + str(bin(int(Suggested_Speed_Out[0]))[2:])
+                elif Train_Bauds[0][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[15] == 0 or Suggested_Authority_Out[1] == 0 or Suggested_Authority_Out[0] == 0 or Suggested_Authority_Out[15] == "0" or Suggested_Authority_Out[1] == "0" or Suggested_Authority_Out[0] == "0":
+                        Train_Bauds[0] = "1" + "0"
+                    elif Suggested_Authority_Out[15] < Suggested_Authority_Out[1]:
+                        if Suggested_Authority_Out[0] + Suggested_Authority_Out[15] > 511:
+                            Train_Bauds[0] = "1" + "111111111"
+                        else:
+                            Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[0]) + int(Suggested_Authority_Out[15]))[2:])
+                    elif Suggested_Authority_Out[15] > Suggested_Authority_Out[1]:
+                        if Suggested_Authority_Out[0] + Suggested_Authority_Out[1] > 511:
+                            Train_Bauds[0] = "1" + "111111111"
+                        else:
+                            Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[0]) + int(Suggested_Authority_Out[1]))[2:])
+                    else:
+                        if Suggested_Authority_Out[0] + Suggested_Authority_Out[15] > 511:
+                            Train_Bauds[0] = "1" + "111111111"
+                        else:
+                            Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[0]) + int(Suggested_Authority_Out[15]))[2:])
+            #15
+            if ((Occupancy_Out[15] == 1 and Track_Failure_Out[15] == 0) or 
+                (Occupancy_Out[15] == 1 and Occupancy_Out[0] == 1 and Track_Failure_Out[0] == 1 and Track_Failure_Out[15] == 0) or
+                (Occupancy_Out[15] == 1 and Occupancy_Out[16] == 1 and Track_Failure_Out[16] == 1 and Track_Failure_Out[15] == 0)):
+                if Train_Bauds[0][0] == "1":
+                    if Suggested_Speed_Out[15] == "1111" or Suggested_Speed_Out[15] == "1010" or Suggested_Speed_Out[15] == "0":
+                        Train_Bauds[0] = "0" + str(Suggested_Speed_Out[15])
+                    else:
+                        Train_Bauds[0] = "0" + str(bin(int(Suggested_Speed_Out[15]))[2:])
+                elif Train_Bauds[0][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[16] == 0 or Suggested_Authority_Out[0] == 0 or Suggested_Authority_Out[15] == 0 or Suggested_Authority_Out[16] == "0" or Suggested_Authority_Out[0] == "0" or Suggested_Authority_Out[15] == "0":
+                        Train_Bauds[0] = "1" + "0"
+                    elif Suggested_Authority_Out[16] < Suggested_Authority_Out[0]:
+                        if Suggested_Authority_Out[15] + Suggested_Authority_Out[16] > 511:
+                            Train_Bauds[0] = "1" + "111111111"
+                        else:
+                            Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[15]) + int(Suggested_Authority_Out[16]))[2:])
+                    elif Suggested_Authority_Out[16] > Suggested_Authority_Out[0]:
+                        if Suggested_Authority_Out[15] + Suggested_Authority_Out[0] > 511:
+                            Train_Bauds[0] = "1" + "111111111"
+                        else:
+                            Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[15]) + int(Suggested_Authority_Out[0]))[2:])
+                    else:
+                        if Suggested_Authority_Out[15] + Suggested_Authority_Out[0] > 511:
+                            Train_Bauds[0] = "1" + "111111111"
+                        else:
+                            Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[15]) + int(Suggested_Authority_Out[16]))[2:])
+
+            for i in list(range(1, 9)) + list(range(16, 27)):
                 if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
                     (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
                     (Occupancy_Out[i] == 1 and Occupancy_Out[i-1] == 1 and Track_Failure_Out[i-1] == 1 and Track_Failure_Out[i] == 0)):
@@ -154,7 +208,40 @@ class DataGridUI:
                             else:
                                 Train_Bauds[0] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
                         break
+           
             #71 and 75
+            if ((Occupancy_Out[71] == 1 and Track_Failure_Out[71] == 0) or 
+                (Occupancy_Out[71] == 1 and Occupancy_Out[32] == 1 and Track_Failure_Out[32] == 1 and Track_Failure_Out[71] == 0)):
+                if Train_Bauds[1][0] == "1":
+                    if Suggested_Speed_Out[71] == "1111" or Suggested_Speed_Out[71] == "1010" or Suggested_Speed_Out[71] == "0":
+                        Train_Bauds[1] = "0" + str(Suggested_Speed_Out[71])
+                    else:
+                        Train_Bauds[1] = "0" + str(bin(int(Suggested_Speed_Out[71]))[2:])
+                elif Train_Bauds[1][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[71] == 0 or Suggested_Authority_Out[32] == 0 or Suggested_Authority_Out[71] == "0" or Suggested_Authority_Out[32] == "0":
+                        Train_Bauds[1] = "1" + "0"
+                    else:
+                        if Suggested_Authority_Out[71] + Suggested_Authority_Out[32] > 511:
+                            Train_Bauds[1] = "1" + "111111111"
+                        else:
+                            Train_Bauds[1] = "1" + str(bin(int(Suggested_Authority_Out[71]) + int(Suggested_Authority_Out[32]))[2:])
+
+            if ((Occupancy_Out[75] == 1 and Track_Failure_Out[75] == 0) or 
+                (Occupancy_Out[75] == 1 and Occupancy_Out[74] == 1 and Track_Failure_Out[74] == 1 and Track_Failure_Out[75] == 0)):
+                if Train_Bauds[1][0] == "1":
+                    if Suggested_Speed_Out[75] == "1111" or Suggested_Speed_Out[75] == "1010" or Suggested_Speed_Out[75] == "0":
+                        Train_Bauds[1] = "0" + str(Suggested_Speed_Out[75])
+                    else:
+                        Train_Bauds[1] = "0" + str(bin(int(Suggested_Speed_Out[75]))[2:])
+                elif Train_Bauds[1][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[75] == 0 or Suggested_Authority_Out[74] == 0 or Suggested_Authority_Out[75] == "0" or Suggested_Authority_Out[74] == "0":
+                        Train_Bauds[1] = "1" + "0"
+                    else:
+                        if Suggested_Authority_Out[75] + Suggested_Authority_Out[74] > 511:
+                            Train_Bauds[1] = "1" + "111111111"
+                        else:
+                            Train_Bauds[1] = "1" + str(bin(int(Suggested_Authority_Out[75]) + int(Suggested_Authority_Out[74]))[2:])
+
             for i in range(72, 75):
                 if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
                     (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
@@ -244,7 +331,40 @@ class DataGridUI:
                             else:
                                 Train_Bauds[3] = "1" + str(bin(int(Suggested_Authority_Out[i]) + int(Suggested_Authority_Out[i-1]))[2:])
                         break
+            
             #66 and 70
+            if ((Occupancy_Out[66] == 1 and Track_Failure_Out[66] == 0) or 
+                (Occupancy_Out[66] == 1 and Occupancy_Out[43] == 1 and Track_Failure_Out[43] == 1 and Track_Failure_Out[66] == 0)):
+                if Train_Bauds[4][0] == "1":
+                    if Suggested_Speed_Out[66] == "1111" or Suggested_Speed_Out[66] == "1010" or Suggested_Speed_Out[66] == "0":
+                        Train_Bauds[4] = "0" + str(Suggested_Speed_Out[66])
+                    else:
+                        Train_Bauds[4] = "0" + str(bin(int(Suggested_Speed_Out[66]))[2:])
+                elif Train_Bauds[4][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[66] == 0 or Suggested_Authority_Out[43] == 0 or Suggested_Authority_Out[66] == "0" or Suggested_Authority_Out[43] == "0":
+                        Train_Bauds[4] = "1" + "0"
+                    else:
+                        if Suggested_Authority_Out[66] + Suggested_Authority_Out[43] > 511:
+                            Train_Bauds[4] = "1" + "111111111"
+                        else:
+                            Train_Bauds[4] = "1" + str(bin(int(Suggested_Authority_Out[66]) + int(Suggested_Authority_Out[43]))[2:])
+
+            if ((Occupancy_Out[70] == 1 and Track_Failure_Out[70] == 0) or 
+                (Occupancy_Out[70] == 1 and Occupancy_Out[37] == 1 and Track_Failure_Out[37] == 1 and Track_Failure_Out[70] == 0)):
+                if Train_Bauds[4][0] == "1":
+                    if Suggested_Speed_Out[70] == "1111" or Suggested_Speed_Out[70] == "1010" or Suggested_Speed_Out[70] == "0":
+                        Train_Bauds[4] = "0" + str(Suggested_Speed_Out[70])
+                    else:
+                        Train_Bauds[4] = "0" + str(bin(int(Suggested_Speed_Out[70]))[2:])
+                elif Train_Bauds[4][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[70] == 0 or Suggested_Authority_Out[37] == 0 or Suggested_Authority_Out[70] == "0" or Suggested_Authority_Out[37] == "0":
+                        Train_Bauds[4] = "1" + "0"
+                    else:
+                        if Suggested_Authority_Out[70] + Suggested_Authority_Out[37] > 511:
+                            Train_Bauds[4] = "1" + "111111111"
+                        else:
+                            Train_Bauds[4] = "1" + str(bin(int(Suggested_Authority_Out[70]) + int(Suggested_Authority_Out[37]))[2:])
+
             for i in range(67, 70):
                 if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
                     (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0) or
@@ -336,6 +456,22 @@ class DataGridUI:
                         break
 
             #65
+            if ((Occupancy_Out[65] == 1 and Track_Failure_Out[65] == 0) or 
+                (Occupancy_Out[65] == 1 and Occupancy_Out[51] == 1 and Track_Failure_Out[51] == 1 and Track_Failure_Out[65] == 0)):
+                if Train_Bauds[7][0] == "1":
+                    if Suggested_Speed_Out[65] == "1111" or Suggested_Speed_Out[65] == "1010" or Suggested_Speed_Out[65] == "0":
+                        Train_Bauds[7] = "0" + str(Suggested_Speed_Out[65])
+                    else:
+                        Train_Bauds[7] = "0" + str(bin(int(Suggested_Speed_Out[65]))[2:])
+                elif Train_Bauds[7][0] == "0":  # Should only execute if the first if does not
+                    if Suggested_Authority_Out[65] == 0 or Suggested_Authority_Out[51] == 0 or Suggested_Authority_Out[65] == "0" or Suggested_Authority_Out[51] == "0":
+                        Train_Bauds[7] = "1" + "0"
+                    else:
+                        if Suggested_Authority_Out[65] + Suggested_Authority_Out[51] > 511:
+                            Train_Bauds[7] = "1" + "111111111"
+                        else:
+                            Train_Bauds[7] = "1" + str(bin(int(Suggested_Authority_Out[65]) + int(Suggested_Authority_Out[51]))[2:])
+
             for i in range(52, 65):
                 if ((Occupancy_Out[i] == 1 and Track_Failure_Out[i] == 0) or 
                     (Occupancy_Out[i] == 1 and Occupancy_Out[i+1] == 1 and Track_Failure_Out[i+1] == 1 and Track_Failure_Out[i] == 0)):
