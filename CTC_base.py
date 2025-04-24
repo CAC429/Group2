@@ -8,8 +8,11 @@ from speed_authority import *
 
 import sys
 
+#initalize general ui style
+
+
 class CTC_base(QMainWindow):
-    
+
     def __init__(self):
         super().__init__()
 

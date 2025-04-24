@@ -89,11 +89,11 @@ class main(QWidget):
         self.throughput_label = QLabel(f'Throughput: {throughput} tickets/hr')
 
         #set system speed
-        #options: 1x 2x, 4x, 8x, 10x, 20x, 25x, 40x, 50x
-        sys_speed_txt = QLabel('Set speed of system (Options: 1x, 2x, 4x, 8x, 10x, 20x, 25x, 50x): ')
+        #options: 1x, 5x, 10x, 20x
+        sys_speed_txt = QLabel('Set speed of system (Options: 1x, 5x, 10x, 20x): ')
         self.sys_speed_slider = QSlider(Qt.Horizontal, self)
         self.sys_speed_slider.setMinimum(0)
-        self.sys_speed_slider.setMaximum(8)
+        self.sys_speed_slider.setMaximum(3)
         self.sys_speed_slider.setValue(0)
         self.sys_speed_slider.setTickPosition(QSlider.TicksBelow)
         self.sys_speed_slider.setTickInterval(1)
@@ -168,11 +168,18 @@ class main(QWidget):
         self.parent_window.routes_maintenance_tab.update_scheduled_trains(chosen_time)
 
     def update_multiplier(self):
-        multipliers = [1, 2, 4, 8, 10, 20, 25, 40, 50]
+        multipliers = [1, 5, 10, 20]
         index = int(self.sys_speed_slider.value())
         global_variables.system_multiplier = multipliers[index]
         global_variables.timer_interval = int(1000 / global_variables.system_multiplier)
         self.timer.setInterval(global_variables.timer_interval)
+        #WRITE TO NEW JSON FILE
+        try:
+            with open('TIMER.json', 'w') as file:
+                json.dump({"timer_interval": global_variables.timer_interval}, file)
+        except (PermissionError, json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"Failed to write PLC_INPUTS JSON: {e}")
+            return
         self.parent_window.routes_maintenance_tab.timer.setInterval(global_variables.timer_interval)
         self.parent_window.speed_authority_tab.timer.setInterval(global_variables.timer_interval)
 
