@@ -160,24 +160,13 @@ if global_variables.line == 0:
 elif global_variables.line == 1:
     BEACON_BLOCKS = {
         8: "beacon 1",
-        16: "beacon 2",
-        21: "beacon 3",
-        87: "beacon 4",
-        95: "beacon 5",
-        104: "beacon 7",
-        113: "beacon 8",
-        122: "beacon 9",
-        131: "beacon 10",
-        140: "beacon 11",
-        23: "beacon 12",
-        17: "beacon 13",
-        10: "beacon 14",
-        3: "beacon 15",
-        30: "beacon 18",
-        38: "beacon 19",
-        47: "beacon 20",
-        56: "beacon 21",
-        58: "beacon 22"
+        15: "beacon 2",
+        20: "beacon 3",
+        24: "beacon 4",
+        34: "beacon 5",
+        44: "beacon 6",
+        47: "beacon 7",
+        59: "beacon 8",
     }
 
     beacons = {
@@ -202,8 +191,67 @@ elif global_variables.line == 1:
         "beacon 4": {
             "station_side": "left",
             "arriving_station": "PENN STATION",
-            "new_station": "HERRON AVE",
-            "station_distance": 174.5
+            "new_station": "STEEL PLAZA",
+            "station_distance": 2137
         },
-
+        "beacon 5": {
+            "station_side": "left",
+            "arriving_station": "STEEL PLAZA",
+            "new_station": "FIRST AVE",
+            "station_distance": 2637
+        },
+        "beacon 6": {
+            "station_side": "left",
+            "arriving_station": "FIRST AVE",
+            "new_station": "STATION SQUARE",
+            "station_distance": 3137
+        },
+        "beacon 7": {
+            "station_side": "left",
+            "arriving_station": "STATION SQUARE",
+            "new_station": "SOUTH HILLS JUNCTION",
+            "station_distance": 3349.5
+        },
+        "beacon 8": {
+            "station_side": "left",
+            "arriving_station": "SOUTH HILLS JUNCTION",
+            "new_station": "STATION SQUARE",
+            "station_distance": 4092.7
+        },
+        "beacon 9": {
+            "station_side": "right",
+            "arriving_station": "STATION SQUARE",
+            "new_station": "FIRST AVE",
+            "station_distance": 4810.9
+        },
+        "beacon 10": {
+            "station_side": "right",
+            "arriving_station": "FIRST AVE",
+            "new_station": "STEEL PLAZA",
+            "station_distance": 5023.4
+        },
+        "beacon 11": {
+            "station_side": "right",
+            "arriving_station": "STEEL PLAZA",
+            "new_station": "PENN STATION",
+            "station_distance": 5543.4
+        },
+        "beacon 12": {
+            "station_side": "right",
+            "arriving_station": "PENN STATION",
+            "new_station": "SWISSVALE",
+            "station_distance": 6063.4
+        },
+        "beacon 13": {
+            "station_side": "right",
+            "arriving_station": "SWISSVALE",
+            "new_station": "HERRON AVE",
+            "station_distance": 6388.4
+        },
+        "beacon 14": {
+            "station_side": "right",
+            "arriving_station": "HERRON AVE",
+            "new_station": "GET OFF THE TRAIN",
+            "station_distance": 7663.4
+        },
     }

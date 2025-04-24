@@ -372,7 +372,7 @@ if __name__ == "__main__":
     csv_file_path = "data2.csv"  # Green Line data file
     green_line = GreenLineOccupancy(load_csv(csv_file_path))
     train_number = 1 
-    position = 15552  # Example train position
+    position = 200  # Example train position
     overlapping_blocks, elevation = green_line.find_blocks(position)
     passengers, new_passengers, starting_pass = pass_count(10, 1)
     ticket_array = []  # Initialize an empty list

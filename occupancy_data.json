@@ -2,9 +2,9 @@
     "trains": [
         {
             "number": 1,
-            "position": 920.0,
+            "position": 300.0,
             "blocks": [
-                70
+                65
             ],
             "speed_authority": "1000000000",
             "new_passengers": 0,

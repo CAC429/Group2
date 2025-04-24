@@ -54,40 +54,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error clearing occupancy data: {e}")
 
-    def clear_plc_occupancies(self):
-        """Initialize all occupancies in PLC_INPUTS.json to zero"""
-        try:
-            # Try to load existing PLC data
-            try:
-                with open("PLC_INPUTS.json", "r") as file:
-                    plc_data = json.load(file)
-            except (FileNotFoundError, json.JSONDecodeError):
-                # Create new structure if file doesn't exist or is invalid
-                plc_data = {
-                    "Suggested_Speed": [20]*150,
-                    "Suggested_Authority": [100]*150,
-                    "Occupancy": [0]*150,
-                    "Default_Switch_Position": [0]*6,
-                    "Train_Instance": 0
-                }
-            
-            # Set all occupancies to 0
-            if global_variables.line == 1:
-                x = 76  # Red Line has 75 blocks
-            else:
-                x = 151  # Green Line has 150 blocks
-                
-            plc_data["Occupancy"] = [0] * (x - 1)
-            
-            # Write back to file
-            with open("PLC_INPUTS.json", "w") as file:
-                json.dump(plc_data, file, indent=4)
-                
-            print(f"Initialized PLC occupancies to 0 for {'Red' if global_variables.line == 1 else 'Green'} Line")
-            
-        except Exception as e:
-            print(f"Error clearing PLC occupancies: {e}")
-
     def setup_green_tab(self):
         """Setup the Green Line tab with grid and switch window"""
         layout = QHBoxLayout(self.green_tab)
@@ -185,7 +151,7 @@ class GridWindow(QWidget):
         # Set operational files based on line number
         if self.line_number == 0:  # Green Line
             self.line_class = GreenLineOccupancy
-            self.operational_file = "data2.csv"  # Note: single = for assignment
+            self.operational_file = "data2.csv"
             self.info_file = "data1.csv"
         elif self.line_number == 1:  # Red Line
             self.line_class = RedLineOccupancy
@@ -200,10 +166,21 @@ class GridWindow(QWidget):
         self.position = 0
         
         self.init_ui()
+        try:
+            with open("TIMER.json", "r") as file:
+                inputs = json.load(file)
+            time = inputs.get("timer_interval")
+        except FileNotFoundError:
+            print("error")
+            time = 1000
+        except Exception as e:
+            print("unexpected: {e}")
+            time = 1000
         
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_blocks)
-        self.timer.start(1000)
+        self.timer.start(time)
+        
 
     def init_ui(self):
         main_layout = QVBoxLayout()
@@ -216,7 +193,7 @@ class GridWindow(QWidget):
         # Load both CSV files
         grid_data = load_csv(self.initialoperational_file)  # Operational data
         block_info_data = load_csv(self.initialinfo_file)  # Informational data
-        route_data = load_csv(self.operational_file)
+        
         # Create mapping of block numbers to their info with validation
         block_info_map = {}
         for row in block_info_data:
@@ -317,9 +294,7 @@ class GridWindow(QWidget):
 
     def create_next_train(self):
         """Create a new train instance using the correct CSV files"""
-        
         try:
-            
             print(f"Creating train {len(self.class_lines) + 1}...")
             print(f"Using operational file: {self.operational_file}")
             
@@ -331,6 +306,7 @@ class GridWindow(QWidget):
             new_class_line.ticket_array = []
             new_class_line.passengers_count = 0
             new_class_line.new_passengers = 0
+            new_class_line.current_beacon_info = None  # Initialize beacon info
             
             self.class_lines.append(new_class_line)
             self.train_positions.append(0)
@@ -352,7 +328,6 @@ class GridWindow(QWidget):
         try:
             with open("train_instance.json", "w") as file:
                 json.dump({"train_instance": instance_status}, file)
-
         except Exception as e:
             print(f"Error updating train_instance.json: {e}")
 
@@ -361,23 +336,21 @@ class GridWindow(QWidget):
         train_instance = 0
         if global_variables.line == 0:
             baud_dict = {
-            'Baud1': '0', 
-            'Baud2': '0',
-            'Baud3': '0',
-            'Baud4': '0'
-        }
+                'Baud1': '0', 
+                'Baud2': '0',
+                'Baud3': '0',
+                'Baud4': '0'
+            }
             try:
                 with open("PLC_OUTPUTS_Baud_Train_Instance.json", "r") as file:
                     data = json.load(file)
                     train_instance = data.get("Train_Instance", 0)
                     
-                    # Update the train_instance.json file if needed
                     if train_instance == 1:
                         self.update_train_instance_file(1)
                     else:
                         self.update_train_instance_file(0)
                     
-                    # Extract baud values from Train_Bauds dictionary
                     train_bauds = data.get("Train_Bauds", {})
                     for key, value in train_bauds.items():
                         if 'Baud1' in key:
@@ -408,13 +381,11 @@ class GridWindow(QWidget):
                     data = json.load(file)
                     train_instance = data.get("Train_Instance", 0)
                     
-                    # Update the train_instance.json file if needed
                     if train_instance == 1:
                         self.update_train_instance_file(1)
                     else:
                         self.update_train_instance_file(0)
                     
-                    # Extract baud values from Train_Bauds dictionary
                     train_bauds = data.get("Train_Bauds", {})
                     for key, value in train_bauds.items():
                         if 'Baud1' in key:
@@ -483,28 +454,58 @@ class GridWindow(QWidget):
                     delta_position, station_status, passengers = self.read_train_output(train_number)
                     if None in (delta_position, station_status, passengers):
                         continue
-                    self.position += 40
-                    delta_position = self.position
+                    
                     self.train_positions[train_number - 1] = delta_position
                     occupied_blocks, elevation = class_line.find_blocks(delta_position)
                     global_occupancy.update({block: train_number for block in occupied_blocks})
 
+                    # Initialize beacon_info with previous value if it exists
+                    if not hasattr(class_line, 'current_beacon_info'):
+                        class_line.current_beacon_info = None
+                        
                     # Check for beacon blocks
-                    beacon_info = None
-                    for block in occupied_blocks:
-                        # Check special conditions first
-                        if block == 78 and delta_position > 7500:
-                            beacon_info = beacons.get("beacon 6")
-                            break
-                        elif block == 15 and delta_position > 15700:
-                            beacon_info = beacons.get("beacon 16")
-                            break
-                        elif block == 21 and delta_position > 15700:
-                            beacon_info = beacons.get("beacon 17")
-                            break
-                        elif block in BEACON_BLOCKS:
-                            beacon_info = beacons.get(BEACON_BLOCKS[block])
-                            break
+                    new_beacon_info = None
+                    if global_variables.line == 0:
+                        for block in occupied_blocks:
+                            if block == 78 and delta_position > 7500:
+                                new_beacon_info = beacons.get("beacon 6")
+                                break
+                            elif block == 15 and delta_position > 15700:
+                                new_beacon_info = beacons.get("beacon 16")
+                                break
+                            elif block == 21 and delta_position > 15700:
+                                new_beacon_info = beacons.get("beacon 17")
+                                break
+                            elif block in BEACON_BLOCKS:
+                                new_beacon_info = beacons.get(BEACON_BLOCKS[block])
+                                break
+                    elif global_variables.line == 1:
+                        for block in occupied_blocks:
+                            if block == 49 and delta_position > 4600:
+                                new_beacon_info = beacons.get("beacon 9")
+                                break
+                            elif block == 46 and delta_position > 4600:
+                                new_beacon_info = beacons.get("beacon 10")
+                                break
+                            elif block == 36 and delta_position > 4600:
+                                new_beacon_info = beacons.get("beacon 11")
+                                break
+                            elif block == 26 and delta_position > 4600:
+                                new_beacon_info = beacons.get("beacon 12")
+                                break
+                            elif block == 22 and delta_position > 4600:
+                                new_beacon_info = beacons.get("beacon 13")
+                                break
+                            elif block == 17 and delta_position > 4600:
+                                new_beacon_info = beacons.get("beacon 14")
+                                break
+                            elif block in BEACON_BLOCKS:
+                                new_beacon_info = beacons.get(BEACON_BLOCKS[block])
+                                break
+
+                    # Only update beacon info if we hit a new beacon
+                    if new_beacon_info is not None:
+                        class_line.current_beacon_info = new_beacon_info
 
                     # Get current time for records
                     try:
@@ -554,7 +555,7 @@ class GridWindow(QWidget):
                                 f"Suggested_Speed_Authority: {speed_auth}\n"
                                 f"Passengers: 0\n"
                                 f"Ticket Sales: []\n"
-                                f"Beacon Info: {beacon_info}\n"
+                                f"Beacon Info: {class_line.current_beacon_info}\n"
                                 f"Elevation: {elevation}m\n\n",
                                 mode="w"
                             )
@@ -567,7 +568,7 @@ class GridWindow(QWidget):
                                 0,
                                 delta_position,
                                 speed_auth,
-                                beacon_info,
+                                class_line.current_beacon_info,
                                 elevation
                             )
 
@@ -592,7 +593,7 @@ class GridWindow(QWidget):
                                 class_line.passengers_count,
                                 delta_position,
                                 speed_auth,
-                                beacon_info,
+                                class_line.current_beacon_info,
                                 elevation
                             )
                         
@@ -607,7 +608,7 @@ class GridWindow(QWidget):
                         class_line.passengers_count,
                         delta_position,
                         speed_auth,
-                        beacon_info,
+                        class_line.current_beacon_info,
                         elevation
                     )
 
@@ -628,7 +629,6 @@ class GridWindow(QWidget):
                 elif box.index in global_occupancy:
                     if isinstance(global_occupancy[box.index], int):  # Regular train
                         box.set_state(1, train_id=global_occupancy[box.index])
-                    # Failures already handled above
 
             self.update_plc_inputs(global_occupancy)
             
@@ -660,29 +660,23 @@ class GridWindow(QWidget):
                     "Default_Switch_Position": [0]*6,
                     "train_instance": 0
                 }
+            
+            # Set the correct number of blocks based on line
             if global_variables.line == 1:
-                x = 76
+                x = 76  # Red Line has 75 blocks
             else:
-                x = 151
+                x = 151  # Green Line has 150 blocks
+                
             # Update only the occupancy array
             plc_data["Occupancy"] = [1 if block_num in occupancy_dict else 0 
                                     for block_num in range(1, x)]
             
-            # Write back the complete data (with only occupancy changed)
+            # Write back the complete data
             with open("PLC_INPUTS.json", "w") as file:
                 json.dump(plc_data, file, indent=4)
 
         except Exception as e:
             print(f"Error updating PLC inputs: {e}")
-            # Try to write minimal data if full update fails
-            try:
-                with open("PLC_INPUTS.json", "w") as file:
-                    json.dump({
-                        "Occupancy": [1 if block_num in occupancy_dict else 0 
-                                    for block_num in range(1, 151)]
-                    }, file)
-            except Exception as e:
-                print(f"Critical error writing minimal PLC inputs: {e}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
