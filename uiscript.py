@@ -112,6 +112,10 @@ class DoorController:
         self.right_door = False
 
     def set_door_state(self, door_type, state):
+        if state:
+            if self.train['state'].current_speed_mph > 0.1:
+                print("Cannot open doors while train is moving")
+                return
         if door_type == "left":
             self.left_door = state
         else:
@@ -192,7 +196,7 @@ class TrainControllerUI(QWidget):
     def initialize_output_file(self, filename):
         default_values = {
             "Commanded Power": 0.0,
-            "Suggested Speed": 20,
+            "Suggested Speed": 20.0,
             "Suggested Authority": 0,
             "Emergency Brake": False,
             "Service Brake": False,
@@ -579,30 +583,24 @@ class TrainControllerUI(QWidget):
             train['state'].delta_position = float(data.get('Delta_Position', 0))
             train['state'].beacon = data.get('Beacon', '')
             
-            # Suggested speed and authority handling
-            suggested_speed_mph = 20  # Default speed
-            suggested_authority = 0   # Default authority
+            # Suggested speed and authority handling (NEW LOGIC)
+            suggested_speed_auth = data.get('Suggested_Speed_Authority', '').strip()
+            output_file = f"TC{self.current_train_id}_outputs.json"
             
-            suggested_speed_auth = data.get('Suggested_Speed_Authority', '')
-            if suggested_speed_auth and all(bit in '01' for bit in suggested_speed_auth):
-                # Pad with zeros to make 10 bits if needed
-                if len(suggested_speed_auth) < 10:
-                    suggested_speed_auth = suggested_speed_auth.ljust(10, '0')
+            if suggested_speed_auth:
+                # No padding - use the binary string as-is
+                mode_bit = suggested_speed_auth[0] if len(suggested_speed_auth) > 0 else '0'
+                value_bits = suggested_speed_auth[1:] if len(suggested_speed_auth) > 1 else '0'
                 
-                # First bit is the mode (0 = speed, 1 = authority)
-                mode_bit = suggested_speed_auth[0]
-                
-                # Remaining 9 bits are the value
-                value_bits = suggested_speed_auth[1:]
-                value = int(value_bits, 2)
+                # Convert binary to decimal
+                value = int(value_bits, 2) if value_bits else 0
                 
                 if mode_bit == '0':  # Speed value
-                    suggested_speed_mph = value
+                    train['state'].suggested_speed_mph = value
+                    self.write_outputs(output_file, suggested_speed=value)
                 else:  # Authority value
-                    suggested_authority = value
-
-            train['state'].suggested_speed_mph = suggested_speed_mph
-            train['state'].suggested_authority = suggested_authority
+                    train['state'].suggested_authority = value
+                    self.write_outputs(output_file, suggested_authority=value)
 
             # Update UI labels
             self.speed_label.setText(f"Current Speed: {train['state'].current_speed_mph:.1f} mph")
@@ -743,7 +741,7 @@ class TrainControllerUI(QWidget):
             except (FileNotFoundError, json.JSONDecodeError):
                 data = {
                     "Commanded Power": 0.0,
-                    "Suggested Speed": 20,
+                    "Suggested Speed": 20.0,
                     "Suggested Authority": 0,
                     "Emergency Brake": False,
                     "Service Brake": False,
@@ -758,6 +756,10 @@ class TrainControllerUI(QWidget):
             for key, value in kwargs.items():
                 if key == "power":
                     data["Commanded Power"] = round(value, 2)
+                elif key == "suggested_speed":
+                    data["Suggested Speed"] = int(value)
+                elif key == "suggested_authority":
+                    data['Suggested Authority'] = int(value)
                 elif key == "service_brake":
                     data["Service Brake"] = bool(value)
                 elif key == "emergency_brake":
@@ -910,7 +912,7 @@ class TrainControllerUI(QWidget):
 
     def handle_station_stop(self):
         train = self.get_current_train()
-        if train is None:
+        if train is None or train['state'].stopping_sequence_active:
             return
             
         state = train['state']
@@ -1020,31 +1022,40 @@ class TrainControllerUI(QWidget):
             self.write_outputs(output_file, service_brake=0)
 
     def finish_station_stop_sequence(self, door_side):
-        train = self.get_current_train()
-        if train is None:
-            return
+        try:
+            train = self.get_current_train()
+            if train is None:
+                return
+                
+            state = train['state']
             
-        state = train['state']
-        
-        # Close doors
-        train['door_controller'].set_door_state(door_side, False)
-        output_file = f"TC{self.current_train_id}_outputs.json"
-        self.write_outputs(output_file, **{f"{door_side}_door": 0})
-        print(f"{door_side.capitalize()} doors closed")
+            # Close doors
+            train['door_controller'].set_door_state(door_side, False)
+            output_file = f"TC{self.current_train_id}_outputs.json"
+            self.write_outputs(output_file, **{f"{door_side}_door": 0})
+            print(f"{door_side.capitalize()} doors closed")
 
-        train['brake_controller'].release_brakes()
-        self.write_outputs(output_file, service_brake = 0)
-        
-        # Clear stopping flag but keep cooldown for a short time
-        state.stopping_sequence_active = False
-        state.station_stop_cooldown = True
-        state.leaving_station = True
-        
-        # Clear cooldown after 5 seconds (shorter than before)
-        QTimer.singleShot(5000, lambda: setattr(state, 'station_stop_cooldown', False))
-        
-        # Clear leaving station flag after 2 seconds
-        QTimer.singleShot(2000, lambda: setattr(state, 'leaving_station', False))
+            train['brake_controller'].release_brakes()
+            self.write_outputs(output_file, service_brake = 0)
+            
+            # Clear stopping flag but keep cooldown for a short time
+            state.stopping_sequence_active = False
+            state.station_stop_cooldown = True
+            state.leaving_station = True
+            
+            # Clear cooldown after 5 seconds (shorter than before)
+            QTimer.singleShot(5000, lambda: setattr(state, 'station_stop_cooldown', False))
+            
+            # Clear leaving station flag after 2 seconds
+            QTimer.singleShot(2000, lambda: setattr(state, 'leaving_station', False))
+
+        except Exception as e:
+            print(f"Error in station stop sequence: {e}")
+            train = self.get_current_train()
+            if train:
+                train['state'].leaving_station = False
+                train['state'].stopping_sequence_active = False
+
 
 def main():
     app = QApplication([])
@@ -1054,3 +1065,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+    #1 11001000 
+    #0 10100 000
