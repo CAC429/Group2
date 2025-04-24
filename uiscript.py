@@ -255,7 +255,6 @@ class TrainControllerUI(QWidget):
         self.train_select.currentTextChanged.connect(self.on_train_selected)
 
     def on_train_selected(self, text):
-        """Handle when a new train is selected from the dropdown"""
         try:
             train_id = text.split(' ')[1]  # Extract ID from "Train X"
             if train_id in self.train_instances:
@@ -448,7 +447,6 @@ class TrainControllerUI(QWidget):
         self.file_watcher.fileChanged.connect(self.handle_file_changed)
 
     def handle_file_changed(self, path):
-        """Handle when a train output file changes"""
         try:
             train_id = path.split('train')[1].split('_outputs.json')[0]
             if train_id == self.current_train_id:
@@ -899,19 +897,24 @@ class TrainControllerUI(QWidget):
             if state.current_speed_mph > 0.1 and not state.station_stop_cooldown:
                 try:
                     beacon = state.beacon
-                    if "station_distance" in beacon:
-                        station_dist_str = beacon.split("station_distance: ")[1].split(",")[0].strip()
-                        station_distance = float(station_dist_str)
+                    beacon_dict = dict(
+                        item.strip().split(": ", 1) for item in beacon.split(", ") if ": " in item
+                    )
+
+                    if "station_distance" in beacon_dict:
+                        station_distance = float(beacon_dict["station_distance"])
                         delta_position = state.delta_position
-                        #print(f"DEBUG - Delta: {delta_position}, Station Dist: {station_distance}")  # <-- ADD THIS
-                        #print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")  # <-- ADD THIS
-                        
-                        # Enhanced check for station stop condition
-                        if (abs(delta_position - station_distance) <= 10  # Difference within 10 meters
-                                and not train['state'].stopping_sequence_active):
+
+                        print(f"DEBUG - Delta: {delta_position}, Station Dist: {station_distance}")
+                        print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")
+
+                        if (abs(delta_position - station_distance) <= 10
+                                and not state.stopping_sequence_active):
                             self.handle_station_stop()
                 except Exception as e:
                     print(f"Error checking station distance: {e}")
+                    print(f"Beacon content: {state.beacon}")
+
                         
         self.check_speed_and_brake()
         self.update_power_display()
@@ -990,7 +993,7 @@ class TrainControllerUI(QWidget):
             15000
         )
 
-    def check_speed_and_brake(self, sequence):
+    def check_speed_and_brake(self):
         if not self.auto_checkbox.isChecked():
             return
             
@@ -1022,7 +1025,7 @@ class TrainControllerUI(QWidget):
             if not train['brake_controller'].service_brake_active and not train['state'].stopping_sequence_active:
                 print(f"Speed exceeded - activating service brake (Current: {current_speed_mph:.1f} mph, Suggested: {suggested_speed_mph:.1f} mph)")
                 train['brake_controller'].activate_service_brake()
-                print("service brake pulled bitch ass")
+                print("Service Brake Pulled - decelerating")
                 output_file = f"TC{self.current_train_id}_outputs.json"
                 self.write_outputs(output_file, service_brake=1)
         elif train['brake_controller'].service_brake_active and speed_diff <= threshold and not train['state'].stopping_sequence_active:
