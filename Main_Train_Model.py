@@ -397,7 +397,7 @@ class Train_Model:
                 "Station_Status": self.station_status,
                 "Actual_Speed": self.Train_Ca.Actual_Speed,
                 "Actual_Authority": self.Train_Ca.Actual_Authority * 0.3048,  # Convert feet to meters
-                "Delta_Position": (self.cumulative_delta_meters+20),  # Already in meters the plus 20 was added to not make people upset
+                "Delta_Position": (self.cumulative_delta_meters),  # Already in meters the plus 20 was added to not make people upset
                 "Emergency_Brake": 1 if (self.tc_emergency_brake or self.ui_emergency_brake) else 0,
                 "Brake_Fail": int(self.Get_Brake_Fail_Status()),
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
