@@ -765,9 +765,17 @@ class Train_Model:
             
         except Exception as e:
             print(f"Error in update_all_displays: {e}")
+
+        try:
+            with open("TIMER.json", "r") as file: #Global Timer multipler
+                inputs = json.load(file)
+            timer =inputs.get("timer_interval")
+        except Exception as e:
+            print(f"Unexpected error in input file {e}")
+            time = 1000
         
         # Schedule next update
-        self.root.after(1000, self.update_all_displays)
+        self.root.after(time, self.update_all_displays) 
 
 
     def activate_service_brake(self):
