@@ -9,12 +9,54 @@ from speed_authority import *
 import sys
 
 #initalize general ui style
-dark_mode = """"
+dark_mode = """
 QWidget{
-    background-color: #121212;
-    color: #e0e0e0;
+    background-color: #1e1e1e;
+    color: #dcdcdc;
+    font-family: Segoe UI, sans-serif;
 }
 
+QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QListView, QSpinBox, QDoubleSpinBox{
+    background-color: #2b2b2b;
+    color: #f0f0f0;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QTabWidget::pane{
+    border: 1px solid #333;
+    background-color: #1e1e1e;
+}
+
+QTabBar::tab{
+    background: #2a2a2a;
+    color: #ffffff;
+    padding: 10px 16px;
+    margin-right: 2px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    min-width: 366px;
+}
+
+QTabBar::tab:selected{
+    background: #3a3a3a;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+QTabBar::tab:hover{
+    background: #444444
+}
+
+QPushButton{
+    background-color: #6a6a6a;
+    color: #ffffff;
+    border: 1px solid #7a7a7a;
+    border-radius: 6px;
+    padding: 6px 12px;
+}
+"""
 class CTC_base(QMainWindow):
 
     def __init__(self):

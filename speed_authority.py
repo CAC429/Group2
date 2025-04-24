@@ -45,8 +45,6 @@ class speed_authority(QWidget):
             self.blocks = 76
         cols = 10
         self.labels = [QLabel(f'Block {i+1}\nSpeed: {global_variables.static_speed[i]} km/hr\nAuthority: {global_variables.static_authority[i]} km') for i in range(self.blocks)]
-        for i in self.labels:
-            pass
         for i in range(self.blocks):
             statistics.addWidget(self.labels[i], i // cols, i % cols)
 
@@ -66,24 +64,24 @@ class speed_authority(QWidget):
         global_variables.block_occupancies = get_block_occupancies()
 
         for i in range(len(global_variables.block_occupancies)):
-            self.labels[i].setStyleSheet('color: black')
+            self.labels[i].setStyleSheet('color: white; border: 1px solid gray;')
             #if block is occupied
             if global_variables.block_occupancies[i] == 1:
                 #impact block before
-                self.labels[i].setStyleSheet('color: green')
+                self.labels[i].setStyleSheet('color: green; border: 1px solid gray;')
                 if i >= 1:
-                    self.labels[i-1].setStyleSheet('color: orange')
+                    self.labels[i-1].setStyleSheet('color: orange; border: 1px solid gray;')
                     authority[i-1] = authority[i-1] / 4
                     speed[i-1] = speed[i-1] / 4
                 #impact two blocks before
                 if i >= 2:
-                    self.labels[i-2].setStyleSheet('color: yellow')
+                    self.labels[i-2].setStyleSheet('color: yellow; border: 1px solid gray;')
                     speed[i-2] = speed[i-2] / 2
 
         #change text for blocks in maintenance
         if global_variables.current_maintenance:
             for i in global_variables.current_maintenance:
-                self.labels[i].setStyleSheet('color: red')
+                self.labels[i].setStyleSheet('color: red; border: 1px solid gray;')
                 authority[i] = 0
                 speed[i] = 0
     

@@ -38,8 +38,8 @@ class main(QWidget):
         #AUTOMATIC DISPATCH
         ###
         auto = QLabel('Automatic Dispatch')
-        auto.setStyleSheet('font-weight: bold; background-color: green; color: white; font-size: 20px;')
-        auto.setFixedSize(260, 30)
+        auto.setStyleSheet('font-weight: bold; background-color: green; color: white; font-size: 32px;')
+        auto.setFixedSize(500, 100)
         #centers text in textbox
         auto.setAlignment(Qt.AlignCenter)
 
@@ -59,8 +59,8 @@ class main(QWidget):
         #MANUAL DISPATCH
         ###
         man = QLabel('Manual Dispatch')
-        man.setStyleSheet('font-weight: bold; background-color: blue; color: white; font-size: 20px;')
-        man.setFixedSize(260, 30)
+        man.setStyleSheet('font-weight: bold; background-color: blue; color: white; font-size: 32px;')
+        man.setFixedSize(500, 100)
         man.setAlignment(Qt.AlignCenter)
 
         #dropdown
@@ -102,40 +102,36 @@ class main(QWidget):
         #throughput
         #from greenlineoccup import GreenLineOccupancy
 
-        #add all widgets together
-        #left side
-        #l_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        ###
+        #COMPILE WIDGETS
+        ###
+        #add headers together
         headers.addWidget(auto)
-        headers.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        headers.addSpacerItem(QSpacerItem(30, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
         headers.addWidget(man)
+        #compile left side (upload button, text, submit button)
         l_layout.addWidget(upload)
         l_layout.addWidget(self.file_name_placeholder)
         l_layout.addWidget(auto_button)
-        #l_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
-        #right side
-        #r_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
-        r_layout.addWidget(man, alignment=Qt.AlignCenter)
-        r_layout.addWidget(QLabel('Select Final Destination: '))
-        r_layout.addWidget(self.dropdown)
+        #compile right side (time select, time display, submit button)
         r_layout.addWidget(dispatch_time)
         r_layout.addWidget(self.start_time)
         r_layout.addWidget(man_button)
-        #r_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        #compile date and time
         time_date.addWidget(current_date)
         time_date.addWidget(self.time_txt)
-
-        #bring layouts together with spacing for neatness
-        #main_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-        #main_layout.addSpacerItem(QSpacerItem(80, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-        #main_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        #add every piece together
         full_layout.addLayout(headers)
         auto_and_man.addLayout(l_layout)
         auto_and_man.addLayout(r_layout)
         full_layout.addLayout(auto_and_man)
         full_layout.addLayout(time_date)
+        #throw in throughput as well
         full_layout.addWidget(self.throughput_label)
+        full_layout.addSpacerItem(QSpacerItem(0, 50, QSizePolicy.Minimum, QSizePolicy.Fixed))
         full_layout.addWidget(sys_speed_txt)
         full_layout.addWidget(self.sys_speed_slider)
+        full_layout.addSpacerItem(QSpacerItem(0, 50, QSizePolicy.Minimum, QSizePolicy.Fixed))
 
         self.setLayout(full_layout)
     
