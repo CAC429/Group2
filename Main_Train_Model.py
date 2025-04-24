@@ -429,8 +429,8 @@ class Train_Model:
         
         # Store ad paths and current ad index
         self.ad_paths = [
-            r"C:\Users\there\Downloads\adfrtain3.jpg",
-            r"C:\Users\there\Downloads\adfrtrain2.jpg"
+            r"adfrtain3.jpg",
+            r"adfrtrain2.jpg"
         ]
         self.current_ad = 0
         
