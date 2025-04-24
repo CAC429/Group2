@@ -1,13 +1,13 @@
 class Train_Calc:
-    def __init__(self, Dt, Train_Mass, Actual_Speed, Actual_Authority, Elevation):
+    def __init__(self, Dt, Train_Mass, Actual_Speed, Actual_Authority):
         self.Dt = Dt  # in seconds (changed to 0.1s for better updates)
         self.Train_Mass = Train_Mass  # kg
         self.Actual_Speed = Actual_Speed  # mph
         self.Actual_Authority = Actual_Authority  # ft
-        self.Elevation = Elevation  # ft
+        #self.Elevation = Elevation  # ft
 
-    def Get_Elevation(self):
-        return self.Elevation
+    #def Get_Elevation(self):
+     #   return self.Elevation
         
     def Acceleration_Calc(self, Power, Passenger_Number):
         Total_Mass = self.Train_Mass + Passenger_Number * 75  # in kg
@@ -30,9 +30,7 @@ class Train_Calc:
         speed_fps = new_speed * 1.46667  # mph to ft/s
         return self.Actual_Authority + (speed_fps * self.Dt)
 
-    def Grade_Calc(self):
-        delta_pos = self.Get_Elevation()
-        if delta_pos != 0:
-            return (self.Elevation / delta_pos) * 100
-        return 0
+    #def Grade_Calc(self):
+     #   return (self.Elevation / 100) * 100 #grade calculated by elevation divded by 100 ft * 100 for percent 
+    
     

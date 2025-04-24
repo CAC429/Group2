@@ -197,7 +197,6 @@ class Train_Model:
         # Add these new attributes
         self.actual_speed_mps = 0  # Speed in meters per second
         self.cumulative_delta_meters = 0
-        self.last_update_time = time.time()
         self.ui_activated_brake = False
         
         # Initialize all attributes
@@ -209,6 +208,8 @@ class Train_Model:
         self.Train_Number = Train_Number
         self.last_beacon = None
         self.Suggested_Authority = 0
+        self.elevation = elevation
+        self.Grade = 0
         
         # Initialize logging file
         self.log_file = f"train{Train_Number}_outputs.json"
@@ -227,7 +228,7 @@ class Train_Model:
         self.Suggested_Speed_Authority = Suggested_Speed_Authority
         
         # Initialize components
-        self.Train_Ca = Train_Calc(1, 40900, 0.1, 0.1, elevation)
+        self.Train_Ca = Train_Calc(1, 40900, 0.1, 0.1) #delta time, train weight (constant), initial Actual Speed, intial Actual Authority, elevation from occupancy_data
         self.Train_F = Train_Failure(False, False, False)
         self.Train_C = Train_Comp(1)
         self.Reference = Reference_Objects(1)
@@ -265,7 +266,7 @@ class Train_Model:
             except Exception as e:
                 print(f"Error parsing beacon string: {e}")
         
-        return arriving_station, next_station
+        return arriving_station, next_station 
 
     def read_tc_outputs(self):
         """Read train-specific TC outputs file"""
@@ -351,6 +352,7 @@ class Train_Model:
             if train_data:
                 self.Passenger_Number = train_data.get('total_passengers', 0)
                 self.Suggested_Speed_Authority = str(train_data.get('speed_authority', "0"))
+                self.elevation = train_data.get('elevation', 0)
                 # Update beacon if no signal pickup failure
                 if not self.Train_F.Signal_Pickup_Fail:
                     beacon_info = train_data.get('beacon_info', "No beacon info")
@@ -453,7 +455,7 @@ class Train_Model:
             # Load current ad
             img = Image.open(self.ad_paths[self.current_ad])
             
-            # Resize (same as before)
+            # Resize Images Here
             max_width = 400
             max_height = 200
             width_ratio = max_width / float(img.size[0])
@@ -729,10 +731,9 @@ class Train_Model:
             self.Passenger_Label.config(text=f"Passengers: {int(self.Passenger_Number)}")
             
             # Calculate and display elevation and grade
-            elevation = self.Train_Ca.Get_Elevation()
-            grade = self.Train_Ca.Grade_Calc()
-            self.Elevation_Label.config(text=f"Elevation: {elevation:.2f} ft")
-            self.Grade_Label.config(text=f"Grade: {grade:.2f}%")
+            self.Elevation_Label.config(text=f"Elevation: {self.elevation:.2f} ft")
+            Grade = (self.elevation/100)*100      #grade calculated by elevation divded by 100 ft * 100 for percent
+            self.Grade_Label.config(text=f"Grade: {Grade:.2f}%")
             
             # Update other displays
             self.update_temp_display()
