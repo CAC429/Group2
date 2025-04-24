@@ -58,7 +58,7 @@ class routes_maintenance(QWidget):
         ###
         #DEFAULT SWITCH POSITION
         ###
-        self.switch_txt = QLabel('Current default switch position: UP')
+        self.switch_txt = QLabel('Current exit switch position: UP')
         self.switch_button = QPushButton('Change to DOWN')
         self.switch_button.clicked.connect(self.switch_default_position)
         self.switch_position = 0
