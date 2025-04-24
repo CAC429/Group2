@@ -3,7 +3,7 @@ from datetime import datetime
 system_multiplier = 1
 timer_interval = int(1000 / system_multiplier)
 #0 -> green line, 1 -> red line
-line = 1
+line = 0
 current_maintenance = []
 block_occupancies = []
 current_time = datetime.now().replace(hour=23, minute=59, second=0, microsecond=0)
