@@ -36,6 +36,3 @@ class Train_Calc:
             return (self.Elevation / delta_pos) * 100
         return 0
     
-    def Delta_Position_Track_Model(self, Power, Passenger_Number):
-        speed_fps = self.Actual_Speed * 1.46667  # mph to ft/s
-        return speed_fps * self.Dt

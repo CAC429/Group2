@@ -189,11 +189,14 @@ class MainTrainModel:
 
 class Train_Model:
     NORMAL_ACCELERATION = 0.5 * 2.23694  # Convert 0.5 m/s² to mph/s
-    
     def __init__(self, root, Train_Number=0, Power=0, Passenger_Number=0, Cabin_Temp=70, 
                  Right_Door=False, Left_Door=False, Exterior_Lights=True, 
                  Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
                  emergency_brake=0, service_brake=0, elevation=0.0):
+        
+        # Add these new attributes
+        self.actual_speed_mps = 0  # Speed in meters per second
+        self.cumulative_delta_meters = 0
         
         # Initialize all attributes
         self.emergency_brake_active = bool(emergency_brake)
@@ -202,8 +205,6 @@ class Train_Model:
         self.service_brake = service_brake
         self.station_status = 0
         self.Train_Number = Train_Number
-        self.cumulative_distance = 0
-        self.last_update_time = time.time()
         self.last_beacon = None
         self.Suggested_Authority = 0
         
@@ -341,7 +342,6 @@ class Train_Model:
                     
             if train_data:
                 self.Passenger_Number = train_data.get('total_passengers', 0)
-                # DIRECTLY take speed_authority as string, no processing
                 self.Suggested_Speed_Authority = str(train_data.get('speed_authority', "0"))
                 # Update beacon if no signal pickup failure
                 if not self.Train_F.Signal_Pickup_Fail:
@@ -366,23 +366,19 @@ class Train_Model:
 
     def write_outputs_to_file(self):
         try:
-            delta_pos_meters = self.Get_Delta_Pos() * 0.3048
-            
-            # Directly use the Suggested_Speed_Authority string as is
-            suggested_speed_auth = str(self.Suggested_Speed_Authority)
-            
+            # Use cumulative_delta_meters directly now
             output_data = {
                 "Passengers": int(self.Passenger_Number),
                 "Station_Status": self.station_status,
                 "Actual_Speed": self.Train_Ca.Actual_Speed,
-                "Actual_Authority": self.Train_Ca.Actual_Authority * 0.3048,
-                "Delta_Position": delta_pos_meters,
+                "Actual_Authority": self.Train_Ca.Actual_Authority * 0.3048,  # Convert feet to meters
+                "Delta_Position": self.cumulative_delta_meters,  # Already in meters
                 "Emergency_Brake": 1 if self.emergency_brake_active else 0,
                 "Brake_Fail": int(self.Get_Brake_Fail_Status()),
                 "Signal_Fail": int(self.Get_Signal_Pickup_Fail_Status()),
                 "Engine_Fail": int(self.Get_Train_Engine_Fail_Status()),
                 "Beacon": self.Beacon if isinstance(self.Beacon, str) else str(self.Beacon),
-                "Suggested_Speed_Authority": suggested_speed_auth,  # Direct string copy
+                "Suggested_Speed_Authority": str(self.Suggested_Speed_Authority),
             }
             
             with open(self.log_file, 'w') as f:
@@ -644,8 +640,14 @@ class Train_Model:
             self.read_tc_outputs()
             self.read_track_model_outputs()
 
+            self.actual_speed_mps = self.Train_Ca.Actual_Speed * 0.44704
+
+            delta_meters = self.actual_speed_mps * 1  # 1 second time step
+            self.cumulative_delta_meters += max(0, delta_meters)
             # Check brake status before doing anything else
             self.check_brake_status()
+
+            
 
             # Update station information if beacon has changed
             if hasattr(self, 'last_beacon') and self.last_beacon != self.Beacon:
@@ -691,7 +693,6 @@ class Train_Model:
                         self.Train_Ca.Actual_Authority = 0
                 
                 # Update position
-                self.Get_Delta_Pos()
 
             # Update display values
             current_accel = 0
@@ -739,24 +740,6 @@ class Train_Model:
         # Schedule next update
         self.root.after(1000, self.update_all_displays)
 
-    def Get_Delta_Pos(self):
-        """Calculate distance traveled since last update"""
-        current_time = time.time()
-        if not hasattr(self, 'last_update_time'):
-            self.last_update_time = current_time
-            return 0
-        
-        time_elapsed = current_time - self.last_update_time
-        
-        # Convert speed from mph to feet per second (1 mph = 1.46667 fps)
-        speed_fps = self.Train_Ca.Actual_Speed * 1.46667
-        
-        # Calculate distance traveled (feet)
-        delta = speed_fps * time_elapsed
-        self.cumulative_distance += max(0, delta)
-        self.last_update_time = current_time
-        
-        return self.cumulative_distance
 
     def activate_service_brake(self):
         """Slows down the train at 1.2 m/s² (converted to mph/s) and maintains brake state"""
@@ -774,7 +757,6 @@ class Train_Model:
                 current_speed = max(0, initial_speed + deceleration * elapsed)
                 
                 self.Train_Ca.Actual_Speed = current_speed
-                self.Get_Delta_Pos()
                 
                 self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
                 self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s (Service Brake)")
@@ -802,7 +784,6 @@ class Train_Model:
             current_speed = max(0, initial_speed + deceleration * elapsed)
             
             self.Train_Ca.Actual_Speed = current_speed
-            self.Get_Delta_Pos()
             
             # Update displays
             self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
