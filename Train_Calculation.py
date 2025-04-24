@@ -30,8 +30,8 @@ class Train_Calc:
         speed_fps = new_speed * 1.46667  # mph to ft/s
         return self.Actual_Authority + (speed_fps * self.Dt)
 
-    def Grade_Calc(self, Power, Passenger_Number):
-        delta_pos = self.Delta_Position_Track_Model(Power, Passenger_Number)
+    def Grade_Calc(self):
+        delta_pos = self.Get_Elevation()
         if delta_pos != 0:
             return (self.Elevation / delta_pos) * 100
         return 0
