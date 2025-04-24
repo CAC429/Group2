@@ -197,6 +197,7 @@ class Train_Model:
         # Add these new attributes
         self.actual_speed_mps = 0  # Speed in meters per second
         self.cumulative_delta_meters = 0
+        self.last_update_time = time.time()
         self.ui_activated_brake = False
         
         # Initialize all attributes
@@ -645,6 +646,7 @@ class Train_Model:
         """Update all UI elements and write to log file"""
         try:
             # Read inputs first
+
             self.read_tc_outputs()
             self.read_track_model_outputs()
 
@@ -714,6 +716,10 @@ class Train_Model:
                 # If at suggested speed, show 0 acceleration
                 if hasattr(self, 'Suggested_Speed') and self.Train_Ca.Actual_Speed >= self.Suggested_Speed:
                     current_accel = 0
+
+            self.actual_speed_mps = self.Train_Ca.Actual_Speed * 0.44704  # Convert mph to m/s
+            delta_meters = self.actual_speed_mps * 1  # 1 second time step
+            self.cumulative_delta_meters += max(0, delta_meters)
 
             self.Speed_Label.config(text=f"Actual Speed: {self.Train_Ca.Actual_Speed:.2f} mph")
             self.Authority_Label.config(text=f"Actual Authority: {self.Train_Ca.Actual_Authority:.2f} ft")
