@@ -602,6 +602,11 @@ class TrainControllerUI(QWidget):
                     train['state'].suggested_authority = value
                     self.write_outputs(output_file, suggested_authority=value)
 
+                    if value == 0:
+                        print("Activating emergency brake: suggested authority is 0")
+                        train['brake_controller'].activate_emergency_brake()
+                        self.write_outputs(output_file, emergency_brake=1, service_brake=0)
+
             # Update UI labels
             self.speed_label.setText(f"Current Speed: {train['state'].current_speed_mph:.1f} mph")
             self.suggested_speed_label.setText(f"Suggested Speed: {train['state'].suggested_speed_mph:.1f} mph")
@@ -1044,7 +1049,7 @@ class TrainControllerUI(QWidget):
             state.leaving_station = True
             
             # Clear cooldown after 5 seconds (shorter than before)
-            QTimer.singleShot(5000, lambda: setattr(state, 'station_stop_cooldown', False))
+            QTimer.singleShot(3000, lambda: setattr(state, 'station_stop_cooldown', False))
             
             # Clear leaving station flag after 2 seconds
             QTimer.singleShot(2000, lambda: setattr(state, 'leaving_station', False))
@@ -1065,7 +1070,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-    #1 11001000 
-    #0 10100 000
