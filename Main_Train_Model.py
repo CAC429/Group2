@@ -284,14 +284,15 @@ class Train_Model:
             new_tc_emergency_brake = int(float(data.get('Emergency Brake', 0)))
             new_service_brake = int(float(data.get('Service Brake', 0)))
             
-            # Handle TC emergency brake - works exactly like service brake
+            # Handle TC emergency brake changes
             if new_tc_emergency_brake == 1 and not self.tc_emergency_brake:
                 self.tc_emergency_brake = True
                 self.activate_emergency_brake()
             elif new_tc_emergency_brake == 0 and self.tc_emergency_brake:
                 self.tc_emergency_brake = False
-                if not self.Train_F.Engine_Fail:
-                    self.update_acceleration_display()
+                # Only release if UI isn't also holding the brake
+                if not self.ui_emergency_brake and not self.Train_F.Engine_Fail:
+                    self.release_emergency_brake()
             
             # Handle service brake changes from TC
             if new_service_brake == 1 and not self.service_brake_active:
@@ -342,6 +343,13 @@ class Train_Model:
         except Exception as e:
             print(f"Error reading TC outputs: {e}")
             return False
+        
+    def release_emergency_brake(self):
+        """Release the emergency brake and update physics"""
+        self.emergency_brake_active = False
+        if not self.service_brake_active and not self.Train_F.Engine_Fail:
+            self.update_acceleration_display()
+        self.write_outputs_to_file()
 
     def read_track_model_outputs(self, file_path='occupancy_data.json'):
         try: 
@@ -800,16 +808,16 @@ class Train_Model:
             update_braking()
 
     def activate_emergency_brake(self):
-        """Handle the physics of emergency braking (TC command only)"""
+        """Handle emergency braking physics and station status (TC command only)"""
+        # Handle brake release first
         if not self.tc_emergency_brake:
-            # If we were braking and now TC says to release
             if self.emergency_brake_active:
                 self.emergency_brake_active = False
-                # Restore power/acceleration if no other brakes are active
+                # Only update acceleration if no other brakes are active
                 if not self.service_brake_active and not self.Train_F.Engine_Fail:
                     self.update_acceleration_display()
             return
-            
+
         # Only proceed if TC emergency brake is active
         self.emergency_brake_active = True
         initial_speed = self.Train_Ca.Actual_Speed
@@ -817,9 +825,10 @@ class Train_Model:
         start_time = time.time()
         
         def update_braking():
-            if not self.tc_emergency_brake:  # If brake was released
+            # Check if brake was released
+            if not self.tc_emergency_brake:
                 self.emergency_brake_active = False
-                # Restore power/acceleration if no other brakes are active
+                # Only update if no other brakes are active
                 if not self.service_brake_active and not self.Train_F.Engine_Fail:
                     self.update_acceleration_display()
                 return
@@ -827,22 +836,21 @@ class Train_Model:
             elapsed = time.time() - start_time
             current_speed = max(0, initial_speed + deceleration * elapsed)
             
+            # Update speed and displays
             self.Train_Ca.Actual_Speed = current_speed
-            
             self.Speed_Label.config(text=f"Actual Speed: {current_speed:.2f} mph")
             self.Acceleration_Label.config(text=f"Acceleration: {deceleration:.2f} mph/s (Emergency Brake)")
-            
+                
             self.write_outputs_to_file()
             
+            # Continue braking if still moving
             if current_speed > 0:
                 self.root.after(50, update_braking)
             else:
-                # When stopped
-                self.Train_Ca.Actual_Speed = 0
-                self.station_status = 1
-                self.train_stopped()
+                # Final update when fully stopped
                 self.write_outputs_to_file()
         
+        # Start the braking process
         update_braking()
 
     def simulate_engine_failure(self):
