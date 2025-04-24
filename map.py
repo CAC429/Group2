@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
         # Create tab widget
         self.tab_widget = QTabWidget()
         
-        # Create tabs
+        # Create tabs with their respective CSV files
         self.green_tab = QWidget()
         self.red_tab = QWidget()
         
@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.green_tab, "Green Line")
         self.tab_widget.addTab(self.red_tab, "Red Line")
         
-        # Create content for each tab
+        # Create content for each tab with correct CSV files
         self.setup_green_tab()
         self.setup_red_tab()
         
@@ -58,9 +58,9 @@ class MainWindow(QMainWindow):
         """Setup the Green Line tab with grid and switch window"""
         layout = QHBoxLayout(self.green_tab)
         
-        # Create Green Line widgets
-        self.grid_window = GridWindow("data2.csv", "data1.csv", 0)  # Green Line operational and info files
-        self.switch_window = SwitchWindow()  # Green Line switch window
+        # Create Green Line widgets with Green Line CSV files
+        self.grid_window = GridWindow("data2.csv", "data1.csv", 0)  # Pass line_number=0 for Green Line
+        self.switch_window = SwitchWindow()
         
         # Add them to the layout
         layout.addWidget(self.grid_window)
@@ -70,9 +70,9 @@ class MainWindow(QMainWindow):
         """Setup the Red Line tab with grid and switch window"""
         layout = QHBoxLayout(self.red_tab)
         
-        # Create Red Line widgets
-        self.red_grid_window = GridWindow("data4.csv", "data3.csv", 1)  # Red Line operational and info files
-        self.red_switch_window = SwitchWindow2()  # Red Line switch window
+        # Create Red Line widgets with Red Line CSV files
+        self.red_grid_window = GridWindow("data4.csv", "data3.csv", 1)  # Pass line_number=1 for Red Line
+        self.red_switch_window = SwitchWindow2()
         
         # Add them to the layout
         layout.addWidget(self.red_grid_window)
@@ -143,29 +143,33 @@ class ClickableBox(QPushButton):
 class GridWindow(QWidget):
     def __init__(self, operational_file, info_file, line_number):
         super().__init__()
-        self.operational_file = operational_file
-        self.info_file = info_file
+        self.initialoperational_file = operational_file  # For initial UI setup
+        self.initialinfo_file = info_file  # For initial UI setup
         self.line_number = line_number  # 0 for Green, 1 for Red
         self.setWindowTitle("Track Blocks")
+        
+        # Set operational files based on line number
+        if self.line_number == 0:  # Green Line
+            self.line_class = GreenLineOccupancy
+            self.operational_file = "data2.csv"  # Note: single = for assignment
+            self.info_file = "data1.csv"
+        elif self.line_number == 1:  # Red Line
+            self.line_class = RedLineOccupancy
+            self.operational_file = "data4.csv"
+            self.info_file = "data3.csv"
+            
         self.class_lines = []
         self.train_positions = []
         self.train_creations = 0
         self.ticket_array = []
-        self.manual_failures = {}  # Track manual failures {block_num: failure_type}
+        self.manual_failures = {}
+        self.position = 0
         
-        # Set the appropriate line class based on line number
-        if self.line_number == 0:  # Green Line
-            self.line_class = GreenLineOccupancy
-            #self.beacon_blocks = GREEN_BEACON_BLOCKS  # You'll need to define these
-        else:  # Red Line
-            self.line_class = RedLineOccupancy
-            #self.beacon_blocks = RED_BEACON_BLOCKS  # You'll need to define these
-            
         self.init_ui()
         
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_blocks)
-        self.timer.start(1000)  # Update every second
+        self.timer.start(1000)
 
     def init_ui(self):
         main_layout = QVBoxLayout()
@@ -176,9 +180,9 @@ class GridWindow(QWidget):
         self.boxes = {}
         
         # Load both CSV files
-        grid_data = load_csv(self.operational_file)  # Operational data
-        block_info_data = load_csv(self.info_file)  # Informational data
-        
+        grid_data = load_csv(self.initialoperational_file)  # Operational data
+        block_info_data = load_csv(self.initialinfo_file)  # Informational data
+        route_data = load_csv(self.operational_file)
         # Create mapping of block numbers to their info with validation
         block_info_map = {}
         for row in block_info_data:
@@ -278,9 +282,14 @@ class GridWindow(QWidget):
         self.switch_window.show()
 
     def create_next_train(self):
-        """Create a new train instance and initialize its data"""
+        """Create a new train instance using the correct CSV files"""
+        
         try:
+            
             print(f"Creating train {len(self.class_lines) + 1}...")
+            print(f"Using operational file: {self.operational_file}")
+            
+            # Use the correct operational file based on line number
             grid_data = load_csv(self.operational_file)
             new_class_line = self.line_class(grid_data)
             
@@ -309,44 +318,90 @@ class GridWindow(QWidget):
         try:
             with open("train_instance.json", "w") as file:
                 json.dump({"train_instance": instance_status}, file)
+
         except Exception as e:
             print(f"Error updating train_instance.json: {e}")
 
     def read_train_creation_status(self):
         """Read train instance and baud rates from PLC JSON file"""
-        baud_dict = {
+        train_instance = 0
+        if global_variables.line == 0:
+            baud_dict = {
             'Baud1': '0', 
             'Baud2': '0',
             'Baud3': '0',
             'Baud4': '0'
         }
-        train_instance = 0
+            try:
+                with open("PLC_OUTPUTS_Baud_Train_Instance.json", "r") as file:
+                    data = json.load(file)
+                    train_instance = data.get("Train_Instance", 0)
+                    
+                    # Update the train_instance.json file if needed
+                    if train_instance == 1:
+                        self.update_train_instance_file(1)
+                    else:
+                        self.update_train_instance_file(0)
+                    
+                    # Extract baud values from Train_Bauds dictionary
+                    train_bauds = data.get("Train_Bauds", {})
+                    for key, value in train_bauds.items():
+                        if 'Baud1' in key:
+                            baud_dict['Baud1'] = value
+                        elif 'Baud2' in key:
+                            baud_dict['Baud2'] = value
+                        elif 'Baud3' in key:
+                            baud_dict['Baud3'] = value
+                        elif 'Baud4' in key:
+                            baud_dict['Baud4'] = value
 
-        try:
-            with open("PLC_OUTPUTS_Baud_Train_Instance.json", "r") as file:
-                data = json.load(file)
-                train_instance = data.get("Train_Instance", 0)
-                
-                # Update the train_instance.json file if needed
-                if train_instance == 1:
-                    self.update_train_instance_file(1)
-                else:
-                    self.update_train_instance_file(0)
-                
-                # Extract baud values from Train_Bauds dictionary
-                train_bauds = data.get("Train_Bauds", {})
-                for key, value in train_bauds.items():
-                    if 'Baud1' in key:
-                        baud_dict['Baud1'] = value
-                    elif 'Baud2' in key:
-                        baud_dict['Baud2'] = value
-                    elif 'Baud3' in key:
-                        baud_dict['Baud3'] = value
-                    elif 'Baud4' in key:
-                        baud_dict['Baud4'] = value
+            except Exception as e:
+                print(f"Error reading PLC outputs: {e}")
+        
+        elif global_variables.line == 1:
+            baud_dict = {
+                'Baud1': '0', 
+                'Baud2': '0',
+                'Baud3': '0',
+                'Baud4': '0',
+                'Baud5': '0', 
+                'Baud6': '0',
+                'Baud7': '0',
+                'Baud8': '0'
+            }
+            try:
+                with open("PLC_OUTPUTS_Baud_Train_Instance2.json", "r") as file:
+                    data = json.load(file)
+                    train_instance = data.get("Train_Instance", 0)
+                    
+                    # Update the train_instance.json file if needed
+                    if train_instance == 1:
+                        self.update_train_instance_file(1)
+                    else:
+                        self.update_train_instance_file(0)
+                    
+                    # Extract baud values from Train_Bauds dictionary
+                    train_bauds = data.get("Train_Bauds", {})
+                    for key, value in train_bauds.items():
+                        if 'Baud1' in key:
+                            baud_dict['Baud1'] = value
+                        elif 'Baud2' in key:
+                            baud_dict['Baud2'] = value
+                        elif 'Baud3' in key:
+                            baud_dict['Baud3'] = value
+                        elif 'Baud4' in key:
+                            baud_dict['Baud4'] = value
+                        elif 'Baud5' in key:
+                            baud_dict['Baud5'] = value
+                        elif 'Baud6' in key:
+                            baud_dict['Baud6'] = value
+                        elif 'Baud7' in key:
+                            baud_dict['Baud7'] = value
+                        elif 'Baud8' in key:
+                            baud_dict['Baud8'] = value
 
-        except Exception as e:
-            print(f"Error reading PLC outputs: {e}")
+            except Exception as e:
+                print(f"Error reading PLC outputs: {e}")
         
         self.train_creations = train_instance
         self.train_bauds = baud_dict
@@ -378,9 +433,11 @@ class GridWindow(QWidget):
             
             previous_train_count = len(self.class_lines)
             if (self.train_creations == 1 and 
-                (not self.class_lines or self.boxes.get(63).state == 0)):
+                (not self.class_lines or self.boxes.get(63).state == 0) and (global_variables.line == 0)):
                 self.create_next_train()
-
+            elif (self.train_creations == 1 and 
+                (not self.class_lines or self.boxes.get(9).state == 0) and (global_variables.line == 1)):
+                self.create_next_train()
             if not self.class_lines:
                 return
 
@@ -392,7 +449,8 @@ class GridWindow(QWidget):
                     delta_position, station_status, passengers = self.read_train_output(train_number)
                     if None in (delta_position, station_status, passengers):
                         continue
-
+                    self.position += 40
+                    delta_position = self.position
                     self.train_positions[train_number - 1] = delta_position
                     occupied_blocks, elevation = class_line.find_blocks(delta_position)
                     global_occupancy.update({block: train_number for block in occupied_blocks})
@@ -421,7 +479,7 @@ class GridWindow(QWidget):
                         current_time = "--:--"
 
                     # Determine speed authority
-                    if occupied_blocks:
+                    if occupied_blocks and global_variables.line == 0:
                         block_num = occupied_blocks[0]
                         if 1 <= block_num <= 28:
                             speed_auth = self.train_bauds['Baud1']
@@ -431,8 +489,24 @@ class GridWindow(QWidget):
                             speed_auth = self.train_bauds['Baud3']
                         elif 101 <= block_num <= 150:
                             speed_auth = self.train_bauds['Baud4']
-                        else:
-                            speed_auth = "0"
+                    elif occupied_blocks and global_variables.line == 1:
+                        block_num = occupied_blocks[0]
+                        if 1 <= block_num <= 27:
+                            speed_auth = self.train_bauds['Baud1']
+                        elif 72 <= block_num <= 76:
+                            speed_auth = self.train_bauds['Baud2']
+                        elif 28 <= block_num <= 33:
+                            speed_auth = self.train_bauds['Baud3']
+                        elif 34 <= block_num <= 38:
+                            speed_auth = self.train_bauds['Baud4']
+                        elif 67 <= block_num <= 71:
+                            speed_auth = self.train_bauds['Baud5']
+                        elif 39 <= block_num <= 44:
+                            speed_auth = self.train_bauds['Baud6']
+                        elif 45 <= block_num <= 52:
+                            speed_auth = self.train_bauds['Baud7']
+                        elif 53 <= block_num <= 66:
+                            speed_auth = self.train_bauds['Baud8']
                     else:
                         speed_auth = "N/A"
 
@@ -552,10 +626,13 @@ class GridWindow(QWidget):
                     "Default_Switch_Position": [0]*6,
                     "train_instance": 0
                 }
-
+            if global_variables.line == 1:
+                x = 76
+            else:
+                x = 151
             # Update only the occupancy array
             plc_data["Occupancy"] = [1 if block_num in occupancy_dict else 0 
-                                    for block_num in range(1, 151)]
+                                    for block_num in range(1, x)]
             
             # Write back the complete data (with only occupancy changed)
             with open("PLC_INPUTS.json", "w") as file:

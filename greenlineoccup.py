@@ -348,7 +348,7 @@ class GreenLineOccupancy:
                     block_length = float(row["route 1"])
 
                 block_start = previous_end_position
-                block_end = block_start + block_length
+                block_end = 0 + block_length
 
                 # Check if the train overlaps with the block
                 if not (train_end < block_start or train_start > block_end):
