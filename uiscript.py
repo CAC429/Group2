@@ -13,7 +13,6 @@ from PyQt5.QtCore import QTimer
 from PyQt5.QtCore import QFileSystemWatcher
 import paramiko
 
-
 class Constants:
     MPH_TO_MPS = 0.44704
     MPS_TO_MPH = 2.23694
@@ -57,22 +56,39 @@ def send_to_pi(json_data):
         print(f"Error in send_to_pi: {str(e)}")
 
 
+
+
 class TrainState:
     def __init__(self):
+        # Door states
         self.left_door = False
         self.right_door = False
+        
+        # Light states
         self.outside_lights = True
         self.cabin_lights = True
+        
+        # Temperature
         self.cabin_temp = 70
+        
+        # Brake states
         self.service_brakes = False
         self.emergency_brakes = False
+        
+        # Speed and authority
         self.current_speed_mph = 0
         self.suggested_speed_mph = 20
         self.current_authority = 0
         self.suggested_authority = 0
+        
+        # Station handling
         self.stopping_sequence_active = False
         self.station_stop_cooldown = False
         self.leaving_station = False
+        
+        # Position and beacon
+        self.delta_position = 0
+        self.beacon = ""
 
 class PowerController:
     def __init__(self):
@@ -144,14 +160,15 @@ class BrakeController:
         self.manual_brake = False
 
 class DoorController:
-    def __init__(self):
+    def __init__(self, train_state):
         self.door_timer = QTimer()
         self.left_door = False
         self.right_door = False
-
+        self.train_state = train_state  # Store reference to train state
+        
     def set_door_state(self, door_type, state):
         if state:
-            if self.train['state'].current_speed_mph > 0.1:
+            if self.train_state.current_speed_mph > 0.1:  # Now uses the stored state
                 print("Cannot open doors while train is moving")
                 return
         if door_type == "left":
@@ -251,11 +268,12 @@ class TrainControllerUI(QWidget):
             print(f"Error initializing {filename}: {e}")
 
     def create_train_instance(self):
+        state = TrainState()  # Create the state first
         return {
-            'state': TrainState(),
+            'state': state,
             'power_controller': PowerController(),
             'brake_controller': BrakeController(),
-            'door_controller': DoorController(),
+            'door_controller': DoorController(state),  # Pass the state to DoorController
             'temp_controller': TemperatureController()
         }
     
@@ -550,12 +568,12 @@ class TrainControllerUI(QWidget):
         if train is None:
             return
             
-        state = train['state']
+        state = train['state']  # Make sure we're using the instance
         door_controller = train['door_controller']
         temp_controller = train['temp_controller']
         brake_controller = train['brake_controller']
 
-        # Update controls enabled state based on current mode
+        # Update controls enabled state
         self.set_controls_enabled_state(not self.auto_checkbox.isChecked())
         
         # Update labels
@@ -610,8 +628,17 @@ class TrainControllerUI(QWidget):
 
         try:
             file_path = file_path or f'train{self.current_train_id}_outputs.json'
-            with open(file_path, 'r') as file:
-                data = json.load(file)
+            
+            # Safely read and parse the file
+            try:
+                with open(file_path, 'r') as file:
+                    data = json.load(file)
+            except FileNotFoundError:
+                print(f"Train outputs file not found: {file_path}")
+                return False
+            except json.JSONDecodeError:
+                print(f"Invalid JSON in train outputs file: {file_path}")
+                return False
 
             # Speed is already in MPH
             train['state'].current_speed_mph = float(data.get('Actual_Speed', 0))
@@ -619,7 +646,7 @@ class TrainControllerUI(QWidget):
             train['state'].delta_position = float(data.get('Delta_Position', 0))
             train['state'].beacon = data.get('Beacon', '')
             
-            # Suggested speed and authority handling (NEW LOGIC)
+            # Suggested speed and authority handling
             suggested_speed_auth = data.get('Suggested_Speed_Authority', '').strip()
             output_file = f"TC{self.current_train_id}_outputs.json"
             
@@ -629,7 +656,11 @@ class TrainControllerUI(QWidget):
                 value_bits = suggested_speed_auth[1:] if len(suggested_speed_auth) > 1 else '0'
                 
                 # Convert binary to decimal
-                value = int(value_bits, 2) if value_bits else 0
+                try:
+                    value = int(value_bits, 2) if value_bits else 0
+                except ValueError:
+                    value = 0
+                    print(f"Invalid binary value in Suggested_Speed_Authority: {value_bits}")
                 
                 if mode_bit == '0':  # Speed value
                     train['state'].suggested_speed_mph = value
@@ -656,7 +687,7 @@ class TrainControllerUI(QWidget):
             engine_fail = bool(data.get('Engine_Fail', 0))
             
             if emergency_brake_active or brake_fail or signal_fail or engine_fail:
-                print("THERE'S AN ERROR BRO")
+                print("Safety system activated - emergency conditions detected")
                 train['brake_controller'].activate_emergency_brake()
                 output_file = f"TC{self.current_train_id}_outputs.json"
                 self.write_outputs(output_file, emergency_brake=1, service_brake=0)
@@ -671,18 +702,18 @@ class TrainControllerUI(QWidget):
                     print("- Engine failure detected")
             else:
                 # Only release brakes if they were activated by these conditions
-                if train['brake_controller'].emergency_brake_active and not train['brake_controller'].emergency_brake_active:
+                if (train['brake_controller'].emergency_brake_active and 
+                    not train['brake_controller'].manual_brake):
                     train['brake_controller'].release_brakes()
                     output_file = f"TC{self.current_train_id}_outputs.json"
                     self.write_outputs(output_file, emergency_brake=0)
 
-            train['state'].beacon = data.get('Beacon', '')
-            #print(f"DEBUG - Beacon content: '{train['state'].beacon}'")  # <-- ADD THIS
-            #print(f"DEBUG - Station distance in beacon: {'station_distance' in train['state'].beacon}")
-
             return True
+            
         except Exception as e:
             print(f"Error reading train outputs: {e}")
+            import traceback
+            traceback.print_exc()
             return False
         
     def auto_clicked(self):
@@ -760,7 +791,6 @@ class TrainControllerUI(QWidget):
             brake_controller.activate_service_brake(manual=True)
             print("Service Brake Engaged through manual")
             
-            # send the command to pi via ssh
             json_data = {
                 "leds":{
                     "service_brake": True,
@@ -769,7 +799,6 @@ class TrainControllerUI(QWidget):
                 "power": 0
             }
             send_to_pi(json_data)
-
 
             # Update outputs and UI
             output_file = f"TC{self.current_train_id}_outputs.json"
@@ -830,8 +859,7 @@ class TrainControllerUI(QWidget):
 
             with open(filename, 'w') as f:
                 json.dump(data, f, indent=4)
-
-            # Send the updated JSON to the Raspberry Pi via SSH
+            
             if self.current_train_id == "1":
                 json_data = {
                     "leds": {
@@ -843,13 +871,12 @@ class TrainControllerUI(QWidget):
                         "out_light": data["Exterior Lights"],
                         "ac": abs(data["Cabin Temp"] - 70) > 2
                     },
-                    "power": data["Commanded Power"]
+                    "power": data["Commanded Power"]                    
                 }
                 send_to_pi(json_data)
 
         except Exception as e:
             print(f"Error writing to {filename}: {e}")
-
 
     def eb_clicked(self, checked=False):
         train = self.get_current_train()
@@ -864,9 +891,7 @@ class TrainControllerUI(QWidget):
             output_file = f"TC{self.current_train_id}_outputs.json"
             self.write_outputs(output_file, emergency_brake=1, service_brake=0)
             print("Emergency Brake Engaged")
-          
-
-            #send to pi
+            
             json_data = {
                 "leds":{
                     "service_brake": False,
@@ -877,8 +902,7 @@ class TrainControllerUI(QWidget):
             send_to_pi(json_data)
 
             self.update_ui_from_state()
-            self.update_tb() 
-
+            self.update_tb()           
 
     def update_tb(self):
         train = self.get_current_train()
@@ -962,9 +986,9 @@ class TrainControllerUI(QWidget):
         self.calculate_power()
 
     def update_from_files(self):
-        self.scan_for_trains()  # Check for new trains periodically
+        self.scan_for_trains()
         if self.read_train_outputs():
-            self.update_ui_from_state()  # Update UI if read was successful
+            self.update_ui_from_state()
             
             train = self.get_current_train()
             if train is None:
@@ -975,26 +999,36 @@ class TrainControllerUI(QWidget):
             # Only check for station approach if we're moving (speed > 0.1 mph)
             if state.current_speed_mph > 0.1 and not state.station_stop_cooldown:
                 try:
-                    beacon = state.beacon
-                    beacon_dict = dict(
-                        item.strip().split(": ", 1) for item in beacon.split(", ") if ": " in item
-                    )
+                    beacon = state.beacon.strip("{}")  # Remove curly braces
+                    beacon_dict = {}
+                    
+                    # Safely parse the beacon string
+                    if beacon:
+                        try:
+                            beacon_dict = eval(f"dict({beacon})")
+                        except:
+                            # Fallback for malformed beacon data
+                            items = [item.strip().split(":") for item in beacon.split(",") if ":" in item]
+                            beacon_dict = {k.strip().strip("'"): v.strip().strip("'") for k, v in items}
+                    
+                    if 'station_distance' in beacon_dict:
+                        try:
+                            station_distance = float(beacon_dict['station_distance'])
+                            delta_position = state.delta_position
 
-                    if "station_distance" in beacon_dict:
-                        station_distance = float(beacon_dict["station_distance"])
-                        delta_position = state.delta_position
+                            #print(f"DEBUG - Delta: {delta_position}, Station Dist: {station_distance}")
+                            #print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")
 
-                        print(f"DEBUG - Delta: {delta_position}, Station Dist: {station_distance}")
-                        print(f"DEBUG - Difference: {abs(delta_position - station_distance)}")
-
-                        if (abs(delta_position - station_distance) <= 10
-                                and not state.stopping_sequence_active):
-                            self.handle_station_stop()
+                            if (abs(delta_position - station_distance) <= 10
+                                    and not state.stopping_sequence_active):
+                                self.handle_station_stop()
+                        except ValueError as e:
+                            print(f"Error converting station distance: {e}")
+                            
                 except Exception as e:
                     print(f"Error checking station distance: {e}")
                     print(f"Beacon content: {state.beacon}")
-
-                        
+                    
         self.check_speed_and_brake()
         self.update_power_display()
 
@@ -1049,25 +1083,28 @@ class TrainControllerUI(QWidget):
         if train is None:
             return
             
-        # Open doors
+        state = train['state']
+        door_controller = train['door_controller']
+        
+        # Determine door side
         door_side = "right"  
         try:
-            # Improved beacon parsing
-            beacon = train['state'].beacon
-            if "station_side:" in beacon:
-                if "left" in beacon.split("station_side:")[1].split(",")[0].lower():
-                    door_side = "left"
+            beacon = state.beacon.strip("{}")
+            if beacon:
+                beacon_dict = eval(f"dict({beacon})")
+                if 'station_side' in beacon_dict:
+                    door_side = beacon_dict['station_side'].lower()
         except Exception as e:
             print(f"Error parsing beacon for door side: {e}")
             
         # Open the appropriate door
-        train['door_controller'].set_door_state(door_side, True)
+        door_controller.set_door_state(door_side, True)
         output_file = f"TC{self.current_train_id}_outputs.json"
         self.write_outputs(output_file, **{f"{door_side}_door": 1})
         print(f"{door_side.capitalize()} doors opened")
         
         # Start timer for door closing (15 seconds)
-        train['door_controller'].start_door_timer(
+        door_controller.start_door_timer(
             lambda: self.finish_station_stop_sequence(door_side),
             15000
         )

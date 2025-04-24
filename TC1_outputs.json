@@ -4,9 +4,9 @@
     "Suggested Authority": 104,
     "Emergency Brake": false,
     "Service Brake": false,
-    "Left Door": false,
-    "Right Door": false,
-    "Cabin Lights": true,
-    "Exterior Lights": true,
+    "Left Door": true,
+    "Right Door": true,
+    "Cabin Lights": false,
+    "Exterior Lights": false,
     "Cabin Temp": 70
 }
