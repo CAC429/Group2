@@ -1,9 +1,9 @@
 {
     "Passengers": 0,
     "Station_Status": 0,
-    "Actual_Speed": 2.3369400000000002,
+    "Actual_Speed": 0,
     "Actual_Authority": 0.0,
-    "Delta_Position": 1.5894104864,
+    "Delta_Position": 18.710355689208157,
     "Emergency_Brake": 0,
     "Brake_Fail": 0,
     "Signal_Fail": 0,
