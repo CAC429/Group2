@@ -33,7 +33,7 @@ class LEDController:
             "left_door": 24,
             "right_door": 25,
             "out_light": 16,
-            "cabin_light": 6,
+            "cabin_light": 27,
             "ac": 5,
             "failure": 17
         }
