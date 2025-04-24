@@ -14,7 +14,7 @@ class MainTrainModel:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Train Model Controller")
-        self.root.withdraw()  # Start hidden
+        self.root.withdraw() 
         self.train_models = []
         self._cleanup_train_outputs()
         
@@ -57,7 +57,6 @@ class MainTrainModel:
             self.train_models.append(train_model)
             print(f"Created new Train {train_number}")
             
-            # Show main window if it was hidden
             self.root.deiconify()
             
         except Exception as e:
@@ -107,7 +106,7 @@ class MainTrainModel:
             except Exception as e:
                 print(f"Error creating trains: {e}")
                 
-        # Update window visibility
+        # Update window 
         if num_trains > 0:
             self.root.deiconify()
         else:
@@ -128,7 +127,7 @@ class MainTrainModel:
             with open(file_path, 'r') as file:
                 data = json.load(file)
             
-            # Handle the format with "trains" array or single train
+            # Handle the format with trains array or single train
             trains_data = data['trains'] if 'trains' in data else [data]
 
             # Create only the missing trains
@@ -136,7 +135,7 @@ class MainTrainModel:
                 try:
                     train_data = next((t for t in trains_data if t.get('number') == i), None)
                     
-                    # Create train window (Toplevel)
+                    # Create train window
                     train_window = tk.Toplevel(self.root)
                     train_window.title(f"Train {i} Controls")
                     
@@ -194,7 +193,6 @@ class Train_Model:
                  Interior_Lights=True, Beacon="No beacon info", Suggested_Speed_Authority="0",
                  emergency_brake=0, service_brake=0, elevation=0.0):
         
-        # Add these new attributes
         self.actual_speed_mps = 0  # Speed in meters per second
         self.cumulative_delta_meters = 0
         self.ui_activated_brake = False
@@ -420,7 +418,7 @@ class Train_Model:
     @Cabin_Temp.setter
     def Cabin_Temp(self, value):
         if 60 <= value <= 85:
-            self._cabin_temp = value  # Set directly without gradual change
+            self._cabin_temp = value  # Set directly
             self.Train_C.Set_Cabin_Temp(self._cabin_temp)
             self.update_temp_display()
         
@@ -450,12 +448,12 @@ class Train_Model:
         
         # Store ad paths and current ad index
         self.ad_paths = [
-            r"adfrtain3.jpg",
-            r"adfrtrain2.jpg"
+            r"adfrtain3.jpg", #mcdonalds
+            r"adfrtrain2.jpg" #minecraft
         ]
         self.current_ad = 0
         
-        # Create label for ads (empty initially)
+        # Create label for ads 
         self.ad_label = tk.Label(self.Ad_Frame)
         self.ad_label.pack()
         
@@ -585,7 +583,7 @@ class Train_Model:
         self.Station_Side_Label = tk.Label(self.Station_Frame, text="Unknown", font=('Arial', 10))
         self.Station_Side_Label.grid(row=2, column=1, sticky="w", padx=10)
 
-        # Add some visual separation
+        # Add visual separation
         tk.Label(self.Station_Frame, text="").grid(row=3, column=0)
         
     def create_failure_section(self):
@@ -601,7 +599,7 @@ class Train_Model:
         tk.Button(self.Fail_Frame, text='Reset Failures', bg='grey', 
                  command=self.reset_failures).grid(row=2, column=1, pady=5)
         
-    def create_emergency_brake(self):
+    def create_emergency_brake(self): #emergency brake button
         self.Emergency_Brake_Button = tk.Button(
             self.root, 
             text='Press for Emergency Brake', 
@@ -706,14 +704,14 @@ class Train_Model:
                         # Calculate acceleration normally
                         accel = self.Train_Ca.Acceleration_Calc(self.Power, self.Passenger_Number)
                     
-                    # Update authority - respect suggested authority if available
+                    # Update authority
                     try:
                         if not self.Train_F.Signal_Pickup_Fail and hasattr(self, 'Suggested_Authority'):
                             # Calculate authority normally but don't exceed suggested authority
                             calculated_authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
                             self.Train_Ca.Actual_Authority = min(calculated_authority, self.Suggested_Authority)
                         else:
-                            # Calculate authority normally (no suggested authority available)
+                            # Calculate authority normally 
                             authority = self.Train_Ca.Actual_Authority_Calc(self.Power, self.Passenger_Number)
                             self.Train_Ca.Actual_Authority = max(0, authority)
                     except Exception as e:
@@ -821,7 +819,7 @@ class Train_Model:
         # Only proceed if TC emergency brake is active
         self.emergency_brake_active = True
         initial_speed = self.Train_Ca.Actual_Speed
-        deceleration = -6.1  # mph/s (stronger than service brake)
+        deceleration = -6.1  # mph/s 
         start_time = time.time()
         
         def update_braking():
@@ -853,7 +851,7 @@ class Train_Model:
         # Start the braking process
         update_braking()
 
-    def simulate_engine_failure(self):
+    def simulate_engine_failure(self): #power is 0
         if not self.Train_F.Engine_Fail:
             self.pre_failure_power = self.Power  # Store current power before failure
             self.Power = 0  # Set power to 0
@@ -863,7 +861,7 @@ class Train_Model:
                                 "Engine has failed! Power set to 0.\n"
                                 "Pull emergency brake or reset failures to stop.")
 
-    def simulate_signal_failure(self):
+    def simulate_signal_failure(self): #beacon, suggested speed and authority unreadable
         if not self.Train_F.Signal_Pickup_Fail:
             self.Train_F.Signal_Pickup_Fail = True
             # Set default values for beacon and suggested speed/authority
@@ -872,7 +870,7 @@ class Train_Model:
             self.Suggested_Authority = 0
             self.check_failure_status()
 
-    def simulate_brake_failure(self):
+    def simulate_brake_failure(self): #service brake unusable
         if not self.Train_F.Brake_Fail:
             self.Train_F.Brake_Fail = True
             self.service_brake = 0  # Ensure service brake is off
@@ -963,3 +961,5 @@ if __name__ == "__main__":
     
     main_model = MainTrainModel()
     main_model.run()
+    #run train 
+    

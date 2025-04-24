@@ -9,7 +9,7 @@ class Train_Calc:
     #def Get_Elevation(self):
      #   return self.Elevation
         
-    def Acceleration_Calc(self, Power, Passenger_Number):
+    def Acceleration_Calc(self, Power, Passenger_Number): #Power/speed  to get force, force/mass to get accel, mass=totalpassengers*75 kg + trainmanss
         Total_Mass = self.Train_Mass + Passenger_Number * 75  # in kg
         speed_mps = self.Actual_Speed * 0.44704  # Convert mph to m/s
         
@@ -21,11 +21,11 @@ class Train_Calc:
             
         return Acceleration_m_per_s2 * 2.23694  # Convert to mph/s
 
-    def Actual_Speed_Calc(self, Power, Passenger_Number):
+    def Actual_Speed_Calc(self, Power, Passenger_Number): #acceleration times change in tume + prev actual speed
         acceleration = self.Acceleration_Calc(Power, Passenger_Number)
         return self.Actual_Speed + acceleration * self.Dt
 
-    def Actual_Authority_Calc(self, Power, Passenger_Number):
+    def Actual_Authority_Calc(self, Power, Passenger_Number): #actual speed time change in time + prev authority
         new_speed = self.Actual_Speed_Calc(Power, Passenger_Number)
         speed_fps = new_speed * 1.46667  # mph to ft/s
         return self.Actual_Authority + (speed_fps * self.Dt)
