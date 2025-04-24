@@ -54,6 +54,40 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error clearing occupancy data: {e}")
 
+    def clear_plc_occupancies(self):
+        """Initialize all occupancies in PLC_INPUTS.json to zero"""
+        try:
+            # Try to load existing PLC data
+            try:
+                with open("PLC_INPUTS.json", "r") as file:
+                    plc_data = json.load(file)
+            except (FileNotFoundError, json.JSONDecodeError):
+                # Create new structure if file doesn't exist or is invalid
+                plc_data = {
+                    "Suggested_Speed": [20]*150,
+                    "Suggested_Authority": [100]*150,
+                    "Occupancy": [0]*150,
+                    "Default_Switch_Position": [0]*6,
+                    "Train_Instance": 0
+                }
+            
+            # Set all occupancies to 0
+            if global_variables.line == 1:
+                x = 76  # Red Line has 75 blocks
+            else:
+                x = 151  # Green Line has 150 blocks
+                
+            plc_data["Occupancy"] = [0] * (x - 1)
+            
+            # Write back to file
+            with open("PLC_INPUTS.json", "w") as file:
+                json.dump(plc_data, file, indent=4)
+                
+            print(f"Initialized PLC occupancies to 0 for {'Red' if global_variables.line == 1 else 'Green'} Line")
+            
+        except Exception as e:
+            print(f"Error clearing PLC occupancies: {e}")
+
     def setup_green_tab(self):
         """Setup the Green Line tab with grid and switch window"""
         layout = QHBoxLayout(self.green_tab)
