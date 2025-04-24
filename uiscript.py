@@ -1041,11 +1041,13 @@ class TrainControllerUI(QWidget):
         self.write_outputs(output_file, **{f"{door_side}_door": 1})
         print(f"{door_side.capitalize()} doors opened")
         
-        # Start timer for door closing (15 seconds)
+        # Start timer for door closing (15 seconds based on timer interval)
+        base_door_delay = 15000
+        interval = self.read_timer_interval()
+        scaled_door_delay = base_door_delay * (interval / 1000)
+
         door_controller.start_door_timer(
-            lambda: self.finish_station_stop_sequence(door_side),
-            15000
-        )
+            lambda: self.finish_station_stop_sequence(door_side), int(scaled_door_delay))
 
     def check_speed_and_brake(self):
         if not self.auto_checkbox.isChecked():
@@ -1109,12 +1111,20 @@ class TrainControllerUI(QWidget):
             state.stopping_sequence_active = False
             state.station_stop_cooldown = True
             state.leaving_station = True
+
+            interval = self.read_timer_interval()
+
+            base_cooldown = 3000
+            base_leaving = 2000
+
+            scaled_cooldown = base_cooldown * (interval / 1000)
+            scaled_leaving = base_leaving * (interval / 1000)
             
             # Clear cooldown after 5 seconds (shorter than before)
-            QTimer.singleShot(3000, lambda: setattr(state, 'station_stop_cooldown', False))
+            QTimer.singleShot(int(scaled_cooldown), lambda: setattr(state, 'station_stop_cooldown', False))
             
             # Clear leaving station flag after 2 seconds
-            QTimer.singleShot(2000, lambda: setattr(state, 'leaving_station', False))
+            QTimer.singleShot(int(scaled_leaving), lambda: setattr(state, 'leaving_station', False))
 
         except Exception as e:
             print(f"Error in station stop sequence: {e}")
