@@ -56,6 +56,20 @@ QPushButton{
     border-radius: 6px;
     padding: 6px 12px;
 }
+
+QHeaderView::section{
+    background-color: #388E3C;
+    color: white;
+    padding-left: 5px;
+    padding-right: 5px;
+    font-weight: bold;
+}
+
+QTableWidget::item{
+    background-color: #333333;
+    border: 1px solid #cccccc;
+    color: white;
+}
 """
 class CTC_base(QMainWindow):
 
