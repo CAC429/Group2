@@ -9,7 +9,11 @@ from speed_authority import *
 import sys
 
 #initalize general ui style
-
+dark_mode = """"
+QWidget{
+    background-color: #121212;
+    color: #e0e0e0;
+}
 
 class CTC_base(QMainWindow):
 
@@ -36,6 +40,7 @@ class CTC_base(QMainWindow):
         self.tabs.addTab(self.speed_authority_tab, 'Speed and Authority')
 
 app = QApplication(sys.argv)
+app.setStyleSheet(dark_mode)
 
 window = CTC_base()
 window.show()
